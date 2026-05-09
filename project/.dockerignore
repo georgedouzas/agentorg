@@ -1,0 +1,35 @@
+.DS_Store
+
+docs
+.git
+
+# Cache
+.mypy_cache
+.ruff_cache
+.pytest_cache
+*__pycache__*
+*.egg-info
+*.pyc
+
+# Machine specific
+.idea
+.vscode
+
+# Env files
+.env
+.envrc
+
+# Virtualenvs and local tool caches
+.venv
+venv*
+aienv*
+.nox
+
+.ipynb_checkpoints
+
+# Node
+node_modules
+src/frontend/node_modules
+
+# Pre-built frontend output
+public

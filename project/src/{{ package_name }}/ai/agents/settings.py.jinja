@@ -1,0 +1,176 @@
+"""Shared agent instances and per-agent runtime config (instructions + tool bindings)."""
+
+import inspect
+from collections.abc import Callable
+from os import getenv
+from pathlib import Path
+
+import yaml
+
+from {{ package_name }}.db import create_knowledge
+
+# Shared knowledge bases — instantiated once
+team_knowledge = create_knowledge("Team Knowledge", "team_knowledge")
+team_learnings = create_knowledge("Team Learnings", "team_learnings")
+
+# Exa MCP URL for web search
+EXA_API_KEY = getenv("EXA_API_KEY", "")
+EXA_MCP_URL = f"https://mcp.exa.ai/mcp?exaApiKey={EXA_API_KEY}&tools=web_search_exa"
+
+# Per-agent config (instructions, tool bindings) loaded from app/config.yaml
+_CONFIG_PATH = Path(__file__).parent.parent.parent / "app" / "config.yaml"
+AGENT_CONFIGS: dict[str, dict] = yaml.safe_load(_CONFIG_PATH.read_text()).get("agents", {})
+
+
+def get_instructions(agent_id: str) -> str:
+    """Compose the runtime LLM prompt for an agent from its structured fields.
+
+    The agent's `agentorg.json` definition holds typed fields — `role`, `in_scope`,
+    `out_of_scope`, `workflow`, `output_format`, `count_rule`, `save_rule`. This
+    function stitches them into a coherent system prompt the LLM consumes. The
+    same fields are exposed to the UI's Description tab so the user sees a clean
+    structured view rather than the raw prompt.
+    """
+    from {{ package_name }}.org import COMMITTEE_CONTEXT  # noqa: PLC0415
+
+    cfg = AGENT_CONFIGS.get(agent_id, {})
+    name = cfg.get("name", agent_id)
+    parts: list[str] = [
+        f"You are the {name}.",
+        "",
+        "## Committee Rules (ALWAYS FOLLOW)",
+        "",
+        COMMITTEE_CONTEXT,
+        "",
+    ]
+
+    if cfg.get("role"):
+        parts += ["## Role", "", cfg["role"], ""]
+
+    if cfg.get("in_scope"):
+        parts += ["## In scope"]
+        parts += [f"- {x}" for x in cfg["in_scope"]]
+        parts.append("")
+
+    if cfg.get("out_of_scope"):
+        parts += ["## Out of scope — decline and refer"]
+        for item in cfg["out_of_scope"]:
+            parts.append(f"- {item.get('topic', '')} → **{item.get('refer_to', '')}**")
+        parts += [
+            "",
+            "If asked anything outside your scope (including topics unrelated to this team's"
+            " domain), decline firmly and point to the right person.",
+            "",
+        ]
+
+    if cfg.get("count_rule"):
+        cr = cfg["count_rule"]
+        parts += ["## How many results to return"]
+        for r in cr.get("rules", []):
+            parts.append(f"- **{r.get('phrase', '')}** → {r.get('count', '')}")
+        if cr.get("default") is not None:
+            parts.append(f"- (otherwise) → {cr['default']}")
+        parts.append("")
+
+    if cfg.get("workflow"):
+        parts += ["## Workflow"]
+        parts += [f"{i+1}. {step}" for i, step in enumerate(cfg["workflow"])]
+        parts.append("")
+
+    if cfg.get("output_format"):
+        parts += ["## Output format"]
+        of = cfg["output_format"]
+        if of.get("kind") == "markdown_table":
+            parts.append(f"Markdown table with columns: {' | '.join(of.get('columns', []))}.")
+        if of.get("sections"):
+            parts.append("Use these sections (in order): " + ", ".join(of["sections"]) + ".")
+        if of.get("trailer"):
+            parts.append(of["trailer"])
+        parts.append("")
+
+    if cfg.get("save_rule"):
+        sr = cfg["save_rule"]
+        parts += [
+            "## Auto-save the report",
+            "",
+            f"Your final action is to call `{sr.get('tool', 'write_agent_report')}`. The tool's response IS the user's confirmation; do not write any other text after the call.",
+            "",
+            "**Argument rules (strict):**",
+            f"- `name`: {sr.get('name_pattern', '')}",
+            f"- `title`: {sr.get('title_pattern', '')}",
+            "- `content`: the full markdown analysis you just produced.",
+            "- `metadata`: optional tags dict (tickers, sector, etc.).",
+        ]
+        if sr.get("note"):
+            parts += ["", sr["note"]]
+
+    return "\n".join(parts)
+
+
+def _resolve_binding(binding: str) -> Callable:
+    """Resolve a binding name to the actual generic-tool function."""
+    from {{ package_name }}.ai.tools import knowledge as kn  # noqa: PLC0415
+    from {{ package_name }}.ai.tools import providers as pr  # noqa: PLC0415
+    from {{ package_name }}.ai.tools import setup as setup_  # noqa: PLC0415
+    from {{ package_name }}.ai.tools import state as st  # noqa: PLC0415
+
+    registry: dict[str, Callable] = {
+        "write_knowledge":    kn.write_knowledge,
+        "read_knowledge":     kn.read_knowledge,
+        "list_knowledge":     kn.list_knowledge,
+        "search_knowledge":   kn.search_knowledge,
+        "delete_knowledge":   kn.delete_knowledge,
+        "list_providers":     pr.list_providers,
+        "get_state":          st.get_state,
+        "update_state":       st.update_state,
+        "reset_state":        st.reset_state,
+        "get_setup_status":   setup_.get_setup_status,
+    }
+    if binding not in registry:
+        msg = f"Unknown tool binding: {binding!r}"
+        raise ValueError(msg)
+    return registry[binding]
+
+
+def _make_tool(exposed_name: str, binding: str, fixed_args: dict, agent_id: str) -> Callable:
+    """Wrap a generic tool so it appears under exposed_name with fixed_args pre-applied.
+
+    The wrapper exposes the underlying function's signature (minus any parameters bound
+    by fixed_args) so agno can generate a proper JSON schema for the LLM.
+
+    For `write_knowledge`, the calling agent's id is auto-merged into metadata so knowledge units
+    can be filtered by author in the Knowledge tab later.
+    """
+    fn = _resolve_binding(binding)
+    sig = inspect.signature(fn)
+    visible_params = [p for n, p in sig.parameters.items() if n not in fixed_args]
+
+    def wrapper(**kwargs: object) -> str:  # type: ignore[override]
+        merged = {**fixed_args, **kwargs}
+        if binding == "write_knowledge":
+            md = dict(merged.get("metadata") or {})  # type: ignore[arg-type]
+            md.setdefault("agent_id", agent_id)
+            merged["metadata"] = md
+        return fn(**merged)
+
+    wrapper.__name__ = exposed_name
+    wrapper.__qualname__ = exposed_name
+    wrapper.__doc__ = fn.__doc__
+    wrapper.__signature__ = sig.replace(parameters=visible_params)  # type: ignore[attr-defined]
+    # Pydantic / agno read `__annotations__` (not `__signature__`) when introspecting
+    # callable params. Without this, the wrapper looks like a plain `**kwargs` and
+    # Pydantic raises KeyError for the named arg, so agno marks the tool as
+    # "not available" at call time.
+    wrapper.__annotations__ = {
+        p.name: p.annotation for p in visible_params
+        if p.annotation is not inspect.Parameter.empty
+    }
+    if "return" in fn.__annotations__:
+        wrapper.__annotations__["return"] = fn.__annotations__["return"]
+    return wrapper
+
+
+def get_tools(agent_id: str) -> list[Callable]:
+    """Build the list of tool callables for an agent based on its config bindings."""
+    bindings = AGENT_CONFIGS.get(agent_id, {}).get("tools", [])
+    return [_make_tool(b["name"], b["binding"], b.get("fixed_args", {}), agent_id) for b in bindings]

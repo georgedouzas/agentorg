@@ -1,0 +1,40 @@
+import { useState, useEffect } from 'react';
+import { apiFetch } from '../api';
+import type { AppConfig } from '../types';
+
+const DEFAULT_CONFIG: AppConfig = {
+  app_name: {{ generated.ui.app.name | tojson }},
+  app_icon: {{ generated.ui.app.icon | tojson }},
+  app_description: {{ generated.ui.app.description | tojson }},
+  empty_state: {
+    icon: {{ generated.ui.empty_state.icon | tojson }},
+    title: {{ generated.ui.empty_state.title | tojson }},
+    body: {{ generated.ui.empty_state.body | tojson }},
+  },
+  knowledge_empty: {
+    documents: {{ generated.ui.knowledge_empty.documents | tojson }},
+    learnings: {{ generated.ui.knowledge_empty.learnings | tojson }},
+  },
+  document_types: {{ generated.documents.types | tojson }},
+  state_parameters: {{ generated.charter.parameters | tojson }},
+  agent_groups: [],
+  featured_agents: [],
+  agent_icons: {},
+  overview: [],
+  visualizations: [],
+  agent_configs: {},
+};
+
+export function useConfig() {
+  const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<AppConfig>('/api/config')
+      .then(data => setConfig({ ...DEFAULT_CONFIG, ...data }))
+      .catch(() => {/* use defaults */})
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { config, loading };
+}

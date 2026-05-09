@@ -1,0 +1,36 @@
+ui:
+  app: {{ generated.ui.app | tojson }}
+  empty_state: {{ generated.ui.empty_state | tojson }}
+  knowledge_empty: {{ generated.ui.knowledge_empty | tojson }}
+  sidebar:
+    agent_groups: {{ generated.agent_groups | tojson }}
+    workflow_groups: {{ generated.workflow_groups | tojson }}
+    featured_agents: {{ generated.ui.featured_agents | tojson }}
+    agent_icons: {{ generated.ui.agent_icons | tojson }}
+  overview: {{ generated.ui.overview | tojson }}
+  agent_configs: {{ generated.ui.agent_configs | tojson }}
+
+chat:
+  quick_prompts: {{ generated.ui.chat_quick_prompts | tojson }}
+
+agents:
+{% for agent in generated.agents %}  {{ agent.id }}:
+    name: {{ agent.name | tojson }}
+    role: {{ agent.role | tojson }}
+    in_scope: {{ (agent.in_scope or []) | tojson }}
+    out_of_scope: {{ (agent.out_of_scope or []) | tojson }}
+    workflow: {{ (agent.workflow or []) | tojson }}
+{% if agent.output_format %}    output_format: {{ agent.output_format | tojson }}
+{% endif %}{% if agent.count_rule %}    count_rule: {{ agent.count_rule | tojson }}
+{% endif %}{% if agent.save_rule %}    save_rule: {{ agent.save_rule | tojson }}
+{% endif %}    tools: {{ agent.tools | tojson }}
+{% endfor %}
+workflows: {{ generated.workflows | tojson }}
+
+charter: {{ generated.charter | tojson }}
+
+state: {{ generated.state | tojson }}
+
+documents: {{ generated.documents | tojson }}
+
+setup: {{ setup | tojson }}

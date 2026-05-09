@@ -1,0 +1,958 @@
+{
+  "agentorg_version": "0.1.0",
+  "org": {
+    "name": "AI Software Engineering Team",
+    "slug": "eng-team",
+    "domain": "software development",
+    "description": "Multi-agent system simulating a professional software engineering team that plans, builds, reviews, and ships production code.",
+    "repository": "https://github.com/georgedouzas/eng-team",
+    "author_name": "Georgios Douzas",
+    "author_email": "georgios.douzas@gmail.com",
+    "visibility": "private",
+    "license_year": 2026
+  },
+  "deployment": {
+    "api": "railway",
+    "frontend": "none",
+    "auth": "none"
+  },
+  "generated": {
+    "agents": [
+      {
+        "id": "product-manager",
+        "name": "Product Manager",
+        "model": "gemini-3-flash-preview",
+        "role": "Translate goals into a prioritized roadmap and unambiguous specs the team can build.",
+        "tools": [
+          {
+            "name": "write_agent_report",
+            "binding": "write_knowledge",
+            "fixed_args": {
+              "type": "report"
+            }
+          }
+        ],
+        "learning": false,
+        "in_scope": [
+          "Roadmap",
+          "Specifications",
+          "Backlog prioritization",
+          "User-facing requirements"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Product strategy / roadmap",
+            "refer_to": "Product Manager"
+          },
+          {
+            "topic": "Architecture / system design",
+            "refer_to": "Architect"
+          },
+          {
+            "topic": "Backend implementation",
+            "refer_to": "Backend Engineer"
+          },
+          {
+            "topic": "Frontend implementation",
+            "refer_to": "Frontend Engineer"
+          },
+          {
+            "topic": "QA / testing",
+            "refer_to": "QA Engineer"
+          },
+          {
+            "topic": "Final approval / sign-off",
+            "refer_to": "Tech Lead"
+          },
+          {
+            "topic": "Infra / deployments",
+            "refer_to": "Platform Engineer"
+          },
+          {
+            "topic": "Eng policies",
+            "refer_to": "Policy Officer"
+          }
+        ],
+        "workflow": [
+          "Restate the user's goal in concrete acceptance criteria.",
+          "Break it into PR-sized stories.",
+          "Auto-save with `write_agent_report`."
+        ],
+        "save_rule": {
+          "tool": "write_agent_report",
+          "name_pattern": "snake_case slug — no count, no date",
+          "title_pattern": "Title Case with spaces — no count, no date"
+        }
+      },
+      {
+        "id": "architect",
+        "name": "Architect",
+        "model": "gemini-3-flash-preview",
+        "role": "Decide how a feature should be built — interfaces, modules, data flow — and record the rationale.",
+        "tools": [
+          {
+            "name": "write_research_doc",
+            "binding": "write_knowledge",
+            "fixed_args": {
+              "type": "research"
+            }
+          },
+          {
+            "name": "read_research_doc",
+            "binding": "read_knowledge",
+            "fixed_args": {
+              "type": "research"
+            }
+          },
+          {
+            "name": "list_research_docs",
+            "binding": "list_knowledge",
+            "fixed_args": {
+              "type": "research"
+            }
+          },
+          {
+            "name": "write_agent_report",
+            "binding": "write_knowledge",
+            "fixed_args": {
+              "type": "report"
+            }
+          }
+        ],
+        "learning": true,
+        "in_scope": [
+          "System architecture",
+          "ADRs",
+          "Technical decisions",
+          "Module boundaries"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Product strategy / roadmap",
+            "refer_to": "Product Manager"
+          },
+          {
+            "topic": "Architecture / system design",
+            "refer_to": "Architect"
+          },
+          {
+            "topic": "Backend implementation",
+            "refer_to": "Backend Engineer"
+          },
+          {
+            "topic": "Frontend implementation",
+            "refer_to": "Frontend Engineer"
+          },
+          {
+            "topic": "QA / testing",
+            "refer_to": "QA Engineer"
+          },
+          {
+            "topic": "Final approval / sign-off",
+            "refer_to": "Tech Lead"
+          },
+          {
+            "topic": "Infra / deployments",
+            "refer_to": "Platform Engineer"
+          },
+          {
+            "topic": "Eng policies",
+            "refer_to": "Policy Officer"
+          }
+        ],
+        "workflow": [
+          "Restate the constraints (perf, scale, integrations).",
+          "Sketch 2-3 design options with trade-offs.",
+          "Recommend one and capture the ADR.",
+          "Auto-save with `write_agent_report`."
+        ],
+        "save_rule": {
+          "tool": "write_agent_report",
+          "name_pattern": "snake_case slug — no count, no date",
+          "title_pattern": "Title Case with spaces — no count, no date"
+        }
+      },
+      {
+        "id": "backend-engineer",
+        "name": "Backend Engineer",
+        "model": "gemini-3-flash-preview",
+        "role": "Turn specs into shipping backend code.",
+        "tools": [
+          {
+            "name": "write_agent_report",
+            "binding": "write_knowledge",
+            "fixed_args": {
+              "type": "report"
+            }
+          }
+        ],
+        "learning": true,
+        "in_scope": [
+          "Server-side implementation",
+          "API design",
+          "Data models",
+          "DB migrations"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Product strategy / roadmap",
+            "refer_to": "Product Manager"
+          },
+          {
+            "topic": "Architecture / system design",
+            "refer_to": "Architect"
+          },
+          {
+            "topic": "Backend implementation",
+            "refer_to": "Backend Engineer"
+          },
+          {
+            "topic": "Frontend implementation",
+            "refer_to": "Frontend Engineer"
+          },
+          {
+            "topic": "QA / testing",
+            "refer_to": "QA Engineer"
+          },
+          {
+            "topic": "Final approval / sign-off",
+            "refer_to": "Tech Lead"
+          },
+          {
+            "topic": "Infra / deployments",
+            "refer_to": "Platform Engineer"
+          },
+          {
+            "topic": "Eng policies",
+            "refer_to": "Policy Officer"
+          }
+        ],
+        "workflow": [
+          "Read the spec/ADR.",
+          "Implement and test locally.",
+          "Open a PR with summary.",
+          "Auto-save with `write_agent_report`."
+        ],
+        "save_rule": {
+          "tool": "write_agent_report",
+          "name_pattern": "snake_case slug — no count, no date",
+          "title_pattern": "Title Case with spaces — no count, no date"
+        }
+      },
+      {
+        "id": "frontend-engineer",
+        "name": "Frontend Engineer",
+        "model": "gemini-3-flash-preview",
+        "role": "Turn UI specs into accessible, polished frontend code.",
+        "tools": [
+          {
+            "name": "write_agent_report",
+            "binding": "write_knowledge",
+            "fixed_args": {
+              "type": "report"
+            }
+          }
+        ],
+        "learning": true,
+        "in_scope": [
+          "UI implementation",
+          "Accessibility",
+          "Design-system adherence",
+          "Responsive layout"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Product strategy / roadmap",
+            "refer_to": "Product Manager"
+          },
+          {
+            "topic": "Architecture / system design",
+            "refer_to": "Architect"
+          },
+          {
+            "topic": "Backend implementation",
+            "refer_to": "Backend Engineer"
+          },
+          {
+            "topic": "Frontend implementation",
+            "refer_to": "Frontend Engineer"
+          },
+          {
+            "topic": "QA / testing",
+            "refer_to": "QA Engineer"
+          },
+          {
+            "topic": "Final approval / sign-off",
+            "refer_to": "Tech Lead"
+          },
+          {
+            "topic": "Infra / deployments",
+            "refer_to": "Platform Engineer"
+          },
+          {
+            "topic": "Eng policies",
+            "refer_to": "Policy Officer"
+          }
+        ],
+        "workflow": [
+          "Read the spec/mockup.",
+          "Implement components.",
+          "Test on common screen sizes.",
+          "Auto-save with `write_agent_report`."
+        ],
+        "save_rule": {
+          "tool": "write_agent_report",
+          "name_pattern": "snake_case slug — no count, no date",
+          "title_pattern": "Title Case with spaces — no count, no date"
+        }
+      },
+      {
+        "id": "qa-engineer",
+        "name": "QA Engineer",
+        "model": "gemini-3-flash-preview",
+        "role": "Verify shipped code with automated tests.",
+        "tools": [
+          {
+            "name": "write_agent_report",
+            "binding": "write_knowledge",
+            "fixed_args": {
+              "type": "report"
+            }
+          }
+        ],
+        "learning": true,
+        "in_scope": [
+          "Integration tests",
+          "E2E tests",
+          "Regression suites",
+          "Test plans"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Product strategy / roadmap",
+            "refer_to": "Product Manager"
+          },
+          {
+            "topic": "Architecture / system design",
+            "refer_to": "Architect"
+          },
+          {
+            "topic": "Backend implementation",
+            "refer_to": "Backend Engineer"
+          },
+          {
+            "topic": "Frontend implementation",
+            "refer_to": "Frontend Engineer"
+          },
+          {
+            "topic": "QA / testing",
+            "refer_to": "QA Engineer"
+          },
+          {
+            "topic": "Final approval / sign-off",
+            "refer_to": "Tech Lead"
+          },
+          {
+            "topic": "Infra / deployments",
+            "refer_to": "Platform Engineer"
+          },
+          {
+            "topic": "Eng policies",
+            "refer_to": "Policy Officer"
+          }
+        ],
+        "workflow": [
+          "Read the change set.",
+          "Identify regression risk.",
+          "Add or update tests.",
+          "Auto-save with `write_agent_report`."
+        ],
+        "save_rule": {
+          "tool": "write_agent_report",
+          "name_pattern": "snake_case slug — no count, no date",
+          "title_pattern": "Title Case with spaces — no count, no date"
+        }
+      },
+      {
+        "id": "tech-lead",
+        "name": "Tech Lead",
+        "model": "gemini-3.1-pro-preview",
+        "role": "Approve major decisions and ship-blocking PRs.",
+        "tools": [
+          {
+            "name": "list_agent_reports",
+            "binding": "list_knowledge",
+            "fixed_args": {
+              "type": "report"
+            }
+          },
+          {
+            "name": "read_agent_report",
+            "binding": "read_knowledge",
+            "fixed_args": {
+              "type": "report"
+            }
+          },
+          {
+            "name": "list_research_docs",
+            "binding": "list_knowledge",
+            "fixed_args": {
+              "type": "research"
+            }
+          },
+          {
+            "name": "read_research_doc",
+            "binding": "read_knowledge",
+            "fixed_args": {
+              "type": "research"
+            }
+          }
+        ],
+        "learning": false,
+        "in_scope": [
+          "Code review",
+          "Architecture sign-off",
+          "Cross-team trade-offs"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Detailed implementation",
+            "refer_to": "the relevant engineer"
+          }
+        ],
+        "workflow": [
+          "Read the proposal/PR.",
+          "Decide approve / reject / request-changes with rationale."
+        ]
+      },
+      {
+        "id": "platform-engineer",
+        "name": "Platform Engineer",
+        "model": "gemini-3-flash-preview",
+        "role": "Help the user complete setup, manage deployments, and answer infra questions.",
+        "tools": [
+          {
+            "name": "get_setup_status",
+            "binding": "get_setup_status",
+            "fixed_args": {}
+          },
+          {
+            "name": "list_platform_docs",
+            "binding": "list_knowledge",
+            "fixed_args": {
+              "type": "platform_reference"
+            }
+          },
+          {
+            "name": "read_platform_doc",
+            "binding": "read_knowledge",
+            "fixed_args": {
+              "type": "platform_reference"
+            }
+          },
+          {
+            "name": "search_platform_docs",
+            "binding": "search_knowledge",
+            "fixed_args": {
+              "types": [
+                "platform_reference"
+              ]
+            }
+          }
+        ],
+        "learning": false,
+        "in_scope": [
+          "Pending setup steps",
+          "Platform reference docs",
+          "Infra alternatives"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Eng implementation work",
+            "refer_to": "the relevant engineer"
+          }
+        ],
+        "workflow": [
+          "Call `get_setup_status` to see pending steps.",
+          "Read the relevant platform doc and explain what to do."
+        ]
+      },
+      {
+        "id": "policy-officer",
+        "name": "Policy Officer",
+        "model": "gemini-3-flash-preview",
+        "role": "Maintain the engineering charter and answer policy questions.",
+        "tools": [
+          {
+            "name": "list_policies",
+            "binding": "list_knowledge",
+            "fixed_args": {
+              "type": "policy"
+            }
+          },
+          {
+            "name": "read_policy",
+            "binding": "read_knowledge",
+            "fixed_args": {
+              "type": "policy"
+            }
+          },
+          {
+            "name": "search_policies",
+            "binding": "search_knowledge",
+            "fixed_args": {
+              "types": [
+                "policy"
+              ]
+            }
+          },
+          {
+            "name": "write_policy",
+            "binding": "write_knowledge",
+            "fixed_args": {
+              "type": "policy"
+            }
+          }
+        ],
+        "learning": false,
+        "in_scope": [
+          "Reading policies",
+          "Drafting amendments",
+          "Policy QA"
+        ],
+        "out_of_scope": [
+          {
+            "topic": "Implementation work",
+            "refer_to": "engineering"
+          }
+        ],
+        "workflow": [
+          "Use `list_policies`, `read_policy`, `search_policies`.",
+          "Quote the rule when answering."
+        ]
+      }
+    ],
+    "teams": [],
+    "workflows": [
+      {
+        "id": "engineering-workflow",
+        "name": "Engineering Pipeline",
+        "description": "Deterministic pipeline: plan → design → implement (parallel) → test → ship",
+        "steps": [
+          {
+            "name": "Plan",
+            "agent": "product-manager",
+            "hitl": {
+              "type": "output_review",
+              "message": "Review the proposed user stories. Approve to proceed to design.",
+              "on_reject": "cancel"
+            }
+          },
+          {
+            "name": "Design",
+            "agent": "architect"
+          },
+          {
+            "name": "Implement",
+            "parallel": [
+              {
+                "name": "Backend",
+                "agent": "backend-engineer"
+              },
+              {
+                "name": "Frontend",
+                "agent": "frontend-engineer"
+              }
+            ]
+          },
+          {
+            "name": "Test",
+            "agent": "qa-engineer",
+            "hitl": {
+              "type": "output_review",
+              "message": "Review test results. Approve to proceed to ship.",
+              "on_reject": "cancel"
+            }
+          },
+          {
+            "name": "Ship",
+            "agent": "tech-lead"
+          }
+        ]
+      }
+    ],
+    "tools": [
+      "ai/tools/documents.py",
+      "ai/tools/setup.py",
+      "ai/tools/state.py",
+      "ai/tools/codebase.py",
+      "ai/tools/github.py",
+      "ai/tools/reports.py"
+    ],
+    "org_docs": [
+      "org/engineering_standards.md",
+      "org/architecture.md",
+      "org/process.md"
+    ],
+    "knowledge": [
+      {
+        "layer": 1,
+        "name": "Static Context",
+        "storage": "Org charter rendered from `org/*.md` into agent system prompts"
+      },
+      {
+        "layer": 2,
+        "name": "Codebase Knowledge",
+        "storage": "Code summaries and architecture docs (PgVector RAG)"
+      },
+      {
+        "layer": 3,
+        "name": "Decision Archive",
+        "storage": "Past architectural decisions and resolved issues (PostgreSQL)"
+      }
+    ],
+    "env_vars": {
+      "required": [
+        {
+          "name": "GOOGLE_API_KEY",
+          "description": "LLM models and embeddings"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "description": "GitHub API access for code operations"
+        }
+      ],
+      "optional": [
+        {
+          "name": "RUNTIME_ENV",
+          "required_label": "No",
+          "description": "Set to `dev` to enable uvicorn auto-reload"
+        },
+        {
+          "name": "API_BASE_URL",
+          "required_label": "Cloud only",
+          "description": "Railway domain for cross-origin dashboard calls"
+        },
+        {
+          "name": "ALLOWED_ORIGINS",
+          "required_label": "Cloud only",
+          "description": "Comma-separated CORS origins (default: `*`)"
+        }
+      ],
+      "compose": [
+        {
+          "name": "GOOGLE_API_KEY"
+        },
+        {
+          "name": "GITHUB_TOKEN"
+        }
+      ]
+    },
+    "agent_groups": [
+      {
+        "label": "Planning",
+        "ids": [
+          "product-manager",
+          "architect"
+        ]
+      },
+      {
+        "label": "Engineering",
+        "ids": [
+          "backend-engineer",
+          "frontend-engineer",
+          "qa-engineer"
+        ]
+      },
+      {
+        "label": "Leadership",
+        "ids": [
+          "tech-lead"
+        ]
+      },
+      {
+        "label": "Platform",
+        "ids": [
+          "platform-engineer",
+          "policy-officer"
+        ]
+      }
+    ],
+    "workflow_groups": [
+      {
+        "label": "Automated",
+        "ids": [
+          "engineering-workflow"
+        ]
+      }
+    ],
+    "ui": {
+      "app": {
+        "name": "Engineering Team",
+        "icon": "🛠️",
+        "description": "Multi-agent software engineering team that plans, builds, reviews, and ships code"
+      },
+      "agent_icons": {
+        "product-manager": "📋",
+        "architect": "🏛️",
+        "backend-engineer": "⚙️",
+        "frontend-engineer": "🎨",
+        "qa-engineer": "🧪",
+        "tech-lead": "👨‍💻",
+        "engineering-workflow": "🔄",
+        "platform-engineer": "🛠️",
+        "policy-officer": "📜"
+      },
+      "featured_agents": [],
+      "empty_state": {
+        "icon": "🚀",
+        "title": "No active project",
+        "body": "Chat with the **Product Manager** to break down requirements, or with the **Tech Lead** to start a code review."
+      },
+      "overview": {
+        "widgets": [],
+        "visualizations": []
+      },
+      "agent_configs": {
+        "product-manager": {
+          "name": "Product Manager",
+          "model": "Gemini Flash",
+          "description": "Translates user requirements into actionable stories",
+          "tools": [],
+          "features": [
+            "session_history"
+          ]
+        },
+        "architect": {
+          "name": "Architect",
+          "model": "Gemini Flash",
+          "description": "Designs system architecture and technical decisions",
+          "tools": [],
+          "features": [
+            "knowledge_search",
+            "institutional_learning"
+          ]
+        },
+        "backend-engineer": {
+          "name": "Backend Engineer",
+          "model": "Gemini Flash",
+          "description": "Implements server-side features and APIs",
+          "tools": [],
+          "features": [
+            "institutional_learning"
+          ]
+        },
+        "frontend-engineer": {
+          "name": "Frontend Engineer",
+          "model": "Gemini Flash",
+          "description": "Implements UI components and client-side logic",
+          "tools": [],
+          "features": [
+            "institutional_learning"
+          ]
+        },
+        "qa-engineer": {
+          "name": "QA Engineer",
+          "model": "Gemini Flash",
+          "description": "Writes tests and validates feature correctness",
+          "tools": [],
+          "features": [
+            "institutional_learning"
+          ]
+        },
+        "tech-lead": {
+          "name": "Tech Lead",
+          "model": "Gemini Pro",
+          "description": "Final code review and shipping decisions",
+          "tools": [],
+          "features": [
+            "knowledge_search"
+          ]
+        },
+        "platform-engineer": {
+          "name": "Platform Engineer",
+          "model": "Gemini Flash",
+          "description": "Manages infra, deployments, and brings the org online",
+          "tools": [
+            "get_setup_status"
+          ],
+          "features": [
+            "session_history"
+          ]
+        },
+        "policy-officer": {
+          "name": "Policy Officer",
+          "model": "Gemini Flash",
+          "description": "Owns the org policy documents",
+          "tools": [
+            "list_policies",
+            "read_policy",
+            "search_policies",
+            "write_policy"
+          ],
+          "features": [
+            "session_history"
+          ]
+        }
+      },
+      "chat_quick_prompts": {
+        "product-manager": [
+          "Break down a new feature request",
+          "Write user stories for the payment flow"
+        ],
+        "architect": [
+          "Design the auth service",
+          "What database should we use for analytics?"
+        ],
+        "backend-engineer": [
+          "Implement the user signup endpoint",
+          "Add rate limiting to the API"
+        ],
+        "frontend-engineer": [
+          "Build a settings page",
+          "Add dark mode toggle"
+        ],
+        "qa-engineer": [
+          "Write integration tests for the auth flow",
+          "Add E2E tests for checkout"
+        ],
+        "tech-lead": [
+          "Review the latest PR",
+          "Should we ship this feature?"
+        ],
+        "engineering-workflow": [
+          "Run the full engineering pipeline",
+          "Plan, build, test, and ship a new feature"
+        ]
+      },
+      "knowledge_empty": {
+        "documents": "No documents yet. Ask the **Architect** to write architecture decisions, or the **Tech Lead** to capture review notes.",
+        "learnings": "No learnings yet. Agents accumulate patterns and insights automatically as they run."
+      }
+    },
+    "charter": {
+      "sections": [
+        {
+          "id": "charter",
+          "title": "Charter",
+          "body": "## Mission\n- Languages: {languages}\n- Test coverage minimum: {min_coverage_pct}%\n- All PRs require {min_reviewers} reviewer(s) before merge."
+        },
+        {
+          "id": "policies",
+          "title": "Policies",
+          "body": "## Branching\n- Default branch: {default_branch}\n- Feature branches off {default_branch}\n- Squash on merge"
+        },
+        {
+          "id": "process",
+          "title": "Process",
+          "body": "## Pipeline\n1. Plan → Design → Implement → Test → Ship\n2. All work routed through the engineering workflow"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "languages",
+          "type": "string",
+          "default": "Python, TypeScript",
+          "label": "Languages"
+        },
+        {
+          "name": "min_coverage_pct",
+          "type": "int",
+          "default": 80,
+          "label": "Min Test Coverage %",
+          "format": "pct"
+        },
+        {
+          "name": "min_reviewers",
+          "type": "int",
+          "default": 1,
+          "label": "Min Reviewers"
+        },
+        {
+          "name": "default_branch",
+          "type": "string",
+          "default": "main",
+          "label": "Default Branch"
+        }
+      ],
+      "derived": []
+    },
+    "state": {
+      "model_name": "OrgConfig",
+      "data_fields": [
+        {
+          "name": "open_prs",
+          "type": "array",
+          "default": []
+        },
+        {
+          "name": "milestones",
+          "type": "object",
+          "default": {}
+        }
+      ]
+    },
+    "documents": {
+      "types": [
+        {
+          "id": "research",
+          "label": "Architecture Decisions",
+          "metadata_fields": [
+            {
+              "name": "category",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "id": "report",
+          "label": "Engineering Reports",
+          "metadata_fields": [
+            {
+              "name": "agent_id",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "infra": {
+    "note": "Fixed template infrastructure managed by agentorg — not org-specific.",
+    "fixed": [
+      "db/",
+      "app/main.py",
+      "app/routes.py",
+      "app/templates/",
+      "src/frontend/",
+      "compose.yaml",
+      "Dockerfile",
+      "scripts/entrypoint.sh",
+      "pyproject.toml"
+    ]
+  },
+  "setup": {
+    "steps": [
+      {
+        "id": "secrets",
+        "title": "Set required API keys in .env",
+        "vars": [
+          "GOOGLE_API_KEY",
+          "GITHUB_TOKEN"
+        ]
+      },
+      {
+        "id": "github_repo",
+        "title": "Create GitHub repo & push",
+        "platform": "github",
+        "command": "gh repo create {{ org_slug }} --private --source=. --push"
+      },
+      {
+        "id": "railway",
+        "title": "Deploy API + DB to Railway",
+        "platform": "railway",
+        "command": "railway login && nox -s deploy"
+      }
+    ]
+  }
+}

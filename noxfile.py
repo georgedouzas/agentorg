@@ -1,0 +1,256 @@
+"""Development tasks."""
+
+import shutil
+from pathlib import Path
+from typing import Any
+
+import nox
+from git_changelog.cli import build_and_render
+
+PYTHON_VERSIONS: list[str] = ['3.11', '3.12', '3.13']
+FILES: list[str] = ['src', 'tests', 'docs', 'noxfile.py']
+CHANGELOG_ARGS: dict[str, Any] = {
+    'repository': '.',
+    'convention': 'angular',
+    'template': 'keepachangelog',
+    'parse_trailers': True,
+    'parse_refs': False,
+    'sections': ['feat', 'fix', 'docs', 'style', 'refactor', 'tests', 'chore'],
+    'bump_latest': True,
+    'output': 'CHANGELOG.md',
+}
+
+
+def check_cli(session: nox.Session, args: list[str]) -> str:
+    """Check the CLI arguments.
+
+    Arguments:
+        session: The nox session.
+        args: The available CLI arguments.
+    """
+    available_args = ', '.join([f'`{arg}`' for arg in args])
+    msg = f'Available subcommands are one of {available_args}.'
+    session_args = list(session.posargs)
+    if not session_args:
+        session_args = ['all']
+    elif len(session_args) > 1 or session_args[0] not in args:
+        session.skip(f'{msg} Instead `{" ".join(session_args)}` was given')
+    return session_args[0]
+
+
+@nox.session
+def clean(session: nox.Session) -> None:
+    """Clean build artifacts and cache files.
+
+    Arguments:
+        session: The nox session.
+    """
+    paths = [
+        '.mypy_cache',
+        '.pytest_cache',
+        'tests/.pytest_cache',
+        'build',
+        'dist',
+        'htmlcov',
+        'pip-wheel-metadata',
+        'site',
+        '__pycache__',
+        'docs/generated',
+        '.nox',
+        '.ruff_cache',
+        'uv.lock',
+    ]
+    for path in paths:
+        shutil.rmtree(path, ignore_errors=True)
+    for cache_path in Path().rglob('__pycache__'):
+        shutil.rmtree(cache_path, ignore_errors=True)
+    for file in Path().rglob('*.rej'):
+        if file.exists():
+            file.unlink()
+    for file in Path().rglob('.coverage*'):
+        if file.exists():
+            file.unlink()
+
+
+@nox.session
+def docs(session: nox.Session) -> None:
+    """Build or serve the documentation.
+
+    Arguments:
+        session: The nox session.
+    """
+    arg = check_cli(session, ['serve', 'build'])
+    session.run('uv', 'sync', '--only-dev', '--active', external=True)
+    session.run('mkdocs', arg)
+
+
+@nox.session
+@nox.parametrize('file', FILES)
+def formatting(session: nox.Session, file: str) -> None:
+    """Format the code.
+
+    Arguments:
+        session: The nox session.
+        file: The file to be formatted.
+    """
+    arg = check_cli(session, ['all', 'code', 'docstrings'])
+    session.run('uv', 'sync', '--only-dev', '--active', external=True)
+    if arg in ['code', 'all']:
+        session.run('black', file)
+    if arg in ['docstrings', 'all']:
+        session.run('docformatter', file)
+
+
+@nox.session(python=PYTHON_VERSIONS)
+@nox.parametrize('file', FILES)
+def checks(session: nox.Session, file: str) -> None:
+    """Check code quality, dependencies or type annotations.
+
+    Arguments:
+        session: The nox session.
+        file: The file to be checked.
+    """
+    arg = check_cli(session, ['all', 'quality', 'dependencies', 'types', 'security', 'docs'])
+    session.run('uv', 'sync', '--only-dev', '--active', external=True)
+    if arg in ['quality', 'all']:
+        session.run('ruff', 'check', file)
+    if arg in ['types', 'all']:
+        session.run('mypy', file)
+    if arg in ['security', 'all']:
+        session.run('bandit', '-r', file)
+    if arg in ['docs', 'all'] and file == 'src':
+        session.run('interrogate', file)
+    if arg in ['dependencies', 'all']:
+        requirements_path = (Path(session.create_tmp()) / 'requirements.txt').as_posix()
+        session.run(
+            'uv',
+            'export',
+            '--format',
+            'requirements-txt',
+            '--group',
+            'dev',
+            '--output-file',
+            requirements_path,
+            external=True,
+        )
+        session.run('safety', 'check', '-r', requirements_path)
+
+
+@nox.session(python=PYTHON_VERSIONS)
+def tests(session: nox.Session) -> None:
+    """Run tests and coverage.
+
+    Arguments:
+        session: The nox session.
+    """
+    session.run('uv', 'sync', '--active', external=True)
+    env = {'COVERAGE_FILE': f'.coverage.{session.python}'}
+    if session.posargs:
+        session.run('pytest', '-n', 'auto', '-k', *session.posargs, 'tests', env=env)
+    else:
+        session.run('pytest', '-n', 'auto', 'tests', env=env)
+    session.run('coverage', 'combine')
+    session.run('coverage', 'report')
+    session.run('coverage', 'html')
+
+
+@nox.session
+def fixture_env(session: nox.Session) -> None:
+    """Render a fixture's .env from the central tests/fixtures/.env.
+
+    Reads keys from tests/fixtures/<fixture>/output/example.env, fills values from
+    tests/fixtures/.env, and writes tests/fixtures/<fixture>/output/.env. Pass `all`
+    or no argument to render every fixture.
+
+    Arguments:
+        session: The nox session.
+    """
+    fixtures_root = Path(__file__).parent / 'tests' / 'fixtures'
+    available = sorted(p.name for p in fixtures_root.iterdir() if p.is_dir())
+    target = session.posargs[0] if session.posargs else 'all'
+    targets = available if target == 'all' else [target]
+    if target != 'all' and target not in available:
+        session.error(f'Unknown fixture {target!r}. Available: {", ".join(available)}.')
+
+    central = fixtures_root / '.env'
+    if not central.exists():
+        session.error(f'Missing {central}. Create it with your secrets first.')
+    central_values: dict[str, str] = {}
+    for line in central.read_text().splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#') or '=' not in stripped:
+            continue
+        key, _, value = stripped.partition('=')
+        central_values[key.strip()] = value.strip()
+
+    for name in targets:
+        example = fixtures_root / name / 'output' / 'example.env'
+        if not example.exists():
+            session.warn(f'Skipping {name!r}: {example} not found.')
+            continue
+        out_lines: list[str] = []
+        missing: list[str] = []
+        for line in example.read_text().splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#') or '=' not in stripped:
+                out_lines.append(line)
+                continue
+            key, _, default = stripped.partition('=')
+            key = key.strip()
+            value = central_values.get(key, default.strip())
+            if key not in central_values and not default.strip():
+                missing.append(key)
+            out_lines.append(f'{key}={value}')
+        target_path = fixtures_root / name / 'output' / '.env'
+        target_path.write_text('\n'.join(out_lines) + '\n')
+        session.log(f'Wrote {target_path}')
+        if missing:
+            session.warn(f'  Unset in central .env: {", ".join(missing)}')
+
+
+@nox.session
+def changelog(session: nox.Session) -> None:
+    """Build the changelog.
+
+    Arguments:
+        session: The nox session.
+    """
+    session.run('uv', 'sync', '--only-dev', '--active', external=True)
+    build_and_render(**CHANGELOG_ARGS)
+
+
+@nox.session
+def release(session: nox.Session) -> None:
+    """Kick off a release process.
+
+    Arguments:
+        session: The nox session.
+    """
+    session.run('uv', 'sync', '--only-dev', '--active', external=True)
+
+    changelog, _ = build_and_render(**CHANGELOG_ARGS)
+    if changelog.versions_list[0].tag:
+        session.skip('Commit has already a tag. Release is aborted.')
+    version = changelog.versions_list[0].planned_tag
+    if version is None:
+        session.skip('Next version was not possible to be specified. Release is aborted.')
+
+    # Create release branch and commit changelog
+    session.run('git', 'checkout', '-b', f'release_{version}', external=True)
+    session.run('git', 'add', 'CHANGELOG.md', external=True)
+    session.run('git', 'commit', '-m', f'chore: Release {version}', '--allow-empty', external=True)
+    session.run('git', 'push', '-u', 'origin', f'release_{version}', external=True)
+
+    # Create and merge PR from release branch to main
+    session.run('gh', 'pr', 'create', '--base', 'main', external=True)
+    session.run('gh', 'pr', 'merge', '--rebase', '--delete-branch', external=True)
+
+    # Create tag
+    session.run('git', 'checkout', 'main', external=True)
+    session.run('git', 'pull', '--rebase', external=True)
+    session.run('git', 'tag', version, external=True)
+    session.run('git', 'push', '--tags', external=True)
+
+    # Build and upload artifacts
+    session.run('uv', 'build', external=True)
+    session.run('twine', 'upload', '--skip-existing', 'dist/*')

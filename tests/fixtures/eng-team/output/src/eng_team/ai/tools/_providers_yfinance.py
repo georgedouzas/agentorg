@@ -1,0 +1,41 @@
+"""Universal yfinance providers — price history, latest quotes."""
+
+import yfinance as yf
+
+from eng_team.ai.tools.providers import provider
+
+
+@provider("yfinance.history", args={"ticker": str, "period": str, "interval": str})
+def yfinance_history(ticker: str, period: str = "6mo", interval: str = "1d") -> list[dict]:
+    """OHLCV bars for a ticker, formatted for lightweight-charts candlestick series.
+
+    Args:
+        ticker: Stock ticker symbol (e.g. 'AAPL').
+        period: '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | 'max'.
+        interval: '1m' | '5m' | '1h' | '1d' | '1wk' | '1mo'.
+    """
+    hist = yf.Ticker(ticker.upper()).history(period=period, interval=interval)
+    if hist.empty:
+        return []
+    return [
+        {
+            "time": ts.strftime("%Y-%m-%d"),
+            "open": round(float(row["Open"]), 2),
+            "high": round(float(row["High"]), 2),
+            "low": round(float(row["Low"]), 2),
+            "close": round(float(row["Close"]), 2),
+            "volume": int(row["Volume"]),
+        }
+        for ts, row in hist.iterrows()
+    ]
+
+
+@provider("yfinance.quote", args={"ticker": str})
+def yfinance_quote(ticker: str) -> dict:
+    """Latest price + currency for a ticker."""
+    info = yf.Ticker(ticker.upper()).fast_info
+    return {
+        "ticker": ticker.upper(),
+        "price": round(float(info.last_price), 2),
+        "currency": getattr(info, "currency", "USD"),
+    }

@@ -1,0 +1,102 @@
+# {{ org.name }}
+
+{{ org.description }}
+
+## Agents
+
+{% for group in generated.agent_groups %}### {{ group.label }}
+
+| Agent | Role |
+| --- | --- |
+{% for aid in group.ids -%}
+{% set agent = generated.agents | selectattr('id', 'equalto', aid) | first -%}
+| {{ agent.name }} | {{ agent.role }} |
+{% endfor %}
+
+{% endfor %}## Workflows
+
+{% for group in generated.workflow_groups %}### {{ group.label }}
+
+{% for wid in group.ids -%}
+{% set wf = generated.workflows | selectattr('id', 'equalto', wid) | first -%}
+#### {{ wf.name }}
+
+{{ wf.description }}
+
+| Step | Name | Agents | HITL |
+| --- | --- | --- | --- |
+{% for step in wf.steps -%}
+{% if step.parallel is defined -%}
+{% set agent_names = step.parallel | map(attribute='agent') | map('replace', '-', ' ') | map('title') | list -%}
+| {{ loop.index }} | {{ step.name }} | {{ agent_names | join(', ') }} (parallel) | No |
+{% else -%}
+{% set agent_name = (generated.agents | selectattr('id', 'equalto', step.agent) | first).name -%}
+| {{ loop.index }} | {{ step.name }} | {{ agent_name }} | {% if step.hitl is defined %}Yes{% else %}No{% endif %} |
+{% endif -%}
+{% endfor %}
+
+{% endfor %}
+{% endfor %}
+## Running Locally
+
+Prerequisites:
+
+- Docker Desktop installed
+{% for v in generated.env_vars.required %}- `{{ v.name }}` set in `.env`
+{% endfor %}
+
+```sh
+git clone {{ org.repository }}.git
+cd {{ org.slug }}
+cp example.env .env
+docker compose up -d --build
+```
+
+### Endpoints
+
+- Dashboard: `http://localhost:5173`
+- API: `http://localhost:8000`
+- AgentOS UI (optional): connect `http://localhost:8000` at [os.agno.com](https://os.agno.com)
+
+---
+{% if deployment.api == 'railway' and deployment.frontend == 'vercel' %}
+
+## Cloud Deployment (Railway + Vercel)
+
+```sh
+railway login && nox -s deploy   # API + DB
+vercel --prod                    # Frontend
+```
+
+{% elif deployment.api == 'railway' %}
+
+## Cloud Deployment (Railway)
+
+```sh
+railway login && nox -s deploy
+```
+
+{% endif %}
+## Environment Variables
+
+### Required
+
+| Variable | Description |
+| --- | --- |
+{% for v in generated.env_vars.required -%}
+| `{{ v.name }}` | {{ v.description }} |
+{% endfor %}
+
+### Optional
+
+| Variable | When | Description |
+| --- | --- | --- |
+| `DB_HOST/PORT/USER/PASS/DATABASE` | Override | PostgreSQL connection (Docker defaults work out of the box) |
+{% for v in generated.env_vars.optional -%}
+| `{{ v.name }}` | {{ v.required_label }} | {{ v.description }} |
+{% endfor %}
+
+## Learn More
+
+- [Agno Documentation](https://docs.agno.com)
+- [AgentOS Documentation](https://docs.agno.com/agent-os/introduction)

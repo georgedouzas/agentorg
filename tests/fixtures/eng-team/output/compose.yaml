@@ -1,0 +1,76 @@
+services:
+  eng-team-db:
+    image: agnohq/pgvector:18
+    container_name: eng-team-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-ai}
+      POSTGRES_PASSWORD: ${DB_PASS:-ai}
+      POSTGRES_DB: ${DB_DATABASE:-ai}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    networks:
+      - eng-team
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ai}"]
+      interval: 5s
+      retries: 10
+
+  eng-team-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${IMAGE_NAME:-agno-eng-team}:${IMAGE_TAG:-latest}
+    container_name: eng-team-api
+    command: uvicorn eng_team.app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - RUNTIME_ENV=dev
+      - RESET_ON_STARTUP=1
+      - AGNO_DEBUG=True
+      - DB_HOST=eng-team-db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-ai}
+      - DB_PASS=${DB_PASS:-ai}
+      - DB_DATABASE=${DB_DATABASE:-ai}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - RUNTIME_ENV=${RUNTIME_ENV:-}
+      - API_BASE_URL=${API_BASE_URL:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+    depends_on:
+      eng-team-db:
+        condition: service_healthy
+    networks:
+      - eng-team
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  eng-team-ui:
+    image: node:20-alpine
+    container_name: eng-team-ui
+    working_dir: /app/src/frontend
+    command: sh -c "npm ci --ignore-scripts && npm run dev -- --host"
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+    environment:
+      - VITE_API_HOST=http://eng-team-api:8000
+    depends_on:
+      - eng-team-api
+    networks:
+      - eng-team
+
+networks:
+  eng-team:
+
+volumes:
+  pgdata:

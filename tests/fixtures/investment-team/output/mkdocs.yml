@@ -1,0 +1,37 @@
+site_name: "investment-team"
+site_description: "Multi-agent system simulating a professional investment team managing a configurable equity portfolio."
+repo_url: "https://github.com/georgedouzas/investment-team"
+repo_name: "georgedouzas/investment-team"
+site_dir: "site"
+watch: [README.md, CHANGELOG.md]
+
+theme:
+  name: material
+  features:
+  - navigation.top
+  palette:
+    primary: blue
+
+nav:
+  - Overview:
+    - index.md
+    - User guide: overview/user_guide.md
+    - Changelog: overview/changelog.md
+    - License: overview/license.md
+  - API: api/
+  - Examples: generated/gallery
+  - Development:
+    - development/index.md
+    - Contributing: development/contributing.md
+    - Code of Conduct: development/code_of_conduct.md
+extra_css:
+  - css/style.css
+  - css/material.css
+  - css/mkdocstrings.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences

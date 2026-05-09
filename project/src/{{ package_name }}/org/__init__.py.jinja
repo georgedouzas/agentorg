@@ -1,0 +1,55 @@
+"""Org policy loader + seed for runtime knowledge.
+
+Policy sections are double-purposed:
+- Concatenated into agent system prompts as `COMMITTEE_CONTEXT` (always-on context).
+- Seeded into the `knowledge` table with type='policy' so they're RAG-searchable, visible
+  in the Knowledge tab, and accessible to any agent via search_knowledge.
+"""
+
+from {{ package_name }}.org.loader import COMMITTEE_CONTEXT as COMMITTEE_CONTEXT
+
+
+def seed_policy_documents(user_id: str = "default") -> None:
+    """Render charter sections into a single `policy` document named 'charter'.
+
+    All sections are concatenated under the one document — keeps the Knowledge tab uncluttered.
+    Authored by the Policy Officer.
+    """
+    from sqlalchemy import text  # noqa: PLC0415
+
+    from {{ package_name }}.ai.tools.knowledge import write_knowledge  # noqa: PLC0415
+    from {{ package_name }}.db import get_engine  # noqa: PLC0415
+    from {{ package_name }}.org.loader import (  # noqa: PLC0415
+        _CHARTER,
+        _build_vars,
+        _load_user_parameters,
+    )
+
+    sections = _CHARTER.get("sections", [])
+    if not sections:
+        return
+    rendered_vars = _build_vars(_load_user_parameters(user_id))
+    description = (
+        "The organization's operating principles — what we are, the rules we follow, "
+        "and how we work. Every agent has this charter injected as system context."
+    )
+    parts = [f"## {s['title']}\n\n{s['body'].format_map(rendered_vars)}" for s in sections]
+    full = f"# Charter\n\n{description}\n\n" + "\n\n".join(parts)
+
+    # Drop any stale policy rows from earlier multi-doc seeding
+    with get_engine().begin() as conn:
+        conn.execute(text("DELETE FROM knowledge WHERE type = 'policy' AND name <> 'charter'"))
+
+    write_knowledge(
+        type="policy",
+        name="charter",
+        title="Charter",
+        content=full,
+        metadata={"agent_id": "policy-officer", "scope": "org"},
+    )
+
+
+def bootstrap_overview_feeds() -> None:
+    """Default: no overview feeds. Orgs that need feeds override this — agents register
+    their own feeds at runtime, or a metaagent-generated module replaces this stub."""
+    return
