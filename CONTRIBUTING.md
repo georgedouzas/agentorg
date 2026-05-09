@@ -29,6 +29,17 @@ the project for more details. You can run any of the following commands and subc
 
 - `uv run tests`: Run the tests.
 
+### Templates
+
+The `project/` directory holds the Jinja2 templates used by `agentorg-render`. After
+changing a template, refresh the fixture snapshots and re-run the tests:
+
+- `agentorg-render tests/fixtures/<id>/agentorg.json --out tests/fixtures/<id>/output`
+- `uv run tests -- test_project_templates`
+
+See [`CLAUDE.md`](CLAUDE.md) for the templating contract and
+[`tests/fixtures/README.md`](tests/fixtures/README.md) for running a fixture locally.
+
 ### Changelog
 
 - `uv run changelog`: Build the changelog.

@@ -26,28 +26,28 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v4
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
 
-    - name: Set up PDM
-      uses: pdm-project/setup-pdm@v4.3
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
       with:
-        cache: true
-        cache-dependency-path: pyproject.toml
+        enable-cache: true
+        cache-dependency-glob: pyproject.toml
 
     - name: Install dependencies
-      run: pdm install -dG maintenance -dG docs
+      run: uv sync
 
     - name: Build documentation
-      run: pdm docs build
+      run: uv run docs build
 
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3.0.1
+      uses: actions/upload-pages-artifact@v3
       with:
         path: 'site'
 
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4.0.5
+      uses: actions/deploy-pages@v4

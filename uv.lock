@@ -11,6 +11,11 @@ resolution-markers = [
 name = "agentorg"
 source = { editable = "." }
 
+[package.optional-dependencies]
+render = [
+    { name = "jinja2" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "bandit" },
@@ -44,6 +49,8 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "jinja2", marker = "extra == 'render'", specifier = ">=3.1.0" }]
+provides-extras = ["render"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
 
@@ -20,33 +19,33 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v4
 
     - name: Install Python versions
-      uses: actions/setup-python@v5.4.0
+      uses: actions/setup-python@v5
       with:
         python-version: |
             3.11
             3.12
             3.13
-            
-    - name: Set up PDM
-      uses: pdm-project/setup-pdm@v4.3
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
       with:
-        cache: true
-        cache-dependency-path: pyproject.toml
+        enable-cache: true
+        cache-dependency-glob: pyproject.toml
 
     - name: Install dependencies
-      run: pdm install --no-default -dG maintenance -dG checks
+      run: uv sync --only-dev
 
     - name: Check code quality
-      run: pdm checks quality
+      run: uv run checks quality
 
     - name: Check type annotations
-      run: pdm checks types
+      run: uv run checks types
 
     - name: Check vulnerabilities in dependencies
-      run: pdm checks dependencies
+      run: uv run checks dependencies
 
   tests:
 
@@ -61,24 +60,51 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v4
 
     - name: Install Python versions
-      uses: actions/setup-python@v5.4.0
+      uses: actions/setup-python@v5
       with:
         python-version: |
             3.11
             3.12
             3.13
-            
-    - name: Set up PDM
-      uses: pdm-project/setup-pdm@v4.3
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
       with:
-        cache: true
-        cache-dependency-path: pyproject.toml
+        enable-cache: true
+        cache-dependency-glob: pyproject.toml
 
     - name: Install dependencies
-      run: pdm install -dG maintenance -dG tests
+      run: uv sync
 
     - name: Run the test suite
-      run: pdm tests
+      run: uv run tests
+
+  doc:
+
+    if: ${{ github.ref != 'refs/heads/main' }}
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: pyproject.toml
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: uv sync
+
+    - name: Build documentation with Python ${{ matrix.python-version }}
+      run: uv run docs build
