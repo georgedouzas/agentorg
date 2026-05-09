@@ -1,5 +1,5 @@
-"""Generic charter loader — reads sections + parameters from app/config.yaml,
-substitutes user state from the org_state DB table, returns the rendered context block.
+"""Generic charter loader — reads sections + parameters from app/config.yaml, substitutes user state from the org_state
+DB table, returns the rendered context block.
 """
 
 import re

@@ -1,11 +1,7 @@
 """Render a project from `project/` template + agentorg.json."""
 
-import argparse
 import json
-import re
 import shutil
-import sys
-from importlib import resources
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -37,9 +33,9 @@ def _extract_vars(data: dict) -> dict:
 def _resolve_path(rel_path: str, vars: dict, env: Environment) -> tuple[str, bool] | None:
     """Render a path that may contain Jinja vars or conditionals.
 
-    Returns (resolved_path, is_jinja) — `is_jinja` indicates whether the source filename
-    ended in `.jinja` (after rendering conditionals), meaning content should be Jinja-rendered.
-    Returns None when a conditional segment evaluates to empty (file is skipped).
+    Returns (resolved_path, is_jinja) — `is_jinja` indicates whether the source filename ended in `.jinja` (after
+    rendering conditionals), meaning content should be Jinja-rendered. Returns None when a conditional segment evaluates
+    to empty (file is skipped).
     """
     rendered = env.from_string(rel_path).render(**vars).strip()
     if not rendered:
@@ -50,7 +46,7 @@ def _resolve_path(rel_path: str, vars: dict, env: Environment) -> tuple[str, boo
     last = parts[-1]
     is_jinja = last.endswith('.jinja')
     if is_jinja:
-        parts[-1] = last[:-len('.jinja')]
+        parts[-1] = last[: -len('.jinja')]
     if not parts[-1].strip():
         return None
     return '/'.join(parts), is_jinja
@@ -108,23 +104,3 @@ def render(agentorg_json: Path, out_dir: Path, project_dir: Path | None = None) 
             shutil.copyfile(src, target)
         written += 1
     return written
-
-
-def main(argv: list[str] | None = None) -> int:
-    """CLI entry: `agentorg render <agentorg.json> [--out DIR]`."""
-    parser = argparse.ArgumentParser(prog='agentorg render', description='Render a project from agentorg.json.')
-    parser.add_argument('source', help='Path to agentorg.json (or directory containing it).')
-    parser.add_argument('--out', default='out', help='Output directory (default: ./out).')
-    parser.add_argument('--project', default=None, help='Override template directory (default: repo project/).')
-    args = parser.parse_args(argv)
-
-    source = Path(args.source).resolve()
-    out_dir = Path(args.out).resolve()
-    project = Path(args.project).resolve() if args.project else None
-    n = render(source, out_dir, project)
-    print(f'Rendered {n} files to {out_dir}')
-    return 0
-
-
-if __name__ == '__main__':
-    sys.exit(main())

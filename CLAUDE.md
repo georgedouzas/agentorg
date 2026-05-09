@@ -11,7 +11,7 @@ spec file (`agentorg.json`). The end-state vision is:
 2. The master agent **interviews the user** to determine: org name, mission, team
    composition, agent roles/scopes/workflows, state schema, deployment, env vars.
 3. The interview output is written to `agentorg.json`.
-4. `agentorg-render <agentorg.json>` materialises a complete project — backend (FastAPI +
+4. `agentorg render <agentorg.json>` materialises a complete project — backend (FastAPI +
    AgentOS), frontend (React/Vite), DB schema, Docker compose, docs, CI — ready to
    `docker compose up`.
 
@@ -23,7 +23,7 @@ the master agent is the front door.
 | Layer | Lives in | Status today | Source of truth |
 | --- | --- | --- | --- |
 | **Templates (fixed infra)** | `project/` | implemented | this repo |
-| **Renderer** | `src/agentorg/render.py` | implemented (`agentorg-render` CLI) | this repo |
+| **Renderer** | `src/agentorg/render.py` | implemented (`agentorg render` CLI) | this repo |
 | **Spec** | `agentorg.json` per fixture | hand-written for fixtures | this repo |
 | **Master agent** (interview → spec) | not yet built | future | future |
 | **Generated org layer** (per-agent `.py`, per-workflow `.py`, org-specific tools, `CLAUDE.md` for the generated repo) | not yet templated | future — written by master agent | future |
@@ -67,8 +67,8 @@ To run a fixture locally see [tests/fixtures/README.md](tests/fixtures/README.md
    Jinja tags.
 2. Re-render the fixtures:
    ```sh
-   agentorg-render tests/fixtures/investment-team/agentorg.json --out tests/fixtures/investment-team/output
-   agentorg-render tests/fixtures/eng-team/agentorg.json     --out tests/fixtures/eng-team/output
+   agentorg render tests/fixtures/investment-team/agentorg.json --out tests/fixtures/investment-team/output
+   agentorg render tests/fixtures/eng-team/agentorg.json     --out tests/fixtures/eng-team/output
    ```
 3. Run `pytest tests/test_project_templates.py` — both fixtures must stay byte-identical.
 4. Commit `project/` + `tests/fixtures/*/output/` together.

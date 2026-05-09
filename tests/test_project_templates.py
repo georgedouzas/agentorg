@@ -1,12 +1,11 @@
 """End-to-end test: render each fixture and assert byte-identity against fixture output.
 
-`agentorg.render.render` walks `project/`, renders Jinja templates, and copies the rest
-verbatim. The fixture's `output/` directory is the golden snapshot; this test diffs
-every file the renderer produces against that snapshot.
+`agentorg.render.render` walks `project/`, renders Jinja templates, and copies the rest verbatim. The fixture's
+`output/` directory is the golden snapshot; this test diffs every file the renderer produces against that snapshot.
 
-Files that exist in the fixture but are NOT produced by the renderer (per-agent `.py`,
-per-workflow `.py`, org-specific tools, `CLAUDE.md`, `.env`, `node_modules/`, `uv.lock`)
-are out of scope — those are written by the metaagent later or are runtime artifacts.
+Files that exist in the fixture but are NOT produced by the renderer (per-agent `.py`, per-workflow `.py`, org-specific
+tools, `CLAUDE.md`, `.env`, `node_modules/`, `uv.lock`) are out of scope — those are written by the metaagent later or
+are runtime artifacts.
 """
 
 import shutil
@@ -43,6 +42,6 @@ def test_fixture_renders_byte_identical(fixture_id: str, tmp_path: Path) -> None
     assert not missing, f'Rendered files missing from fixture {fixture_id!r}: {missing}'
     assert not mismatches, (
         f'Rendered files differ from fixture {fixture_id!r}: {mismatches}\n'
-        f'Run `agentorg-render tests/fixtures/{fixture_id}/agentorg.json --out tests/fixtures/{fixture_id}/output` '
+        f'Run `agentorg render tests/fixtures/{fixture_id}/agentorg.json --out tests/fixtures/{fixture_id}/output` '
         f'to refresh.'
     )

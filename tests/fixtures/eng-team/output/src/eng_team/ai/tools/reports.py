@@ -10,7 +10,10 @@ from eng_team.ai.tools.documents import (
 
 
 def write_report(name: str, content: str, metadata: dict[str, Any] | None = None) -> str:
-    """Write an engineering report (spec, ADR, code review). Stored under type='report'."""
+    """Write an engineering report (spec, ADR, code review).
+
+    Stored under type='report'.
+    """
     return write_document(type="report", name=name, content=content, metadata=metadata)
 
 

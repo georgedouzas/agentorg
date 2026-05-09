@@ -12,8 +12,8 @@ from eng_team.org.loader import COMMITTEE_CONTEXT as COMMITTEE_CONTEXT
 def seed_policy_documents(user_id: str = "default") -> None:
     """Render charter sections into a single `policy` document named 'charter'.
 
-    All sections are concatenated under the one document — keeps the Knowledge tab uncluttered.
-    Authored by the Policy Officer.
+    All sections are concatenated under the one document — keeps the Knowledge tab uncluttered. Authored by the Policy
+    Officer.
     """
     from sqlalchemy import text  # noqa: PLC0415
 
@@ -50,6 +50,9 @@ def seed_policy_documents(user_id: str = "default") -> None:
 
 
 def bootstrap_overview_feeds() -> None:
-    """Default: no overview feeds. Orgs that need feeds override this — agents register
-    their own feeds at runtime, or a metaagent-generated module replaces this stub."""
+    """Default: no overview feeds.
+
+    Orgs that need feeds override this — agents register their own feeds at runtime, or a metaagent-generated module
+    replaces this stub.
+    """
     return

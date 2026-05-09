@@ -1,11 +1,11 @@
 """Provider registry — bounded vocabulary of refresh sources for live knowledge.
 
-A provider is a typed Python function (decorated with `@provider`) that an agent can
-invoke by name through a `knowledge` row. The registry is the security boundary: agents
-can only compose pre-registered functions with typed args. No `eval`, no arbitrary code.
+A provider is a typed Python function (decorated with `@provider`) that an agent can invoke by name through a
+`knowledge` row. The registry is the security boundary: agents can only compose pre-registered functions with typed
+args. No `eval`, no arbitrary code.
 
-Universal providers ship with agentorg infra. Per-org providers can be registered by
-importing additional modules at app startup.
+Universal providers ship with agentorg infra. Per-org providers can be registered by importing additional modules at app
+startup.
 """
 
 from collections.abc import Callable
@@ -16,6 +16,7 @@ PROVIDERS: dict[str, dict[str, Any]] = {}
 
 def provider(name: str, args: dict[str, type] | None = None) -> Callable:
     """Decorator: register a function as a refresh provider under `name`."""
+
     def deco(fn: Callable) -> Callable:
         PROVIDERS[name] = {"fn": fn, "args": args or {}, "doc": fn.__doc__ or ""}
         return fn
@@ -31,8 +32,9 @@ def get_provider(name: str) -> Callable:
 
 
 def list_providers() -> str:
-    """List all registered providers with their arg schemas. Agents call this to discover
-    what data sources they can register a knowledge row against.
+    """List all registered providers with their arg schemas.
+
+    Agents call this to discover what data sources they can register a knowledge row against.
     """
     if not PROVIDERS:
         return "No providers registered."
@@ -50,9 +52,8 @@ def list_providers() -> str:
 def import_universal_providers() -> None:
     """Import side-effect-only modules so their @provider decorators run at app startup.
 
-    Universal providers (yfinance, state, knowledge) ship with agentorg infra. Per-org
-    providers live in modules prefixed with `_providers_` in this directory and are
-    auto-discovered here.
+    Universal providers (yfinance, state, knowledge) ship with agentorg infra. Per-org providers live in modules
+    prefixed with `_providers_` in this directory and are auto-discovered here.
     """
     import importlib  # noqa: PLC0415
     import pkgutil  # noqa: PLC0415

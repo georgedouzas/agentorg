@@ -1,11 +1,10 @@
 """Generic knowledge CRUD tools — write/read/list/search/delete knowledge units.
 
-A knowledge unit is anything an agent produces: text artifacts (research, memo, report),
-structured data (charts, stats, tables), or a refresh recipe (provider + args + schedule)
-that the scheduler periodically re-evaluates.
+A knowledge unit is anything an agent produces: text artifacts (research, memo, report), structured data (charts, stats,
+tables), or a refresh recipe (provider + args + schedule) that the scheduler periodically re-evaluates.
 
-All units live in the `knowledge` table. Static rows have a NULL provider; live rows
-populate `provider`, `args`, `schedule` and the scheduler keeps `data`/`last_computed` fresh.
+All units live in the `knowledge` table. Static rows have a NULL provider; live rows populate `provider`, `args`,
+`schedule` and the scheduler keeps `data`/`last_computed` fresh.
 """
 
 import json
@@ -100,7 +99,10 @@ def write_knowledge(
 
 
 def read_knowledge(type: str, name: str) -> str:  # noqa: A002
-    """Read a knowledge unit by type and name. Returns content (markdown) or stringified data."""
+    """Read a knowledge unit by type and name.
+
+    Returns content (markdown) or stringified data.
+    """
     with get_engine().connect() as conn:
         row = conn.execute(
             text("SELECT content, data FROM knowledge WHERE type = :t AND name = :n"),

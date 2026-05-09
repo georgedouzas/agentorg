@@ -1,8 +1,8 @@
 """Universal application tables: knowledge and org_state.
 
-`knowledge` holds any agent-produced unit of knowledge — text artifacts (research, memo, report),
-structured data (charts, stats, tables), or a refresh recipe (provider + args + schedule) that
-the scheduler periodically re-evaluates. Static rows have a NULL provider; live rows refresh.
+`knowledge` holds any agent-produced unit of knowledge — text artifacts (research, memo, report), structured data
+(charts, stats, tables), or a refresh recipe (provider + args + schedule) that the scheduler periodically re-evaluates.
+Static rows have a NULL provider; live rows refresh.
 
 `org_state` holds per-user structured org state (charter parameters + operational data).
 
@@ -69,7 +69,10 @@ CREATE TABLE IF NOT EXISTS org_state (
 
 
 def create_app_tables() -> None:
-    """Create application tables. Run once at startup. Migrates legacy `documents` table."""
+    """Create application tables.
+
+    Run once at startup. Migrates legacy `documents` table.
+    """
     with get_engine().begin() as conn:
         conn.execute(text(_MIGRATE))
         conn.execute(text(_SQL))
@@ -88,9 +91,11 @@ _USER_DATA_TABLES = [
 
 
 def truncate_user_data() -> None:
-    """Wipe every table that holds user-created or per-user state. Use only when
-    `RESET_ON_STARTUP=1`. Static seed data (policy, platform_reference, overview feeds)
-    is re-created by the seeders that run after this in main.py."""
+    """Wipe every table that holds user-created or per-user state.
+
+    Use only when `RESET_ON_STARTUP=1`. Static seed data (policy, platform_reference, overview feeds) is re-created by
+    the seeders that run after this in main.py.
+    """
     with get_engine().begin() as conn:
         for tbl in _USER_DATA_TABLES:
             try:

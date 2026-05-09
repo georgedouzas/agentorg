@@ -25,7 +25,10 @@ classifiers = [
     "Topic :: Utilities",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "click>=8.1",
+    "jinja2>=3.1",
+]
 
 [project.urls]
 Homepage = "https://georgedouzas.github.io/agentorg"
@@ -69,17 +72,14 @@ dev = [
 ]
 
 [project.scripts]
-formatting = "agentorg.cli:formatting"
-checks = "agentorg.cli:checks"
-tests = "agentorg.cli:tests"
-docs = "agentorg.cli:docs"
-changelog = "agentorg.cli:changelog"
-release = "agentorg.cli:release"
-clean = "agentorg.cli:clean"
-agentorg-render = "agentorg.render:main"
-
-[project.optional-dependencies]
-render = ["jinja2>=3.1.0"]
+agentorg = "agentorg.cli:cli"
+formatting = "agentorg.cli._dev:formatting"
+checks = "agentorg.cli._dev:checks"
+tests = "agentorg.cli._dev:tests"
+docs = "agentorg.cli._dev:docs"
+changelog = "agentorg.cli._dev:changelog"
+release = "agentorg.cli._dev:release"
+clean = "agentorg.cli._dev:clean"
 
 [tool.hatch.version]
 source = "vcs"
@@ -91,6 +91,7 @@ packages = ["src/agentorg"]
 line-length = 120
 extend-exclude = "(tests/fixtures|docs/generated)"
 skip-string-normalization = true
+target-version = ["py311"]
 
 [tool.docformatter]
 in-place = true

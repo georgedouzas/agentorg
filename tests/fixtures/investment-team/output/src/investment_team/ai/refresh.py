@@ -29,7 +29,10 @@ _tasks: dict[str, asyncio.Task] = {}
 
 
 def parse_interval_seconds(schedule: str) -> int | None:
-    """Return interval in seconds for 'every:Ns' format. None for non-interval schedules."""
+    """Return interval in seconds for 'every:Ns' format.
+
+    None for non-interval schedules.
+    """
     if not schedule:
         return None
     m = _INTERVAL_RE.match(schedule)
@@ -40,11 +43,10 @@ def parse_interval_seconds(schedule: str) -> int | None:
 
 
 def refresh_knowledge_row(name: str, extra_args: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    """Run the row's provider with its stored args (merged with `extra_args` if given)
-    and write the result to `data`. Returns the computed data or None on failure.
+    """Run the row's provider with its stored args (merged with `extra_args` if given) and write the result to `data`.
+    Returns the computed data or None on failure.
 
-    `extra_args` lets callers inject per-request kwargs (e.g. user_id) without storing
-    them in the row.
+    `extra_args` lets callers inject per-request kwargs (e.g. user_id) without storing them in the row.
     """
     with get_engine().begin() as conn:
         row = conn.execute(
@@ -78,8 +80,10 @@ def refresh_knowledge_row(name: str, extra_args: dict[str, Any] | None = None) -
 
 
 async def _refresh_loop(name: str, interval_s: int) -> None:
-    """Sleep+refresh forever, until cancelled. Runs the (sync) refresh on a thread to
-    avoid blocking the event loop on slow providers (e.g. yfinance)."""
+    """Sleep+refresh forever, until cancelled.
+
+    Runs the (sync) refresh on a thread to avoid blocking the event loop on slow providers (e.g. yfinance).
+    """
     # Initial run on startup so callers see fresh data without waiting one interval.
     try:
         await asyncio.to_thread(refresh_knowledge_row, name)
@@ -96,7 +100,10 @@ async def _refresh_loop(name: str, interval_s: int) -> None:
 
 
 def schedule_row(name: str, schedule: str | None) -> None:
-    """Register/update an asyncio task for this row. Cancels any prior task."""
+    """Register/update an asyncio task for this row.
+
+    Cancels any prior task.
+    """
     cancel_row(name)
     if not schedule or schedule == "on_request":
         return
@@ -119,8 +126,10 @@ def cancel_row(name: str) -> None:
 
 
 async def _sync_loop(poll_s: int = 30) -> None:
-    """Periodically reconcile in-memory tasks with DB state. Catches schedule changes
-    made by other API replicas or by direct DB edits."""
+    """Periodically reconcile in-memory tasks with DB state.
+
+    Catches schedule changes made by other API replicas or by direct DB edits.
+    """
     while True:
         try:
             await asyncio.sleep(poll_s)
@@ -142,8 +151,10 @@ async def _sync_loop(poll_s: int = 30) -> None:
 
 
 def start_scheduler() -> None:
-    """Boot the scheduler: register tasks for every scheduled row in the DB, plus the
-    background sync loop. Call once from the FastAPI startup event."""
+    """Boot the scheduler: register tasks for every scheduled row in the DB, plus the background sync loop.
+
+    Call once from the FastAPI startup event.
+    """
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:

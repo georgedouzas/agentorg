@@ -1,8 +1,7 @@
 """Investment-team specific providers — portfolio summary, positions, sector allocation.
 
-These are per-org providers (live in the spec rather than agentorg infra). They read from
-`org_state` (parameters + data.positions) and shape the output for the corresponding
-widget renderers (StatsGrid / EntityGrid / BarTable).
+These are per-org providers (live in the spec rather than agentorg infra). They read from `org_state` (parameters +
+data.positions) and shape the output for the corresponding widget renderers (StatsGrid / EntityGrid / BarTable).
 """
 
 from typing import Any
