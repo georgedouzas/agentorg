@@ -8,8 +8,8 @@ KB_DIR = Path(__file__).parent
 def seed_platform_kb() -> None:
     """Upsert each markdown file in this dir as a `platform_reference` knowledge unit.
 
-    Always re-seeds (write_knowledge upserts on conflict) so metadata stays in sync if the agentorg framework updates
-    the KB content.
+    Always re-seeds (write_knowledge upserts on conflict) so metadata stays in sync if
+    the agentorg framework updates the KB content.
     """
     from investment_team.ai.tools.knowledge import write_knowledge  # noqa: PLC0415
 

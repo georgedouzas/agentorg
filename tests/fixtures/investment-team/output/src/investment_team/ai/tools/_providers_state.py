@@ -10,10 +10,7 @@ from investment_team.db import get_engine
 
 @provider("state.field", args={"name": str, "user_id": str})
 def state_field(name: str, user_id: str = "default") -> Any:
-    """Read a single field from org_state.
-
-    Looks first in `parameters`, then in `data`.
-    """
+    """Read a single field from org_state. Looks first in `parameters`, then in `data`."""
     with get_engine().connect() as conn:
         row = conn.execute(
             text("SELECT parameters, data FROM org_state WHERE user_id = :uid"),

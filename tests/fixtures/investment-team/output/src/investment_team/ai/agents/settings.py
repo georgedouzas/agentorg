@@ -25,10 +25,11 @@ AGENT_CONFIGS: dict[str, dict] = yaml.safe_load(_CONFIG_PATH.read_text()).get("a
 def get_instructions(agent_id: str) -> str:
     """Compose the runtime LLM prompt for an agent from its structured fields.
 
-    The agent's `agentorg.json` definition holds typed fields — `role`, `in_scope`, `out_of_scope`, `workflow`,
-    `output_format`, `count_rule`, `save_rule`. This function stitches them into a coherent system prompt the LLM
-    consumes. The same fields are exposed to the UI's Description tab so the user sees a clean structured view rather
-    than the raw prompt.
+    The agent's `agentorg.json` definition holds typed fields — `role`, `in_scope`,
+    `out_of_scope`, `workflow`, `output_format`, `count_rule`, `save_rule`. This
+    function stitches them into a coherent system prompt the LLM consumes. The
+    same fields are exposed to the UI's Description tab so the user sees a clean
+    structured view rather than the raw prompt.
     """
     from investment_team.org import COMMITTEE_CONTEXT  # noqa: PLC0415
 
@@ -134,11 +135,11 @@ def _resolve_binding(binding: str) -> Callable:
 def _make_tool(exposed_name: str, binding: str, fixed_args: dict, agent_id: str) -> Callable:
     """Wrap a generic tool so it appears under exposed_name with fixed_args pre-applied.
 
-    The wrapper exposes the underlying function's signature (minus any parameters bound by fixed_args) so agno can
-    generate a proper JSON schema for the LLM.
+    The wrapper exposes the underlying function's signature (minus any parameters bound
+    by fixed_args) so agno can generate a proper JSON schema for the LLM.
 
-    For `write_knowledge`, the calling agent's id is auto-merged into metadata so knowledge units can be filtered by
-    author in the Knowledge tab later.
+    For `write_knowledge`, the calling agent's id is auto-merged into metadata so knowledge units
+    can be filtered by author in the Knowledge tab later.
     """
     fn = _resolve_binding(binding)
     sig = inspect.signature(fn)

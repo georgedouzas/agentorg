@@ -107,8 +107,8 @@ def get_state(user_id: str = Query(default="default")) -> dict[str, Any]:
 
 @router.post("/setup")
 def setup_state(body: OrgConfig, user_id: str = Query(default="default")) -> dict[str, Any]:  # type: ignore[valid-type]
-    """First-run / post-reset setup: write the user's charter parameters and (re-)seed the policy document so it
-    reflects the just-submitted values.
+    """First-run / post-reset setup: write the user's charter parameters and (re-)seed the
+    policy document so it reflects the just-submitted values.
     """
     params = {**body.model_dump(), "inception_date": datetime.now(tz=UTC).date().isoformat()}
     with get_engine().begin() as conn:
@@ -131,7 +131,6 @@ def setup_state(body: OrgConfig, user_id: str = Query(default="default")) -> dic
 @router.post("/reset")
 def reset_state(user_id: str = Query(default="default")) -> dict[str, Any]:
     """Wipe documents, learnings, agent history, and the org_state row for this user.
-
     Frontend re-fetches /api/state afterwards and is sent through the setup flow again.
     """
     errors: list[str] = []
@@ -174,10 +173,8 @@ def reset_state(user_id: str = Query(default="default")) -> dict[str, Any]:
 # ── Documents endpoints ──────────────────────────────────────────────────────
 @router.get("/documents")
 def list_documents(type: str = Query(default=""), ticker: str = Query(default="")) -> list[dict[str, Any]]:  # noqa: A002
-    """List documents (content-bearing knowledge rows).
-
-    Excludes feed rows that back Overview widgets — those are infrastructure, not documents.
-    """
+    """List documents (content-bearing knowledge rows). Excludes feed rows that back
+    Overview widgets — those are infrastructure, not documents."""
     sql = "SELECT type, name, content, metadata, created_at FROM knowledge WHERE content IS NOT NULL"
     conds: list[str] = []
     params: dict[str, Any] = {}
@@ -288,11 +285,10 @@ def knowledge_data(
     name: str,
     user_id: str = Query(default="default"),
 ) -> dict[str, Any]:
-    """Return the current `data` for a knowledge row.
-
-    For `on_request` schedules, runs the provider live before responding so callers always see fresh data. The `user_id`
-    query param is merged into the provider's call args so per-user feeds resolve against the calling user's state.
-    """
+    """Return the current `data` for a knowledge row. For `on_request` schedules, runs
+    the provider live before responding so callers always see fresh data. The `user_id`
+    query param is merged into the provider's call args so per-user feeds resolve
+    against the calling user's state."""
     with get_engine().connect() as conn:
         row = conn.execute(
             text(
@@ -358,11 +354,9 @@ def learnings_list() -> list[dict[str, Any]]:
 # ── Setup guide ──────────────────────────────────────────────────────────────
 @router.get("/setup-guide")
 def setup_guide() -> dict[str, Any]:
-    """Return the master-agent-defined setup checklist (only the steps that were left pending after the user's
-    interview).
-
-    For env-var steps we auto-detect completion; CLI/manual steps stay 'unverified' until the user (or the Platform
-    Engineer) confirms them.
+    """Return the master-agent-defined setup checklist (only the steps that were left pending after
+    the user's interview). For env-var steps we auto-detect completion; CLI/manual steps stay
+    'unverified' until the user (or the Platform Engineer) confirms them.
     """
     steps = _FULL_CONFIG.get("setup", {}).get("steps", [])
     enriched: list[dict[str, Any]] = []
