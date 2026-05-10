@@ -37,6 +37,7 @@ docs/generated/
 # IDE and editors
 .idea/
 .vscode/
+.claude/
 
 # OS
 .DS_Store

@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Context for Claude Code working on the **agentorg** library itself (not on a generated org).
+Context for Claude Code working on the **agentorg** library.
 
 ## What agentorg is
 
-A **metaagent library** that produces a runnable multi-agent organisation from a single
+A metaagent library that produces a runnable multi-agent organisation from a single
 spec file (`agentorg.json`). The end-state vision is:
 
 1. A user runs the agentorg master agent.
