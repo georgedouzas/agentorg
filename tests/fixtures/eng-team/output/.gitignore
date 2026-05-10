@@ -17,6 +17,7 @@ __pypackages__/
 .ruff_cache
 .vscode
 .claude/
+CLAUDE.md
 .DS_Store
 .env
 public/

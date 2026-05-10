@@ -38,6 +38,7 @@ docs/generated/
 .idea/
 .vscode/
 .claude/
+CLAUDE.md
 
 # OS
 .DS_Store
