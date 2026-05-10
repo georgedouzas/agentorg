@@ -8,7 +8,6 @@ tools, `CLAUDE.md`, `.env`, `node_modules/`, `uv.lock`) are out of scope — tho
 are runtime artifacts.
 """
 
-import shutil
 from pathlib import Path
 
 import pytest
@@ -42,6 +41,6 @@ def test_fixture_renders_byte_identical(fixture_id: str, tmp_path: Path) -> None
     assert not missing, f'Rendered files missing from fixture {fixture_id!r}: {missing}'
     assert not mismatches, (
         f'Rendered files differ from fixture {fixture_id!r}: {mismatches}\n'
-        f'Run `agentorg render tests/fixtures/{fixture_id}/agentorg.json --out tests/fixtures/{fixture_id}/output` '
-        f'to refresh.'
+        f'The fixture is the hand-maintained expected output. If the renderer is wrong, '
+        f'fix the template; if the new output is intended, edit the fixture by hand to match.'
     )

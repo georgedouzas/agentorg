@@ -31,11 +31,11 @@ the project for more details. You can run any of the following commands and subc
 
 ### Templates
 
-The `project/` directory holds the Jinja2 templates used by `agentorg render`. After
-changing a template, refresh the fixture snapshots and re-run the tests:
-
-- `agentorg render tests/fixtures/<id>/agentorg.json --out tests/fixtures/<id>/output`
-- `uv run tests -- test_project_templates`
+The `project/` directory holds the Jinja2 templates used by `agentorg render`. The
+fixtures under `tests/fixtures/<id>/output/` are the **expected** rendered trees,
+hand-maintained. After changing a template, run `uv run tests -- test_project_templates`
+and inspect any diff — if the renderer's new output is intended, edit the fixture by
+hand to match; otherwise fix the template.
 
 See [`CLAUDE.md`](CLAUDE.md) for the templating contract and
 [`tests/fixtures/README.md`](tests/fixtures/README.md) for running a fixture locally.

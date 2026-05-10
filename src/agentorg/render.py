@@ -4,10 +4,10 @@ import json
 import shutil
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
-def _extract_vars(data: dict) -> dict:
+def _extract_template_vars(data: dict) -> dict:
     """Flatten agentorg.json into the full set of Jinja2 template variables."""
     org = data['org']
     deployment = data['deployment']
@@ -30,14 +30,14 @@ def _extract_vars(data: dict) -> dict:
     }
 
 
-def _resolve_path(rel_path: str, vars: dict, env: Environment) -> tuple[str, bool] | None:
-    """Render a path that may contain Jinja vars or conditionals.
+def _resolve_path(rel_path: str, template_vars: dict, env: Environment) -> tuple[str, bool] | None:
+    """Render a path that may contain Jinja template_vars or conditionals.
 
     Returns (resolved_path, is_jinja) — `is_jinja` indicates whether the source filename ended in `.jinja` (after
     rendering conditionals), meaning content should be Jinja-rendered. Returns None when a conditional segment evaluates
     to empty (file is skipped).
     """
-    rendered = env.from_string(rel_path).render(**vars).strip()
+    rendered = env.from_string(rel_path).render(**template_vars).strip()
     if not rendered:
         return None
     parts = rendered.split('/')
@@ -66,7 +66,7 @@ def render(agentorg_json: Path, out_dir: Path, project_dir: Path | None = None) 
     if agentorg_json.is_dir():
         agentorg_json = agentorg_json / 'agentorg.json'
     data = json.loads(agentorg_json.read_text())
-    vars = _extract_vars(data)
+    template_vars = _extract_template_vars(data)
 
     if project_dir is None:
         # Look at the repo `project/` adjacent to this package's parent.
@@ -75,8 +75,10 @@ def render(agentorg_json: Path, out_dir: Path, project_dir: Path | None = None) 
         msg = f'Template directory not found: {project_dir}'
         raise FileNotFoundError(msg)
 
+    # We render source files (Python, YAML, JSON, TS) — never HTML — so escape nothing.
     env = Environment(
         loader=FileSystemLoader(str(project_dir)),
+        autoescape=select_autoescape(disabled_extensions=('jinja',), default=False),
         keep_trailing_newline=True,
         trim_blocks=True,
         lstrip_blocks=False,
@@ -89,7 +91,7 @@ def render(agentorg_json: Path, out_dir: Path, project_dir: Path | None = None) 
         if not src.is_file():
             continue
         rel = src.relative_to(project_dir).as_posix()
-        resolved = _resolve_path(rel, vars, env)
+        resolved = _resolve_path(rel, template_vars, env)
         if resolved is None:
             continue
         target_rel, is_jinja = resolved
@@ -98,7 +100,7 @@ def render(agentorg_json: Path, out_dir: Path, project_dir: Path | None = None) 
         # Files whose source name ends in `.jinja` get content rendered through Jinja.
         # Everything else is copied verbatim so JSX `{{ }}` etc. survive.
         if is_jinja:
-            rendered = env.get_template(rel).render(**vars)
+            rendered = env.get_template(rel).render(**template_vars)
             target.write_text(rendered)
         else:
             shutil.copyfile(src, target)

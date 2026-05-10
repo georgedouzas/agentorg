@@ -99,9 +99,10 @@ recursive = true
 close-quotes-on-newline = true
 wrap-descriptions = 120
 wrap-summaries = 120
+exclude = ["tests/fixtures"]
 
 [tool.ruff]
-extend-exclude = ["docs/generated"]
+extend-exclude = ["docs/generated", "tests/fixtures"]
 force-exclude = true
 line-length = 120
 target-version = "py311"
