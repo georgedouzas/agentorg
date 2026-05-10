@@ -155,60 +155,6 @@ def tests(session: nox.Session) -> None:
 
 
 @nox.session
-def fixture_env(session: nox.Session) -> None:
-    """Render a fixture's .env from the central tests/fixtures/.env.
-
-    Reads keys from tests/fixtures/<fixture>/output/example.env, fills values from
-    tests/fixtures/.env, and writes tests/fixtures/<fixture>/output/.env. Pass `all`
-    or no argument to render every fixture.
-
-    Arguments:
-        session: The nox session.
-    """
-    fixtures_root = Path(__file__).parent / 'tests' / 'fixtures'
-    available = sorted(p.name for p in fixtures_root.iterdir() if p.is_dir())
-    target = session.posargs[0] if session.posargs else 'all'
-    targets = available if target == 'all' else [target]
-    if target != 'all' and target not in available:
-        session.error(f'Unknown fixture {target!r}. Available: {", ".join(available)}.')
-
-    central = fixtures_root / '.env'
-    if not central.exists():
-        session.error(f'Missing {central}. Create it with your secrets first.')
-    central_values: dict[str, str] = {}
-    for line in central.read_text().splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith('#') or '=' not in stripped:
-            continue
-        key, _, value = stripped.partition('=')
-        central_values[key.strip()] = value.strip()
-
-    for name in targets:
-        example = fixtures_root / name / 'output' / 'example.env'
-        if not example.exists():
-            session.warn(f'Skipping {name!r}: {example} not found.')
-            continue
-        out_lines: list[str] = []
-        missing: list[str] = []
-        for line in example.read_text().splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith('#') or '=' not in stripped:
-                out_lines.append(line)
-                continue
-            key, _, default = stripped.partition('=')
-            key = key.strip()
-            value = central_values.get(key, default.strip())
-            if key not in central_values and not default.strip():
-                missing.append(key)
-            out_lines.append(f'{key}={value}')
-        target_path = fixtures_root / name / 'output' / '.env'
-        target_path.write_text('\n'.join(out_lines) + '\n')
-        session.log(f'Wrote {target_path}')
-        if missing:
-            session.warn(f'  Unset in central .env: {", ".join(missing)}')
-
-
-@nox.session
 def changelog(session: nox.Session) -> None:
     """Build the changelog.
 

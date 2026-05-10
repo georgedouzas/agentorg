@@ -15,14 +15,14 @@ cp tests/fixtures/investment-team/output/example.env tests/fixtures/.env
 $EDITOR tests/fixtures/.env
 
 # Each time you want to (re)render a fixture's .env
-nox -s fixture_env -- investment-team   # or `eng-team`, or `all`
+python tests/fixtures/render_env.py investment-team   # or `eng-team`; omit for all
 
 # Then run it
 cd tests/fixtures/investment-team/output && docker compose up -d --build
 ```
 
-The central `tests/fixtures/.env` is the union of every fixture's keys. `fixture_env`
-takes the keys listed in each fixture's `output/example.env` and fills values from
-the central file; missing keys log a warning but the file still renders.
+The central `tests/fixtures/.env` is the union of every fixture's keys. The
+`render_env.py` script reads keys from each fixture's `output/example.env` and fills
+values from the central file; missing keys log a warning but the file still renders.
 
 Both `tests/fixtures/.env` and `tests/fixtures/*/output/.env` are gitignored.
