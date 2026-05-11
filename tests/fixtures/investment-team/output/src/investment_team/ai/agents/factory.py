@@ -1,9 +1,16 @@
 """Agent factory — builds every agent declaratively from config.yaml.
 
 This is the `default` agent architecture: a single `agno.Agent` per
-spec entry, with instructions composed from structured fields, tools resolved through
-the binding registry, and shared knowledge + (optional) learning wired in.
+spec entry, with instructions composed from structured fields, tools resolved by
+import path, and shared knowledge + (optional) learning wired in.
+
+Tool import paths use the form ``tools.<module>.<symbol>`` and resolve to
+``investment_team.ai.tools.<module>.<symbol>`` at runtime. Use full dotted
+paths for external libraries (e.g. ``agno.tools.yfinance.YFinanceTools``).
 """
+
+import importlib
+from collections.abc import Callable
 
 from agno.agent import Agent
 from agno.learn import LearnedKnowledgeConfig, LearningMachine, LearningMode
@@ -12,11 +19,23 @@ from agno.models.google import Gemini
 from investment_team.ai.agents.settings import (
     AGENT_CONFIGS,
     get_instructions,
-    get_tools,
     team_knowledge,
     team_learnings,
 )
 from investment_team.db import get_postgres_db
+
+_TOOL_PREFIX = "tools."
+_PACKAGE_TOOL_ROOT = "investment_team.ai.tools."
+
+
+def _resolve_tool(import_path: str) -> Callable:
+    """Import ``import_path`` and return the callable. ``tools.`` prefix maps to the org package."""
+    if import_path.startswith(_TOOL_PREFIX):
+        import_path = _PACKAGE_TOOL_ROOT + import_path[len(_TOOL_PREFIX):]
+    module_path, _, symbol = import_path.rpartition(".")
+    obj = getattr(importlib.import_module(module_path), symbol)
+    # Class? Instantiate with no args (agno tool classes follow this convention).
+    return obj() if isinstance(obj, type) else obj
 
 
 def _build_learning(cfg: dict) -> LearningMachine | None:
@@ -33,13 +52,14 @@ def build_agents() -> dict[str, Agent]:
     db = get_postgres_db()
     agents: dict[str, Agent] = {}
     for agent_id, cfg in AGENT_CONFIGS.items():
+        tools = [_resolve_tool(p) for p in cfg.get("tools", [])]
         agents[agent_id] = Agent(
             id=agent_id,
             name=cfg.get("name", agent_id),
             model=Gemini(id=cfg.get("model", "gemini-3-flash-preview")),
             db=db,
             instructions=get_instructions(agent_id),
-            tools=get_tools(agent_id),
+            tools=tools,
             knowledge=team_knowledge,
             search_knowledge=True,
             learning=_build_learning(cfg),

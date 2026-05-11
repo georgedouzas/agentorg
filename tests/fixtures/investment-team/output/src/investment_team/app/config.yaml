@@ -25,7 +25,7 @@ agents:
     output_format: {"columns": ["#", "Ticker", "Company", "Sector", "Thesis", "Price", "Market Cap"], "kind": "markdown_table", "trailer": "Then a brief paragraph on the macro theme driving this batch."}
     count_rule: {"default": 5, "rules": [{"count": 1, "phrase": "the best / your top pick / one stock"}, {"count": "N", "phrase": "top N / N stocks / best N"}, {"count": 5, "phrase": "(no number, no singular)"}]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}]
+    tools: ["tools.reports.write_agent_report"]
   research-analyst:
     name: "Research Analyst"
     model: "gemini-3-flash-preview"
@@ -36,7 +36,7 @@ agents:
     workflow: ["Search existing research to avoid duplication.", "Use Exa for current company/sector news, filings, analyst notes.", "Use YFinance for fundamentals snapshot.", "Synthesize into a structured profile or sector essay.", "Auto-save with `write_research_doc`."]
     output_format: {"kind": "structured_markdown", "sections": ["Overview", "Business Model", "Competitive Position", "Growth Drivers", "Risks", "Bottom Line"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_research_doc"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "research"}, "name": "write_research_doc"}, {"binding": "read_knowledge", "fixed_args": {"type": "research"}, "name": "read_research_doc"}, {"binding": "list_knowledge", "fixed_args": {"type": "research"}, "name": "list_research_docs"}, {"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}]
+    tools: ["tools.research.write_research_doc", "tools.research.read_research_doc", "tools.research.list_research_docs", "tools.reports.write_agent_report"]
   market-analyst:
     name: "Market Analyst"
     model: "gemini-3-flash-preview"
@@ -47,7 +47,7 @@ agents:
     workflow: ["Search learnings for relevant macro patterns.", "Use Exa for current macro news, Fed statements, sector flows.", "Use YFinance for index/sector ETF data.", "Identify the dominant theme and quantify its strength.", "Auto-save with `write_agent_report`."]
     output_format: {"kind": "narrative_with_callouts", "sections": ["Theme", "Evidence", "Sector Implications", "Risks"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}, {"binding": "list_providers", "fixed_args": {}, "name": "list_providers"}]
+    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers"]
   financial-analyst:
     name: "Financial Analyst"
     model: "gemini-3-flash-preview"
@@ -58,7 +58,7 @@ agents:
     workflow: ["Search learnings for relevant fundamentals patterns.", "Use YFinance for income, balance sheet, key ratios, analyst views.", "Compare to sector peers.", "Provide a fundamentals rating (Strong / Moderate / Weak).", "Auto-save with `write_agent_report`."]
     output_format: {"kind": "narrative_with_rating", "sections": ["Financial Health", "Valuation", "Comparison to Peers", "Rating"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}, {"binding": "list_providers", "fixed_args": {}, "name": "list_providers"}]
+    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers"]
   technical-analyst:
     name: "Technical Analyst"
     model: "gemini-3-flash-preview"
@@ -69,7 +69,7 @@ agents:
     workflow: ["Search learnings for relevant technical patterns.", "Use YFinance for price/volume history.", "Identify support/resistance and trend.", "Provide a technical signal (Bullish / Neutral / Bearish).", "Auto-save with `write_agent_report`.", "Optionally pin a live price chart to the Overview via `write_agent_report` with `display.featured=true` and a `provider` recipe."]
     output_format: {"kind": "narrative_with_signal", "sections": ["Trend", "Momentum", "Support/Resistance", "Signal"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}, {"binding": "list_providers", "fixed_args": {}, "name": "list_providers"}, {"binding": "list_knowledge", "fixed_args": {"type": "report"}, "name": "list_my_reports"}, {"binding": "delete_knowledge", "fixed_args": {"type": "report"}, "name": "delete_my_report"}]
+    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers", "tools.reports.list_agent_reports", "tools.reports.delete_my_report"]
   risk-officer:
     name: "Risk Officer"
     model: "gemini-3-flash-preview"
@@ -80,7 +80,7 @@ agents:
     workflow: ["Search learnings for relevant risk patterns.", "Use YFinance for beta, volatility, drawdown history.", "Apply fund mandate limits (max single position, sector caps, drawdown).", "Recommend a position size and risk tier.", "Auto-save with `write_agent_report`."]
     output_format: {"kind": "narrative_with_sizing", "sections": ["Risk Profile", "Recommended Sizing", "Mandate Compliance", "Stress Scenarios"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}, {"binding": "list_providers", "fixed_args": {}, "name": "list_providers"}]
+    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers"]
   knowledge-agent:
     name: "Knowledge Agent"
     model: "gemini-3-flash-preview"
@@ -89,7 +89,7 @@ agents:
     in_scope: ["Searching the team\u0027s research library and past memos", "Synthesizing multi-agent reports for a single topic", "Pointing the user to the most relevant existing material"]
     out_of_scope: [{"refer_to": "the appropriate specialist analyst", "topic": "Doing fresh analysis"}, {"refer_to": "Committee Chair", "topic": "Final investment decisions"}]
     workflow: ["Use `list_research_docs`, `read_research_doc` for the research library.", "Use `list_memos`, `read_memo`, `search_memos` for past memos.", "Use `list_agent_reports`, `read_agent_report` for analyst reports.", "Synthesize a concise answer with citations to source documents."]
-    tools: [{"binding": "list_knowledge", "fixed_args": {"type": "research"}, "name": "list_research_docs"}, {"binding": "read_knowledge", "fixed_args": {"type": "research"}, "name": "read_research_doc"}, {"binding": "write_knowledge", "fixed_args": {"type": "research"}, "name": "write_research_doc"}, {"binding": "list_knowledge", "fixed_args": {"type": "memo"}, "name": "list_memos"}, {"binding": "read_knowledge", "fixed_args": {"type": "memo"}, "name": "read_memo"}, {"binding": "search_knowledge", "fixed_args": {"types": ["memo"]}, "name": "search_memos"}, {"binding": "list_knowledge", "fixed_args": {"type": "report"}, "name": "list_agent_reports"}, {"binding": "read_knowledge", "fixed_args": {"type": "report"}, "name": "read_agent_report"}]
+    tools: ["tools.research.list_research_docs", "tools.research.read_research_doc", "tools.research.write_research_doc", "tools.memos.list_memos", "tools.memos.read_memo", "tools.memos.search_memos", "tools.reports.list_agent_reports", "tools.reports.read_agent_report"]
   memo-writer:
     name: "Memo Writer"
     model: "gemini-3-flash-preview"
@@ -99,7 +99,7 @@ agents:
     out_of_scope: [{"refer_to": "the relevant analyst agents", "topic": "Producing the underlying analysis"}, {"refer_to": "Committee Chair", "topic": "Approving the memo"}]
     workflow: ["List the analyst reports for the ticker via `list_agent_reports`.", "Read each report and the most recent prior memo on the topic.", "Synthesize a decision memo with thesis, evidence, risks, sizing, recommendation.", "Auto-save with `write_memo`."]
     output_format: {"kind": "memo", "sections": ["Thesis", "Evidence", "Risks", "Sizing", "Recommendation"]}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "memo"}, "name": "write_memo"}, {"binding": "read_knowledge", "fixed_args": {"type": "memo"}, "name": "read_memo"}, {"binding": "list_knowledge", "fixed_args": {"type": "memo"}, "name": "list_memos"}]
+    tools: ["tools.memos.write_memo", "tools.memos.read_memo", "tools.memos.list_memos"]
   committee-chair:
     name: "Committee Chair"
     model: "gemini-3.1-pro-preview"
@@ -109,7 +109,7 @@ agents:
     out_of_scope: [{"refer_to": "the relevant analyst agents", "topic": "Producing analysis"}]
     workflow: ["Pull all reports for the ticker via `list_agent_reports` + `read_agent_report`.", "Pull the latest memo via `read_memo`.", "Apply mandate constraints and conviction.", "Issue a decision: BUY / HOLD / PASS with allocation rationale."]
     output_format: {"kind": "decision_memo", "sections": ["Decision", "Conviction", "Allocation", "Rationale"]}
-    tools: [{"binding": "list_knowledge", "fixed_args": {"type": "report"}, "name": "list_agent_reports"}, {"binding": "read_knowledge", "fixed_args": {"type": "report"}, "name": "read_agent_report"}, {"binding": "list_knowledge", "fixed_args": {"type": "research"}, "name": "list_research_docs"}, {"binding": "read_knowledge", "fixed_args": {"type": "research"}, "name": "read_research_doc"}, {"binding": "list_knowledge", "fixed_args": {"type": "memo"}, "name": "list_memos"}, {"binding": "read_knowledge", "fixed_args": {"type": "memo"}, "name": "read_memo"}]
+    tools: ["tools.reports.list_agent_reports", "tools.reports.read_agent_report", "tools.research.list_research_docs", "tools.research.read_research_doc", "tools.memos.list_memos", "tools.memos.read_memo"]
   portfolio-agent:
     name: "Portfolio Agent"
     model: "gemini-3-flash-preview"
@@ -118,7 +118,7 @@ agents:
     in_scope: ["Reading current positions", "Updating positions after a Committee decision", "Computing performance and exposure summaries"]
     out_of_scope: [{"refer_to": "Committee Chair", "topic": "Investment decisions"}, {"refer_to": "Risk Officer", "topic": "Risk sizing recommendations"}]
     workflow: ["Use `get_portfolio_state` for current holdings.", "Use `update_portfolio` after Committee decisions.", "Pull live prices via YFinance.", "Report performance, exposure, and cash position."]
-    tools: [{"binding": "get_state", "fixed_args": {}, "name": "get_portfolio_state"}, {"binding": "update_state", "fixed_args": {}, "name": "update_portfolio"}]
+    tools: ["tools.state.get_state", "tools.state.update_state"]
   platform-engineer:
     name: "Platform Engineer"
     model: "gemini-3-flash-preview"
@@ -127,7 +127,7 @@ agents:
     in_scope: ["Walking the user through pending setup steps", "Reading platform reference docs (Railway, Vercel, GitHub, Clerk)", "Researching infra alternatives via web search"]
     out_of_scope: [{"refer_to": "the relevant analyst agents", "topic": "Investment topics"}]
     workflow: ["Call `get_setup_status` to see what\u0027s pending. Mention blocked items first.", "For each pending step, read the relevant platform doc and explain what to do.", "If asked about a platform without docs, web-search and summarize trade-offs.", "Be concise and action-oriented — exact commands, exact env-var names."]
-    tools: [{"binding": "get_setup_status", "fixed_args": {}, "name": "get_setup_status"}, {"binding": "list_knowledge", "fixed_args": {"type": "platform_reference"}, "name": "list_platform_docs"}, {"binding": "read_knowledge", "fixed_args": {"type": "platform_reference"}, "name": "read_platform_doc"}, {"binding": "search_knowledge", "fixed_args": {"types": ["platform_reference"]}, "name": "search_platform_docs"}, {"binding": "list_providers", "fixed_args": {}, "name": "list_providers"}]
+    tools: ["tools.setup.get_setup_status", "tools.platform.list_platform_docs", "tools.platform.read_platform_doc", "tools.platform.search_platform_docs", "tools.providers.list_providers"]
   policy-officer:
     name: "Policy Officer"
     model: "gemini-3-flash-preview"
@@ -136,7 +136,7 @@ agents:
     in_scope: ["Reading current org policy documents", "Drafting policy amendments", "Answering \u0027is X allowed?\u0027 questions"]
     out_of_scope: [{"refer_to": "the relevant analyst agents", "topic": "Investment recommendations"}]
     workflow: ["Use `list_policies`, `read_policy`, `search_policies` to find the relevant section.", "Quote the relevant rule when answering policy questions.", "Use `write_policy` only when amending policies (with explicit user approval)."]
-    tools: [{"binding": "list_knowledge", "fixed_args": {"type": "policy"}, "name": "list_policies"}, {"binding": "read_knowledge", "fixed_args": {"type": "policy"}, "name": "read_policy"}, {"binding": "search_knowledge", "fixed_args": {"types": ["policy"]}, "name": "search_policies"}, {"binding": "write_knowledge", "fixed_args": {"type": "policy"}, "name": "write_policy"}]
+    tools: ["tools.policies.list_policies", "tools.policies.read_policy", "tools.policies.search_policies", "tools.policies.write_policy"]
 teams: []
 
 workflows: [{"description": "Deterministic pipeline: screen → research → analyse (parallel) → memo → decide → allocate", "id": "investment-workflow", "name": "Investment Pipeline", "steps": [{"agent": "stock-screener", "hitl": {"message": "Review the candidate shortlist above. Approve to proceed with all candidates, or reject to stop.", "on_reject": "cancel", "type": "output_review"}, "name": "Screen Stocks"}, {"agent": "stock-screener", "hitl": {"message": "Which tickers should be analyzed? Enter comma-separated symbols (e.g. NVDA, MSFT):", "schema": [{"description": "Comma-separated ticker symbols to analyze", "field_type": "str", "name": "tickers", "required": true}], "type": "user_input"}, "name": "Select Tickers"}, {"agent": "research-analyst", "name": "Bootstrap Research"}, {"name": "Full Analysis", "parallel": [{"agent": "market-analyst", "name": "Market Assessment"}, {"agent": "financial-analyst", "name": "Fundamental Analysis"}, {"agent": "technical-analyst", "name": "Technical Analysis"}, {"agent": "risk-officer", "name": "Risk Assessment"}]}, {"agent": "memo-writer", "hitl": {"message": "Review the investment memos above. Approve to proceed to committee decision, or reject to cancel.", "on_reject": "cancel", "type": "output_review"}, "name": "Write Memos"}, {"agent": "committee-chair", "hitl": {"message": "Proceed to final committee vote and capital allocation?", "on_reject": "cancel", "type": "confirmation"}, "name": "Committee Decision"}, {"agent": "portfolio-agent", "name": "Portfolio Update"}]}]

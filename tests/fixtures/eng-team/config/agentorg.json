@@ -28,13 +28,7 @@
         "model": "gemini-3-flash-preview",
         "role": "Translate goals into a prioritized roadmap and unambiguous specs the team can build.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.reports.write_agent_report"
         ],
         "learning": false,
         "in_scope": [
@@ -84,44 +78,20 @@
         ],
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug — no count, no date",
-          "title_pattern": "Title Case with spaces — no count, no date"
+          "name_pattern": "snake_case slug \u2014 no count, no date",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date"
         }
       },
       {
         "id": "architect",
         "name": "Architect",
         "model": "gemini-3-flash-preview",
-        "role": "Decide how a feature should be built — interfaces, modules, data flow — and record the rationale.",
+        "role": "Decide how a feature should be built \u2014 interfaces, modules, data flow \u2014 and record the rationale.",
         "tools": [
-          {
-            "name": "write_research_doc",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "read_research_doc",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "list_research_docs",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.research.write_research_doc",
+          "tools.research.read_research_doc",
+          "tools.research.list_research_docs",
+          "tools.reports.write_agent_report"
         ],
         "learning": true,
         "in_scope": [
@@ -172,8 +142,8 @@
         ],
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug — no count, no date",
-          "title_pattern": "Title Case with spaces — no count, no date"
+          "name_pattern": "snake_case slug \u2014 no count, no date",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date"
         }
       },
       {
@@ -182,13 +152,7 @@
         "model": "gemini-3-flash-preview",
         "role": "Turn specs into shipping backend code.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.reports.write_agent_report"
         ],
         "learning": true,
         "in_scope": [
@@ -239,8 +203,8 @@
         ],
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug — no count, no date",
-          "title_pattern": "Title Case with spaces — no count, no date"
+          "name_pattern": "snake_case slug \u2014 no count, no date",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date"
         }
       },
       {
@@ -249,13 +213,7 @@
         "model": "gemini-3-flash-preview",
         "role": "Turn UI specs into accessible, polished frontend code.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.reports.write_agent_report"
         ],
         "learning": true,
         "in_scope": [
@@ -306,8 +264,8 @@
         ],
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug — no count, no date",
-          "title_pattern": "Title Case with spaces — no count, no date"
+          "name_pattern": "snake_case slug \u2014 no count, no date",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date"
         }
       },
       {
@@ -316,13 +274,7 @@
         "model": "gemini-3-flash-preview",
         "role": "Verify shipped code with automated tests.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.reports.write_agent_report"
         ],
         "learning": true,
         "in_scope": [
@@ -373,8 +325,8 @@
         ],
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug — no count, no date",
-          "title_pattern": "Title Case with spaces — no count, no date"
+          "name_pattern": "snake_case slug \u2014 no count, no date",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date"
         }
       },
       {
@@ -383,34 +335,10 @@
         "model": "gemini-3.1-pro-preview",
         "role": "Approve major decisions and ship-blocking PRs.",
         "tools": [
-          {
-            "name": "list_agent_reports",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "read_agent_report",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "list_research_docs",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "read_research_doc",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          }
+          "tools.reports.list_agent_reports",
+          "tools.reports.read_agent_report",
+          "tools.research.list_research_docs",
+          "tools.research.read_research_doc"
         ],
         "learning": false,
         "in_scope": [
@@ -435,34 +363,10 @@
         "model": "gemini-3-flash-preview",
         "role": "Help the user complete setup, manage deployments, and answer infra questions.",
         "tools": [
-          {
-            "name": "get_setup_status",
-            "binding": "get_setup_status",
-            "fixed_args": {}
-          },
-          {
-            "name": "list_platform_docs",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "platform_reference"
-            }
-          },
-          {
-            "name": "read_platform_doc",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "platform_reference"
-            }
-          },
-          {
-            "name": "search_platform_docs",
-            "binding": "search_knowledge",
-            "fixed_args": {
-              "types": [
-                "platform_reference"
-              ]
-            }
-          }
+          "tools.setup.get_setup_status",
+          "tools.platform.list_platform_docs",
+          "tools.platform.read_platform_doc",
+          "tools.platform.search_platform_docs"
         ],
         "learning": false,
         "in_scope": [
@@ -487,36 +391,10 @@
         "model": "gemini-3-flash-preview",
         "role": "Maintain the engineering charter and answer policy questions.",
         "tools": [
-          {
-            "name": "list_policies",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "policy"
-            }
-          },
-          {
-            "name": "read_policy",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "policy"
-            }
-          },
-          {
-            "name": "search_policies",
-            "binding": "search_knowledge",
-            "fixed_args": {
-              "types": [
-                "policy"
-              ]
-            }
-          },
-          {
-            "name": "write_policy",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "policy"
-            }
-          }
+          "tools.policies.list_policies",
+          "tools.policies.read_policy",
+          "tools.policies.search_policies",
+          "tools.policies.write_policy"
         ],
         "learning": false,
         "in_scope": [
@@ -540,23 +418,28 @@
       {
         "id": "build-team",
         "name": "Build Team",
-        "description": "The hands-on implementation squad — translates a design into working code across backend and frontend, with the tech lead steering scope and trade-offs.",
+        "description": "The hands-on implementation squad \u2014 translates a design into working code across backend and frontend, with the tech lead steering scope and trade-offs.",
         "leader": "tech-lead",
-        "members": ["backend-engineer", "frontend-engineer"]
+        "members": [
+          "backend-engineer",
+          "frontend-engineer"
+        ]
       },
       {
         "id": "ship-team",
         "name": "Ship Team",
         "description": "Owns everything past code-complete: verification, release-readiness, and rollout. The QA engineer steers; the platform engineer handles deployment mechanics.",
         "leader": "qa-engineer",
-        "members": ["platform-engineer"]
+        "members": [
+          "platform-engineer"
+        ]
       }
     ],
     "workflows": [
       {
         "id": "engineering-workflow",
         "name": "Engineering Pipeline",
-        "description": "Deterministic pipeline: plan → design → implement (parallel) → test → ship",
+        "description": "Deterministic pipeline: plan \u2192 design \u2192 implement (parallel) \u2192 test \u2192 ship",
         "steps": [
           {
             "name": "Plan",
@@ -708,23 +591,23 @@
     "ui": {
       "app": {
         "name": "Engineering Team",
-        "icon": "🛠️",
+        "icon": "\ud83d\udee0\ufe0f",
         "description": "Multi-agent software engineering team that plans, builds, reviews, and ships code"
       },
       "agent_icons": {
-        "product-manager": "📋",
-        "architect": "🏛️",
-        "backend-engineer": "⚙️",
-        "frontend-engineer": "🎨",
-        "qa-engineer": "🧪",
-        "tech-lead": "👨‍💻",
-        "engineering-workflow": "🔄",
-        "platform-engineer": "🛠️",
-        "policy-officer": "📜"
+        "product-manager": "\ud83d\udccb",
+        "architect": "\ud83c\udfdb\ufe0f",
+        "backend-engineer": "\u2699\ufe0f",
+        "frontend-engineer": "\ud83c\udfa8",
+        "qa-engineer": "\ud83e\uddea",
+        "tech-lead": "\ud83d\udc68\u200d\ud83d\udcbb",
+        "engineering-workflow": "\ud83d\udd04",
+        "platform-engineer": "\ud83d\udee0\ufe0f",
+        "policy-officer": "\ud83d\udcdc"
       },
       "featured_agents": [],
       "empty_state": {
-        "icon": "🚀",
+        "icon": "\ud83d\ude80",
         "title": "No active project",
         "body": "Chat with the **Product Manager** to break down requirements, or with the **Tech Lead** to start a code review."
       },
@@ -864,7 +747,7 @@
         {
           "id": "process",
           "title": "Process",
-          "body": "## Pipeline\n1. Plan → Design → Implement → Test → Ship\n2. All work routed through the engineering workflow"
+          "body": "## Pipeline\n1. Plan \u2192 Design \u2192 Implement \u2192 Test \u2192 Ship\n2. All work routed through the engineering workflow"
         }
       ],
       "parameters": [
@@ -937,7 +820,7 @@
     }
   },
   "infra": {
-    "note": "Fixed template infrastructure managed by agentorg — not org-specific.",
+    "note": "Fixed template infrastructure managed by agentorg \u2014 not org-specific.",
     "fixed": [
       "db/",
       "app/main.py",

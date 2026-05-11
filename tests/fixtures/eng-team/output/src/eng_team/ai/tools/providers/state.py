@@ -4,8 +4,9 @@ from typing import Any
 
 from sqlalchemy import text
 
-from {{ org.package_name }}.ai.tools.providers import provider
-from {{ org.package_name }}.db import get_engine
+from ....db import get_engine
+
+from . import provider
 
 
 @provider("state.field", args={"name": str, "user_id": str})

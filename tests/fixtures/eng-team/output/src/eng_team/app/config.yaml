@@ -23,7 +23,7 @@ agents:
     out_of_scope: [{"refer_to": "Product Manager", "topic": "Product strategy / roadmap"}, {"refer_to": "Architect", "topic": "Architecture / system design"}, {"refer_to": "Backend Engineer", "topic": "Backend implementation"}, {"refer_to": "Frontend Engineer", "topic": "Frontend implementation"}, {"refer_to": "QA Engineer", "topic": "QA / testing"}, {"refer_to": "Tech Lead", "topic": "Final approval / sign-off"}, {"refer_to": "Platform Engineer", "topic": "Infra / deployments"}, {"refer_to": "Policy Officer", "topic": "Eng policies"}]
     workflow: ["Restate the user\u0027s goal in concrete acceptance criteria.", "Break it into PR-sized stories.", "Auto-save with `write_agent_report`."]
     save_rule: {"name_pattern": "snake_case slug — no count, no date", "title_pattern": "Title Case with spaces — no count, no date", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}]
+    tools: ["tools.reports.write_agent_report"]
   architect:
     name: "Architect"
     model: "gemini-3-flash-preview"
@@ -33,7 +33,7 @@ agents:
     out_of_scope: [{"refer_to": "Product Manager", "topic": "Product strategy / roadmap"}, {"refer_to": "Architect", "topic": "Architecture / system design"}, {"refer_to": "Backend Engineer", "topic": "Backend implementation"}, {"refer_to": "Frontend Engineer", "topic": "Frontend implementation"}, {"refer_to": "QA Engineer", "topic": "QA / testing"}, {"refer_to": "Tech Lead", "topic": "Final approval / sign-off"}, {"refer_to": "Platform Engineer", "topic": "Infra / deployments"}, {"refer_to": "Policy Officer", "topic": "Eng policies"}]
     workflow: ["Restate the constraints (perf, scale, integrations).", "Sketch 2-3 design options with trade-offs.", "Recommend one and capture the ADR.", "Auto-save with `write_agent_report`."]
     save_rule: {"name_pattern": "snake_case slug — no count, no date", "title_pattern": "Title Case with spaces — no count, no date", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "research"}, "name": "write_research_doc"}, {"binding": "read_knowledge", "fixed_args": {"type": "research"}, "name": "read_research_doc"}, {"binding": "list_knowledge", "fixed_args": {"type": "research"}, "name": "list_research_docs"}, {"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}]
+    tools: ["tools.research.write_research_doc", "tools.research.read_research_doc", "tools.research.list_research_docs", "tools.reports.write_agent_report"]
   backend-engineer:
     name: "Backend Engineer"
     model: "gemini-3-flash-preview"
@@ -43,7 +43,7 @@ agents:
     out_of_scope: [{"refer_to": "Product Manager", "topic": "Product strategy / roadmap"}, {"refer_to": "Architect", "topic": "Architecture / system design"}, {"refer_to": "Backend Engineer", "topic": "Backend implementation"}, {"refer_to": "Frontend Engineer", "topic": "Frontend implementation"}, {"refer_to": "QA Engineer", "topic": "QA / testing"}, {"refer_to": "Tech Lead", "topic": "Final approval / sign-off"}, {"refer_to": "Platform Engineer", "topic": "Infra / deployments"}, {"refer_to": "Policy Officer", "topic": "Eng policies"}]
     workflow: ["Read the spec/ADR.", "Implement and test locally.", "Open a PR with summary.", "Auto-save with `write_agent_report`."]
     save_rule: {"name_pattern": "snake_case slug — no count, no date", "title_pattern": "Title Case with spaces — no count, no date", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}]
+    tools: ["tools.reports.write_agent_report"]
   frontend-engineer:
     name: "Frontend Engineer"
     model: "gemini-3-flash-preview"
@@ -53,7 +53,7 @@ agents:
     out_of_scope: [{"refer_to": "Product Manager", "topic": "Product strategy / roadmap"}, {"refer_to": "Architect", "topic": "Architecture / system design"}, {"refer_to": "Backend Engineer", "topic": "Backend implementation"}, {"refer_to": "Frontend Engineer", "topic": "Frontend implementation"}, {"refer_to": "QA Engineer", "topic": "QA / testing"}, {"refer_to": "Tech Lead", "topic": "Final approval / sign-off"}, {"refer_to": "Platform Engineer", "topic": "Infra / deployments"}, {"refer_to": "Policy Officer", "topic": "Eng policies"}]
     workflow: ["Read the spec/mockup.", "Implement components.", "Test on common screen sizes.", "Auto-save with `write_agent_report`."]
     save_rule: {"name_pattern": "snake_case slug — no count, no date", "title_pattern": "Title Case with spaces — no count, no date", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}]
+    tools: ["tools.reports.write_agent_report"]
   qa-engineer:
     name: "QA Engineer"
     model: "gemini-3-flash-preview"
@@ -63,7 +63,7 @@ agents:
     out_of_scope: [{"refer_to": "Product Manager", "topic": "Product strategy / roadmap"}, {"refer_to": "Architect", "topic": "Architecture / system design"}, {"refer_to": "Backend Engineer", "topic": "Backend implementation"}, {"refer_to": "Frontend Engineer", "topic": "Frontend implementation"}, {"refer_to": "QA Engineer", "topic": "QA / testing"}, {"refer_to": "Tech Lead", "topic": "Final approval / sign-off"}, {"refer_to": "Platform Engineer", "topic": "Infra / deployments"}, {"refer_to": "Policy Officer", "topic": "Eng policies"}]
     workflow: ["Read the change set.", "Identify regression risk.", "Add or update tests.", "Auto-save with `write_agent_report`."]
     save_rule: {"name_pattern": "snake_case slug — no count, no date", "title_pattern": "Title Case with spaces — no count, no date", "tool": "write_agent_report"}
-    tools: [{"binding": "write_knowledge", "fixed_args": {"type": "report"}, "name": "write_agent_report"}]
+    tools: ["tools.reports.write_agent_report"]
   tech-lead:
     name: "Tech Lead"
     model: "gemini-3.1-pro-preview"
@@ -72,7 +72,7 @@ agents:
     in_scope: ["Code review", "Architecture sign-off", "Cross-team trade-offs"]
     out_of_scope: [{"refer_to": "the relevant engineer", "topic": "Detailed implementation"}]
     workflow: ["Read the proposal/PR.", "Decide approve / reject / request-changes with rationale."]
-    tools: [{"binding": "list_knowledge", "fixed_args": {"type": "report"}, "name": "list_agent_reports"}, {"binding": "read_knowledge", "fixed_args": {"type": "report"}, "name": "read_agent_report"}, {"binding": "list_knowledge", "fixed_args": {"type": "research"}, "name": "list_research_docs"}, {"binding": "read_knowledge", "fixed_args": {"type": "research"}, "name": "read_research_doc"}]
+    tools: ["tools.reports.list_agent_reports", "tools.reports.read_agent_report", "tools.research.list_research_docs", "tools.research.read_research_doc"]
   platform-engineer:
     name: "Platform Engineer"
     model: "gemini-3-flash-preview"
@@ -81,7 +81,7 @@ agents:
     in_scope: ["Pending setup steps", "Platform reference docs", "Infra alternatives"]
     out_of_scope: [{"refer_to": "the relevant engineer", "topic": "Eng implementation work"}]
     workflow: ["Call `get_setup_status` to see pending steps.", "Read the relevant platform doc and explain what to do."]
-    tools: [{"binding": "get_setup_status", "fixed_args": {}, "name": "get_setup_status"}, {"binding": "list_knowledge", "fixed_args": {"type": "platform_reference"}, "name": "list_platform_docs"}, {"binding": "read_knowledge", "fixed_args": {"type": "platform_reference"}, "name": "read_platform_doc"}, {"binding": "search_knowledge", "fixed_args": {"types": ["platform_reference"]}, "name": "search_platform_docs"}]
+    tools: ["tools.setup.get_setup_status", "tools.platform.list_platform_docs", "tools.platform.read_platform_doc", "tools.platform.search_platform_docs"]
   policy-officer:
     name: "Policy Officer"
     model: "gemini-3-flash-preview"
@@ -90,7 +90,7 @@ agents:
     in_scope: ["Reading policies", "Drafting amendments", "Policy QA"]
     out_of_scope: [{"refer_to": "engineering", "topic": "Implementation work"}]
     workflow: ["Use `list_policies`, `read_policy`, `search_policies`.", "Quote the rule when answering."]
-    tools: [{"binding": "list_knowledge", "fixed_args": {"type": "policy"}, "name": "list_policies"}, {"binding": "read_knowledge", "fixed_args": {"type": "policy"}, "name": "read_policy"}, {"binding": "search_knowledge", "fixed_args": {"types": ["policy"]}, "name": "search_policies"}, {"binding": "write_knowledge", "fixed_args": {"type": "policy"}, "name": "write_policy"}]
+    tools: ["tools.policies.list_policies", "tools.policies.read_policy", "tools.policies.search_policies", "tools.policies.write_policy"]
 teams: [{"description": "The hands-on implementation squad — translates a design into working code across backend and frontend, with the tech lead steering scope and trade-offs.", "id": "build-team", "leader": "tech-lead", "members": ["backend-engineer", "frontend-engineer"], "name": "Build Team"}, {"description": "Owns everything past code-complete: verification, release-readiness, and rollout. The QA engineer steers; the platform engineer handles deployment mechanics.", "id": "ship-team", "leader": "qa-engineer", "members": ["platform-engineer"], "name": "Ship Team"}]
 
 workflows: [{"description": "Deterministic pipeline: plan → design → implement (parallel) → test → ship", "id": "engineering-workflow", "name": "Engineering Pipeline", "steps": [{"agent": "product-manager", "hitl": {"message": "Review the proposed user stories. Approve to proceed to design.", "on_reject": "cancel", "type": "output_review"}, "name": "Plan"}, {"agent": "architect", "name": "Design"}, {"name": "Implement", "parallel": [{"agent": "backend-engineer", "name": "Backend"}, {"agent": "frontend-engineer", "name": "Frontend"}]}, {"agent": "qa-engineer", "hitl": {"message": "Review test results. Approve to proceed to ship.", "on_reject": "cancel", "type": "output_review"}, "name": "Test"}, {"agent": "tech-lead", "name": "Ship"}]}]

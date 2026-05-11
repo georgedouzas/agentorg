@@ -26,15 +26,9 @@
         "id": "stock-screener",
         "name": "Stock Screener",
         "model": "gemini-3-flash-preview",
-        "role": "Generate a shortlist of high-conviction tickers that match the fund mandate — not deep analysis of each.",
+        "role": "Generate a shortlist of high-conviction tickers that match the fund mandate \u2014 not deep analysis of each.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.reports.write_agent_report"
         ],
         "learning": false,
         "in_scope": [
@@ -120,8 +114,8 @@
         },
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)",
-          "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
+          "name_pattern": "snake_case slug for the topic \u2014 no count, no date (e.g. stock_screen, aapl_fundamentals)",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
           "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out."
         }
       },
@@ -129,36 +123,12 @@
         "id": "research-analyst",
         "name": "Research Analyst",
         "model": "gemini-3-flash-preview",
-        "role": "Build the team's long-form research library — company profiles and sector analyses other agents and humans can reference.",
+        "role": "Build the team's long-form research library \u2014 company profiles and sector analyses other agents and humans can reference.",
         "tools": [
-          {
-            "name": "write_research_doc",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "read_research_doc",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "list_research_docs",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.research.write_research_doc",
+          "tools.research.read_research_doc",
+          "tools.research.list_research_docs",
+          "tools.reports.write_agent_report"
         ],
         "learning": false,
         "in_scope": [
@@ -225,8 +195,8 @@
         },
         "save_rule": {
           "tool": "write_research_doc",
-          "name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)",
-          "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
+          "name_pattern": "snake_case slug for the topic \u2014 no count, no date (e.g. stock_screen, aapl_fundamentals)",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
           "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out."
         }
       },
@@ -234,20 +204,10 @@
         "id": "market-analyst",
         "name": "Market Analyst",
         "model": "gemini-3-flash-preview",
-        "role": "Provide the macro context — what the broader market is doing — for individual investment decisions.",
+        "role": "Provide the macro context \u2014 what the broader market is doing \u2014 for individual investment decisions.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "list_providers",
-            "binding": "list_providers",
-            "fixed_args": {}
-          }
+          "tools.reports.write_agent_report",
+          "tools.providers.list_providers"
         ],
         "learning": true,
         "in_scope": [
@@ -312,8 +272,8 @@
         },
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)",
-          "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
+          "name_pattern": "snake_case slug for the topic \u2014 no count, no date (e.g. stock_screen, aapl_fundamentals)",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
           "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out."
         }
       },
@@ -323,18 +283,8 @@
         "model": "gemini-3-flash-preview",
         "role": "Determine whether a stock is fundamentally sound and reasonably valued.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "list_providers",
-            "binding": "list_providers",
-            "fixed_args": {}
-          }
+          "tools.reports.write_agent_report",
+          "tools.providers.list_providers"
         ],
         "learning": true,
         "in_scope": [
@@ -399,8 +349,8 @@
         },
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)",
-          "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
+          "name_pattern": "snake_case slug for the topic \u2014 no count, no date (e.g. stock_screen, aapl_fundamentals)",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
           "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out."
         }
       },
@@ -410,32 +360,10 @@
         "model": "gemini-3-flash-preview",
         "role": "Determine optimal entry and exit points using price-action and momentum.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "list_providers",
-            "binding": "list_providers",
-            "fixed_args": {}
-          },
-          {
-            "name": "list_my_reports",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "delete_my_report",
-            "binding": "delete_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.reports.write_agent_report",
+          "tools.providers.list_providers",
+          "tools.reports.list_agent_reports",
+          "tools.reports.delete_my_report"
         ],
         "learning": true,
         "in_scope": [
@@ -502,8 +430,8 @@
         },
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)",
-          "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
+          "name_pattern": "snake_case slug for the topic \u2014 no count, no date (e.g. stock_screen, aapl_fundamentals)",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
           "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out."
         }
       },
@@ -513,18 +441,8 @@
         "model": "gemini-3-flash-preview",
         "role": "Quantify downside and recommend position sizing within mandate limits.",
         "tools": [
-          {
-            "name": "write_agent_report",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "list_providers",
-            "binding": "list_providers",
-            "fixed_args": {}
-          }
+          "tools.reports.write_agent_report",
+          "tools.providers.list_providers"
         ],
         "learning": true,
         "in_scope": [
@@ -589,8 +507,8 @@
         },
         "save_rule": {
           "tool": "write_agent_report",
-          "name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)",
-          "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
+          "name_pattern": "snake_case slug for the topic \u2014 no count, no date (e.g. stock_screen, aapl_fundamentals)",
+          "title_pattern": "Title Case with spaces \u2014 no count, no date (e.g. Stock Screen, AAPL Fundamentals)",
           "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out."
         }
       },
@@ -598,66 +516,16 @@
         "id": "knowledge-agent",
         "name": "Knowledge Agent",
         "model": "gemini-3-flash-preview",
-        "role": "Be the team's librarian — answer 'what do we know about X?' by searching memos, reports, and the research library.",
+        "role": "Be the team's librarian \u2014 answer 'what do we know about X?' by searching memos, reports, and the research library.",
         "tools": [
-          {
-            "name": "list_research_docs",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "read_research_doc",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "write_research_doc",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "list_memos",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "memo"
-            }
-          },
-          {
-            "name": "read_memo",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "memo"
-            }
-          },
-          {
-            "name": "search_memos",
-            "binding": "search_knowledge",
-            "fixed_args": {
-              "types": [
-                "memo"
-              ]
-            }
-          },
-          {
-            "name": "list_agent_reports",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "read_agent_report",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          }
+          "tools.research.list_research_docs",
+          "tools.research.read_research_doc",
+          "tools.research.write_research_doc",
+          "tools.memos.list_memos",
+          "tools.memos.read_memo",
+          "tools.memos.search_memos",
+          "tools.reports.list_agent_reports",
+          "tools.reports.read_agent_report"
         ],
         "learning": false,
         "in_scope": [
@@ -688,27 +556,9 @@
         "model": "gemini-3-flash-preview",
         "role": "Turn the analyst team's reports into a single, decision-ready investment memo.",
         "tools": [
-          {
-            "name": "write_memo",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "memo"
-            }
-          },
-          {
-            "name": "read_memo",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "memo"
-            }
-          },
-          {
-            "name": "list_memos",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "memo"
-            }
-          }
+          "tools.memos.write_memo",
+          "tools.memos.read_memo",
+          "tools.memos.list_memos"
         ],
         "learning": false,
         "in_scope": [
@@ -749,48 +599,12 @@
         "model": "gemini-3.1-pro-preview",
         "role": "Read the team's full analysis and issue a final BUY / HOLD / PASS decision with allocation.",
         "tools": [
-          {
-            "name": "list_agent_reports",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "read_agent_report",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "report"
-            }
-          },
-          {
-            "name": "list_research_docs",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "read_research_doc",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "research"
-            }
-          },
-          {
-            "name": "list_memos",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "memo"
-            }
-          },
-          {
-            "name": "read_memo",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "memo"
-            }
-          }
+          "tools.reports.list_agent_reports",
+          "tools.reports.read_agent_report",
+          "tools.research.list_research_docs",
+          "tools.research.read_research_doc",
+          "tools.memos.list_memos",
+          "tools.memos.read_memo"
         ],
         "learning": false,
         "in_scope": [
@@ -826,16 +640,8 @@
         "model": "gemini-3-flash-preview",
         "role": "Be the source of truth for what we own, in what size, and how it has performed.",
         "tools": [
-          {
-            "name": "get_portfolio_state",
-            "binding": "get_state",
-            "fixed_args": {}
-          },
-          {
-            "name": "update_portfolio",
-            "binding": "update_state",
-            "fixed_args": {}
-          }
+          "tools.state.get_state",
+          "tools.state.update_state"
         ],
         "learning": false,
         "in_scope": [
@@ -866,39 +672,11 @@
         "model": "gemini-3-flash-preview",
         "role": "Help the user complete setup, manage deployments, and answer infra questions.",
         "tools": [
-          {
-            "name": "get_setup_status",
-            "binding": "get_setup_status",
-            "fixed_args": {}
-          },
-          {
-            "name": "list_platform_docs",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "platform_reference"
-            }
-          },
-          {
-            "name": "read_platform_doc",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "platform_reference"
-            }
-          },
-          {
-            "name": "search_platform_docs",
-            "binding": "search_knowledge",
-            "fixed_args": {
-              "types": [
-                "platform_reference"
-              ]
-            }
-          },
-          {
-            "name": "list_providers",
-            "binding": "list_providers",
-            "fixed_args": {}
-          }
+          "tools.setup.get_setup_status",
+          "tools.platform.list_platform_docs",
+          "tools.platform.read_platform_doc",
+          "tools.platform.search_platform_docs",
+          "tools.providers.list_providers"
         ],
         "learning": false,
         "in_scope": [
@@ -916,45 +694,19 @@
           "Call `get_setup_status` to see what's pending. Mention blocked items first.",
           "For each pending step, read the relevant platform doc and explain what to do.",
           "If asked about a platform without docs, web-search and summarize trade-offs.",
-          "Be concise and action-oriented — exact commands, exact env-var names."
+          "Be concise and action-oriented \u2014 exact commands, exact env-var names."
         ]
       },
       {
         "id": "policy-officer",
         "name": "Policy Officer",
         "model": "gemini-3-flash-preview",
-        "role": "Maintain the org's charter — mandate, policies, process — and answer policy questions.",
+        "role": "Maintain the org's charter \u2014 mandate, policies, process \u2014 and answer policy questions.",
         "tools": [
-          {
-            "name": "list_policies",
-            "binding": "list_knowledge",
-            "fixed_args": {
-              "type": "policy"
-            }
-          },
-          {
-            "name": "read_policy",
-            "binding": "read_knowledge",
-            "fixed_args": {
-              "type": "policy"
-            }
-          },
-          {
-            "name": "search_policies",
-            "binding": "search_knowledge",
-            "fixed_args": {
-              "types": [
-                "policy"
-              ]
-            }
-          },
-          {
-            "name": "write_policy",
-            "binding": "write_knowledge",
-            "fixed_args": {
-              "type": "policy"
-            }
-          }
+          "tools.policies.list_policies",
+          "tools.policies.read_policy",
+          "tools.policies.search_policies",
+          "tools.policies.write_policy"
         ],
         "learning": false,
         "in_scope": [
@@ -980,7 +732,7 @@
       {
         "id": "investment-workflow",
         "name": "Investment Pipeline",
-        "description": "Deterministic pipeline: screen → research → analyse (parallel) → memo → decide → allocate",
+        "description": "Deterministic pipeline: screen \u2192 research \u2192 analyse (parallel) \u2192 memo \u2192 decide \u2192 allocate",
         "steps": [
           {
             "name": "Screen Stocks",
@@ -1185,27 +937,27 @@
     "ui": {
       "app": {
         "name": "Investment Team",
-        "icon": "📈",
+        "icon": "\ud83d\udcc8",
         "description": "Multi-agent equity portfolio management"
       },
       "agent_icons": {
-        "stock-screener": "🔍",
-        "market-analyst": "🌐",
-        "financial-analyst": "📊",
-        "technical-analyst": "📈",
-        "risk-officer": "🛡️",
-        "research-analyst": "🔬",
-        "knowledge-agent": "🧠",
-        "memo-writer": "✍️",
-        "committee-chair": "⚖️",
-        "portfolio-agent": "💼",
-        "investment-workflow": "🔄",
-        "platform-engineer": "🛠️",
-        "policy-officer": "📜"
+        "stock-screener": "\ud83d\udd0d",
+        "market-analyst": "\ud83c\udf10",
+        "financial-analyst": "\ud83d\udcca",
+        "technical-analyst": "\ud83d\udcc8",
+        "risk-officer": "\ud83d\udee1\ufe0f",
+        "research-analyst": "\ud83d\udd2c",
+        "knowledge-agent": "\ud83e\udde0",
+        "memo-writer": "\u270d\ufe0f",
+        "committee-chair": "\u2696\ufe0f",
+        "portfolio-agent": "\ud83d\udcbc",
+        "investment-workflow": "\ud83d\udd04",
+        "platform-engineer": "\ud83d\udee0\ufe0f",
+        "policy-officer": "\ud83d\udcdc"
       },
       "featured_agents": [],
       "empty_state": {
-        "icon": "💼",
+        "icon": "\ud83d\udcbc",
         "title": "Portfolio not yet configured",
         "body": "Chat with the **Portfolio Agent** to set up your fund mandate, or use the **Committee Chair** to begin investment analysis."
       },
@@ -1498,7 +1250,7 @@
         {
           "id": "process",
           "title": "Process",
-          "body": "How investment decisions move from screening to a final committee vote, and what gets documented along the way.\n\n### Evaluation Pipeline\n1. **Market Assessment** — Macro environment and sector outlook\n2. **Fundamental Analysis** — Company financials, valuation, growth\n3. **Technical Analysis** — Price action, momentum, entry timing\n4. **Risk Assessment** — Downside scenarios, position sizing, mandate compliance\n5. **Investment Memo** — Formal write-up with recommendation\n6. **Committee Decision** — Final vote: BUY / HOLD / PASS with dollar allocation\n\n### Decision Framework\n- **BUY:** Strong conviction across fundamentals + technicals, acceptable risk profile\n- **HOLD:** Existing position, no action needed at this time\n- **PASS:** Insufficient conviction, unacceptable risk, or mandate violation\n\n### Documentation\nEvery investment decision must be documented in a formal memo that includes:\nthesis, market context, financial analysis, technical analysis, risk assessment,\nposition sizing rationale, and the committee's final decision."
+          "body": "How investment decisions move from screening to a final committee vote, and what gets documented along the way.\n\n### Evaluation Pipeline\n1. **Market Assessment** \u2014 Macro environment and sector outlook\n2. **Fundamental Analysis** \u2014 Company financials, valuation, growth\n3. **Technical Analysis** \u2014 Price action, momentum, entry timing\n4. **Risk Assessment** \u2014 Downside scenarios, position sizing, mandate compliance\n5. **Investment Memo** \u2014 Formal write-up with recommendation\n6. **Committee Decision** \u2014 Final vote: BUY / HOLD / PASS with dollar allocation\n\n### Decision Framework\n- **BUY:** Strong conviction across fundamentals + technicals, acceptable risk profile\n- **HOLD:** Existing position, no action needed at this time\n- **PASS:** Insufficient conviction, unacceptable risk, or mandate violation\n\n### Documentation\nEvery investment decision must be documented in a formal memo that includes:\nthesis, market context, financial analysis, technical analysis, risk assessment,\nposition sizing rationale, and the committee's final decision."
         }
       ],
       "parameters": [
@@ -1871,7 +1623,7 @@
     }
   },
   "infra": {
-    "note": "Fixed template infrastructure managed by agentorg — not org-specific.",
+    "note": "Fixed template infrastructure managed by agentorg \u2014 not org-specific.",
     "fixed": [
       "db/",
       "app/main.py",

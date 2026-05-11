@@ -48,17 +48,14 @@ def list_providers() -> str:
 
 
 def import_universal_providers() -> None:
-    """Import side-effect-only modules so their @provider decorators run at app startup.
+    """Import every submodule of this package so its @provider decorators run at app startup.
 
-    Universal providers (yfinance, state, knowledge) ship with agentorg infra. Per-org
-    providers live in modules prefixed with `_providers_` in this directory and are
-    auto-discovered here.
+    Universal providers (yfinance, state, ...) ship with agentorg infra. Per-org providers
+    land in this same subpackage when the spec's `config/tools/providers/` directory is
+    copied in by the renderer — they get picked up here automatically.
     """
     import importlib  # noqa: PLC0415
     import pkgutil  # noqa: PLC0415
 
-    from {{ org.package_name }}.ai import tools  # noqa: PLC0415
-
-    for _, mod_name, _ in pkgutil.iter_modules(tools.__path__):
-        if mod_name.startswith("_providers_"):
-            importlib.import_module(f"{tools.__name__}.{mod_name}")
+    for _, mod_name, _ in pkgutil.iter_modules(__path__):
+        importlib.import_module(f"{__name__}.{mod_name}")
