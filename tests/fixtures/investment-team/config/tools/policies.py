@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from .knowledge import list_knowledge, read_knowledge, search_knowledge, write_knowledge
+from agentorg.tools.knowledge import list_knowledge, read_knowledge, search_knowledge, write_knowledge
 
 
 def write_policy(name: str, title: str, content: str, metadata: dict[str, Any] | None = None) -> str:

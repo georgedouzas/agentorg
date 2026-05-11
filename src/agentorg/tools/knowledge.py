@@ -1,11 +1,11 @@
-"""Generic knowledge CRUD tools — write/read/list/search/delete knowledge units.
+"""Generic knowledge CRUD — write / read / list / search / delete knowledge units.
 
-A knowledge unit is anything an agent produces: text artifacts (research, memo, report),
-structured data (charts, stats, tables), or a refresh recipe (provider + args + schedule)
-that the scheduler periodically re-evaluates.
+A knowledge unit is anything an agent produces: text artifacts (research, memo, report), structured data (charts, stats,
+tables), or a refresh recipe (provider + args + schedule) that the scheduler periodically re-evaluates.
 
-All units live in the `knowledge` table. Static rows have a NULL provider; live rows
-populate `provider`, `args`, `schedule` and the scheduler keeps `data`/`last_computed` fresh.
+All units live in the ``knowledge`` table. Static rows have a NULL provider; live rows populate ``provider`` / ``args``
+/ ``schedule`` and the scheduler keeps ``data`` / ``last_computed`` fresh. Spec wrappers in each org's ``config/tools/``
+import these directly via ``from agentorg.tools.knowledge import write_knowledge``.
 """
 
 import json
@@ -16,7 +16,7 @@ from typing import Any
 
 from sqlalchemy import text
 
-from {{ org.package_name }}.db import get_engine
+from ._engine import get_engine, get_team_knowledge
 
 
 def write_knowledge(
@@ -34,15 +34,15 @@ def write_knowledge(
     """Write or update a knowledge unit.
 
     Args:
-        type: Knowledge type (e.g. 'research', 'memo', 'report', 'chart', 'stats').
+        type: Knowledge type (e.g. ``'research'``, ``'memo'``, ``'report'``, ``'chart'``).
         name: Unique name within the type.
         content: Markdown text (for documents). Optional.
-        title: Display title. Optional; falls back to the H1 in content.
-        data: Structured data (for charts/tables/stats). Optional.
-        display: UI hints — {chart_type, columns, featured, ...}. Optional.
-        provider: Refresh-provider name from the registry (e.g. 'yfinance.history'). Optional.
-        args: Provider arguments. Optional.
-        schedule: Refresh cadence — 'on_request' | 'every:5m' | 'cron:...'. NULL = static.
+        title: Display title. Falls back to the H1 in ``content`` when absent.
+        data: Structured data (for charts / tables / stats). Optional.
+        display: UI hints — ``{chart_type, columns, featured, ...}``. Optional.
+        provider: Refresh-provider name from the registry (e.g. ``'yfinance.history'``).
+        args: Provider arguments.
+        schedule: Refresh cadence — ``'on_request'`` / ``'every:5m'`` / ``'cron:...'``.
         metadata: Free-form structured metadata.
 
     Returns:
@@ -78,17 +78,22 @@ def write_knowledge(
                         updated_at = NOW()
             """),
             {
-                "type": type, "name": name, "title": title, "content": content,
-                "data": data_json, "display": display_json,
-                "provider": provider, "args": args_json, "schedule": schedule,
+                "type": type,
+                "name": name,
+                "title": title,
+                "content": content,
+                "data": data_json,
+                "display": display_json,
+                "provider": provider,
+                "args": args_json,
+                "schedule": schedule,
                 "metadata": md_json,
             },
         )
 
     # If textual content is provided, also index into PgVector for semantic search.
     if content:
-        from {{ org.package_name }}.ai.agents.settings import team_knowledge  # noqa: PLC0415
-
+        team_knowledge = get_team_knowledge("Team Knowledge", "team_knowledge")
         tmp_dir = tempfile.mkdtemp()
         try:
             (Path(tmp_dir) / f"{name}.md").write_text(content, encoding="utf-8")
@@ -100,7 +105,10 @@ def write_knowledge(
 
 
 def read_knowledge(type: str, name: str) -> str:  # noqa: A002
-    """Read a knowledge unit by type and name. Returns content (markdown) or stringified data."""
+    """Read a knowledge unit by type and name.
+
+    Returns content (markdown) or stringified data.
+    """
     with get_engine().connect() as conn:
         row = conn.execute(
             text("SELECT content, data FROM knowledge WHERE type = :t AND name = :n"),
@@ -116,7 +124,7 @@ def read_knowledge(type: str, name: str) -> str:  # noqa: A002
 
 
 def list_knowledge(type: str = "", metadata_filter: dict[str, Any] | None = None) -> str:  # noqa: A002
-    """List knowledge units, optionally filtered by type and/or metadata."""
+    """List knowledge units, optionally filtered by type and / or metadata."""
     sql = "SELECT type, name, title, metadata, updated_at FROM knowledge"
     conds: list[str] = []
     params: dict[str, Any] = {}
@@ -150,10 +158,7 @@ def list_knowledge(type: str = "", metadata_filter: dict[str, Any] | None = None
 
 def search_knowledge(query: str, types: list[str] | None = None) -> str:
     """Full-text search across knowledge content."""
-    sql = (
-        "SELECT type, name, metadata, LEFT(content, 400) AS excerpt"
-        " FROM knowledge WHERE content ILIKE :q"
-    )
+    sql = "SELECT type, name, metadata, LEFT(content, 400) AS excerpt" " FROM knowledge WHERE content ILIKE :q"
     params: dict[str, Any] = {"q": f"%{query}%"}
     if types:
         sql += " AND type = ANY(CAST(:types AS TEXT[]))"

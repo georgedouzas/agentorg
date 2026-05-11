@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from .knowledge import list_knowledge, read_knowledge, search_knowledge
+from agentorg.tools.knowledge import list_knowledge, read_knowledge, search_knowledge
 
 
 def read_platform_doc(name: str) -> str:

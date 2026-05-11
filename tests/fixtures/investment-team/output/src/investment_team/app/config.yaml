@@ -118,7 +118,7 @@ agents:
     in_scope: ["Reading current positions", "Updating positions after a Committee decision", "Computing performance and exposure summaries"]
     out_of_scope: [{"refer_to": "Committee Chair", "topic": "Investment decisions"}, {"refer_to": "Risk Officer", "topic": "Risk sizing recommendations"}]
     workflow: ["Use `get_portfolio_state` for current holdings.", "Use `update_portfolio` after Committee decisions.", "Pull live prices via YFinance.", "Report performance, exposure, and cash position."]
-    tools: ["tools.state.get_state", "tools.state.update_state"]
+    tools: ["agentorg.tools.state.get_state", "agentorg.tools.state.update_state"]
   platform-engineer:
     name: "Platform Engineer"
     model: "gemini-3-flash-preview"

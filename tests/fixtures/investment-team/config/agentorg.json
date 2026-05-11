@@ -640,8 +640,8 @@
         "model": "gemini-3-flash-preview",
         "role": "Be the source of truth for what we own, in what size, and how it has performed.",
         "tools": [
-          "tools.state.get_state",
-          "tools.state.update_state"
+          "agentorg.tools.state.get_state",
+          "agentorg.tools.state.update_state"
         ],
         "learning": false,
         "in_scope": [

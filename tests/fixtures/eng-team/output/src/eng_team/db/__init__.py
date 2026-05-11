@@ -1,14 +1,12 @@
-"""Database connection utilities and application table management."""
+"""Database access — engine + agno helpers re-exported from ``agentorg.tools``, plus org-specific tables."""
 
-from eng_team.db.engine import get_engine
-from eng_team.db.session import create_knowledge, get_postgres_db
+from agentorg.tools import get_engine, get_postgres_db, get_team_knowledge as create_knowledge
+
 from eng_team.db.tables import create_app_tables, truncate_user_data
-from eng_team.db.url import db_url
 
 __all__ = [
     "create_app_tables",
     "create_knowledge",
-    "db_url",
     "get_engine",
     "get_postgres_db",
     "truncate_user_data",
