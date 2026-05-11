@@ -1,0 +1,73 @@
+services:
+  {{ org.slug }}-db:
+    image: agnohq/pgvector:18
+    container_name: {{ org.slug }}-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-ai}
+      POSTGRES_PASSWORD: ${DB_PASS:-ai}
+      POSTGRES_DB: ${DB_DATABASE:-ai}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    networks:
+      - {{ org.slug }}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ai}"]
+      interval: 5s
+      retries: 10
+
+  {{ org.slug }}-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${IMAGE_NAME:-agno-{{ org.slug }}}:${IMAGE_TAG:-latest}
+    container_name: {{ org.slug }}-api
+    command: uvicorn {{ org.package_name }}.app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - RUNTIME_ENV=dev
+      - RESET_ON_STARTUP=1
+      - AGNO_DEBUG=True
+      - DB_HOST={{ org.slug }}-db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-ai}
+      - DB_PASS=${DB_PASS:-ai}
+      - DB_DATABASE=${DB_DATABASE:-ai}
+{% for v in generated.env_vars.required %}      - {{ v.name }}=${{ '{' }}{{ v.name }}{{ '}' }}
+{% endfor %}{% for v in generated.env_vars.optional %}      - {{ v.name }}=${{ '{' }}{{ v.name }}:-{{ '}' }}
+{% endfor %}    depends_on:
+      {{ org.slug }}-db:
+        condition: service_healthy
+    networks:
+      - {{ org.slug }}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  {{ org.slug }}-ui:
+    image: node:20-alpine
+    container_name: {{ org.slug }}-ui
+    working_dir: /app/src/frontend
+    command: sh -c "npm ci --ignore-scripts && npm run dev -- --host"
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+    environment:
+      - VITE_API_HOST=http://{{ org.slug }}-api:8000
+    depends_on:
+      - {{ org.slug }}-api
+    networks:
+      - {{ org.slug }}
+
+networks:
+  {{ org.slug }}:
+
+volumes:
+  pgdata:

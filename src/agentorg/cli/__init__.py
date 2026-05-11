@@ -16,7 +16,7 @@ def cli() -> None:
 @cli.command()
 @click.argument(
     'source',
-    type=click.Path(exists=True, dir_okay=True, file_okay=True, path_type=Path),
+    type=click.Path(exists=True, dir_okay=False, file_okay=True, path_type=Path),
 )
 @click.option(
     '--out',
@@ -24,19 +24,13 @@ def cli() -> None:
     type=click.Path(file_okay=False, path_type=Path),
     help='Output directory (default: ./out).',
 )
-@click.option(
-    '--project',
-    default=None,
-    type=click.Path(exists=True, file_okay=False, path_type=Path),
-    help='Override the template directory (default: repo project/).',
-)
-def render(source: Path, out: Path, project: Path | None) -> None:
+def render(source: Path, out: Path) -> None:
     """Render a project from agentorg.json into OUT.
 
-    SOURCE is the path to agentorg.json (or a directory containing it).
+    SOURCE is the path to agentorg.json.
     """
-    n = _render(source, out, project)
-    click.echo(f'Rendered {n} files to {out}')
+    _render(source, out)
+    click.echo(f'Rendered into {out}')
 
 
 if __name__ == '__main__':

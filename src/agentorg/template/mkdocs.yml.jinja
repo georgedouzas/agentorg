@@ -1,0 +1,38 @@
+site_name: "{{ org.slug }}"
+site_description: "{{ org.description }}"
+repo_url: "{{ org.repository }}"
+repo_name: "{{ org.repository.split('/')[-2] }}/{{ org.repository.split('/')[-1] }}"
+site_dir: "site"
+watch: [README.md, CHANGELOG.md]
+
+theme:
+  name: material
+  features:
+  - navigation.top
+  palette:
+    primary: blue
+
+nav:
+  - Overview:
+    - index.md
+    - User guide: overview/user_guide.md
+    - Changelog: overview/changelog.md
+{% if org.visibility == 'public' %}    - License: overview/license.md
+{% endif %}  - API: api/
+  - Examples: generated/gallery
+  - Development:
+    - development/index.md
+    - Contributing: development/contributing.md
+{% if org.visibility == 'public' %}    - Code of Conduct: development/code_of_conduct.md
+{% endif %}
+extra_css:
+  - css/style.css
+  - css/material.css
+  - css/mkdocstrings.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences

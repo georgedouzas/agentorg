@@ -3,6 +3,7 @@
   "org": {
     "name": "AI Software Engineering Team",
     "slug": "eng-team",
+    "package_name": "eng_team",
     "domain": "software development",
     "description": "Multi-agent system simulating a professional software engineering team that plans, builds, reviews, and ships production code.",
     "repository": "https://github.com/georgedouzas/eng-team",

@@ -1,0 +1,45 @@
+# Build frontend
+FROM node:20-alpine AS frontend
+
+# Set working directory
+WORKDIR /frontend
+
+# Deps
+COPY src/frontend/package*.json ./
+RUN npm ci --ignore-scripts
+
+# Source + build
+COPY src/frontend/ ./
+RUN npm run build
+
+
+# Runtime
+FROM agnohq/python:3.12
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Non-root user
+RUN groupadd -g 61000 app \
+    && useradd -g 61000 -u 61000 -ms /bin/bash app
+
+# Set working directory
+WORKDIR /app
+
+# Deps
+COPY --chown=app:app pyproject.toml uv.lock* README.md ./
+RUN mkdir -p src/{{ org.package_name }} && touch src/{{ org.package_name }}/__init__.py
+RUN uv pip install --system -e ".[dev]" 2>/dev/null || uv pip install --system -e .
+
+# Source
+COPY --chown=app:app . .
+RUN uv pip install --system --no-deps -e . 2>/dev/null || true
+
+# Frontend output
+COPY --from=frontend --chown=app:app /public ./public/
+
+# Run
+USER app
+EXPOSE 8000
+CMD ["uvicorn", "{{ org.package_name }}.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

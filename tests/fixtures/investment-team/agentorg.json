@@ -3,6 +3,7 @@
   "org": {
     "name": "Agentic Investment Team",
     "slug": "investment-team",
+    "package_name": "investment_team",
     "domain": "equity portfolio management",
     "description": "Multi-agent system simulating a professional investment team managing a configurable equity portfolio.",
     "repository": "https://github.com/georgedouzas/investment-team",
