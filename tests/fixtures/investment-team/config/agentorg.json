@@ -1,5 +1,8 @@
 {
   "agentorg_version": "0.1.0",
+  "agent_architecture": "default",
+  "workflow_architecture": "pipeline",
+  "team_architecture": null,
   "org": {
     "name": "Agentic Investment Team",
     "slug": "investment-team",

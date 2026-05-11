@@ -1,5 +1,8 @@
 {
   "agentorg_version": "0.1.0",
+  "agent_architecture": "default",
+  "workflow_architecture": "pipeline",
+  "team_architecture": "coordinate",
   "org": {
     "name": "AI Software Engineering Team",
     "slug": "eng-team",
@@ -533,7 +536,22 @@
         ]
       }
     ],
-    "teams": [],
+    "teams": [
+      {
+        "id": "build-team",
+        "name": "Build Team",
+        "description": "The hands-on implementation squad — translates a design into working code across backend and frontend, with the tech lead steering scope and trade-offs.",
+        "leader": "tech-lead",
+        "members": ["backend-engineer", "frontend-engineer"]
+      },
+      {
+        "id": "ship-team",
+        "name": "Ship Team",
+        "description": "Owns everything past code-complete: verification, release-readiness, and rollout. The QA engineer steers; the platform engineer handles deployment mechanics.",
+        "leader": "qa-engineer",
+        "members": ["platform-engineer"]
+      }
+    ],
     "workflows": [
       {
         "id": "engineering-workflow",

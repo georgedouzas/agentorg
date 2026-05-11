@@ -15,8 +15,8 @@ def cli() -> None:
 
 @cli.command()
 @click.argument(
-    'source',
-    type=click.Path(exists=True, dir_okay=False, file_okay=True, path_type=Path),
+    'config',
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, path_type=Path),
 )
 @click.option(
     '--out',
@@ -24,12 +24,12 @@ def cli() -> None:
     type=click.Path(file_okay=False, path_type=Path),
     help='Output directory (default: ./out).',
 )
-def render(source: Path, out: Path) -> None:
-    """Render a project from agentorg.json into OUT.
+def render(config: Path, out: Path) -> None:
+    """Render a project from a spec directory into OUT.
 
-    SOURCE is the path to agentorg.json.
+    CONFIG is a directory containing `agentorg.json` and optionally a `tools/` directory.
     """
-    _render(source, out)
+    _render(config, out)
     click.echo(f'Rendered into {out}')
 
 

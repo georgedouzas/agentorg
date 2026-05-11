@@ -23,7 +23,7 @@ FIXTURES = ['investment-team', 'eng-team']
 def test_fixture_renders_byte_identical(fixture_id: str, tmp_path: Path) -> None:
     """Render the fixture and assert every produced file matches the fixture snapshot."""
     out = tmp_path / 'render'
-    render(FIXTURES_DIR / fixture_id / 'agentorg.json', out)
+    render(FIXTURES_DIR / fixture_id / 'config', out)
 
     fixture_out = FIXTURES_DIR / fixture_id / 'output'
     mismatches: list[str] = []
