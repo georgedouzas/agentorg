@@ -8,8 +8,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-from investment_team.ai.tools.providers import provider
-from investment_team.db import get_engine
+from .providers import provider
+from ...db import get_engine
 
 
 def _load_state(user_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
