@@ -16,6 +16,8 @@ chat:
 agents:
 {% for agent in generated.agents %}  {{ agent.id }}:
     name: {{ agent.name | tojson }}
+    model: {{ (agent.model or "gemini-3-flash-preview") | tojson }}
+    learning: {{ (agent.learning or false) | tojson }}
     role: {{ agent.role | tojson }}
     in_scope: {{ (agent.in_scope or []) | tojson }}
     out_of_scope: {{ (agent.out_of_scope or []) | tojson }}
@@ -25,6 +27,8 @@ agents:
 {% endif %}{% if agent.save_rule %}    save_rule: {{ agent.save_rule | tojson }}
 {% endif %}    tools: {{ agent.tools | tojson }}
 {% endfor %}
+teams: {{ (generated.teams or []) | tojson }}
+
 workflows: {{ generated.workflows | tojson }}
 
 charter: {{ generated.charter | tojson }}

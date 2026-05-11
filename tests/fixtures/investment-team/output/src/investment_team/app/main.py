@@ -1,4 +1,4 @@
-"""AgentOS entry point — registers all agents, workflows, and mounts the API router."""
+"""AgentOS entry point — registers agents, teams, workflows, and mounts the API router."""
 
 import os
 from pathlib import Path
@@ -7,21 +7,11 @@ from agno.os import AgentOS
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from investment_team.ai.agents.committee_chair import committee_chair
-from investment_team.ai.agents.financial_analyst import financial_analyst
-from investment_team.ai.agents.knowledge_agent import knowledge_agent
-from investment_team.ai.agents.market_analyst import market_analyst
-from investment_team.ai.agents.memo_writer import memo_writer
-from investment_team.ai.agents.platform_engineer import platform_engineer
-from investment_team.ai.agents.policy_officer import policy_officer
-from investment_team.ai.agents.portfolio_agent import portfolio_agent
-from investment_team.ai.agents.research_analyst import research_analyst
-from investment_team.ai.agents.risk_officer import risk_officer
-from investment_team.ai.agents.stock_screener import stock_screener
-from investment_team.ai.agents.technical_analyst import technical_analyst
+from investment_team.ai.agents.factory import build_agents
 from investment_team.ai.refresh import start_scheduler
+from investment_team.ai.teams.factory import build_teams
 from investment_team.ai.tools.providers import import_universal_providers
-from investment_team.ai.workflows.investment_workflow import investment_workflow
+from investment_team.ai.workflows.factory import build_workflows
 from investment_team.app.routes import router
 from investment_team.db import create_app_tables, get_postgres_db, truncate_user_data
 from investment_team.org import bootstrap_overview_feeds, seed_policy_documents
@@ -46,27 +36,18 @@ import_universal_providers()
 # ---------------------------------------------------------------------------
 # Create AgentOS
 # ---------------------------------------------------------------------------
+agents = list(build_agents().values())
+teams = build_teams()
+workflows = build_workflows()
+
 agent_os = AgentOS(
     name="Agentic Investment Team",
     tracing=True,
     scheduler=True,
     db=get_postgres_db(),
-    agents=[
-        stock_screener,
-        research_analyst,
-        market_analyst,
-        financial_analyst,
-        technical_analyst,
-        risk_officer,
-        knowledge_agent,
-        memo_writer,
-        committee_chair,
-        portfolio_agent,
-        platform_engineer,
-        policy_officer,
-    ],
-    teams=[],
-    workflows=[investment_workflow],
+    agents=agents,
+    teams=teams,
+    workflows=workflows,
     config=str(Path(__file__).parent / "config.yaml"),
 )
 
@@ -90,6 +71,7 @@ app.include_router(router)
 async def _start_knowledge_scheduler() -> None:
     """Boot the refresh scheduler once the FastAPI event loop is running."""
     start_scheduler()
+
 
 # Serve Vite-built static assets (JS/CSS bundles) if the public/assets dir exists.
 _assets_dir = Path(__file__).parent.parent.parent.parent / "public" / "assets"

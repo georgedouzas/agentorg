@@ -382,15 +382,9 @@ def setup_guide() -> dict[str, Any]:
 
 # ── Agent info ───────────────────────────────────────────────────────────────
 def _agent_map() -> dict[str, Any]:
-{% for agent in generated.agents | sort(attribute='id') %}
-    from {{ org.package_name }}.ai.agents.{{ agent.id | replace('-', '_') }} import {{ agent.id | replace('-', '_') }}  # noqa: PLC0415
-{% endfor %}
-    agents = [
-{% for agent in generated.agents %}
-        {{ agent.id | replace('-', '_') }},
-{% endfor %}
-    ]
-    return {a.id: a for a in agents}
+    from {{ org.package_name }}.ai.agents.factory import build_agents  # noqa: PLC0415
+
+    return build_agents()
 
 
 def _extract_tool_names(agent: Agent) -> list[str]:
@@ -548,12 +542,11 @@ async def continue_workflow(
 ) -> StreamingResponse | dict[str, str]:
     from agno.os.utils import format_sse_event, get_workflow_by_id  # noqa: PLC0415
 
-{% for wf in generated.workflows %}
-    from {{ org.package_name }}.ai.workflows.{{ wf.id | replace('-', '_') }} import {{ wf.id | replace('-', '_') }}  # noqa: PLC0415
-{% endfor %}
+    from {{ org.package_name }}.ai.workflows.factory import build_workflows  # noqa: PLC0415
+
     workflow = get_workflow_by_id(
         workflow_id=body.workflow_id,
-        workflows=[{% for wf in generated.workflows %}{{ wf.id | replace('-', '_') }}{% if not loop.last %}, {% endif %}{% endfor %}],
+        workflows=build_workflows(),
         db=None,
         create_fresh=True,
     )

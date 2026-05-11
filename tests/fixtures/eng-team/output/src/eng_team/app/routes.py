@@ -382,25 +382,9 @@ def setup_guide() -> dict[str, Any]:
 
 # ── Agent info ───────────────────────────────────────────────────────────────
 def _agent_map() -> dict[str, Any]:
-    from eng_team.ai.agents.architect import architect  # noqa: PLC0415
-    from eng_team.ai.agents.backend_engineer import backend_engineer  # noqa: PLC0415
-    from eng_team.ai.agents.frontend_engineer import frontend_engineer  # noqa: PLC0415
-    from eng_team.ai.agents.platform_engineer import platform_engineer  # noqa: PLC0415
-    from eng_team.ai.agents.policy_officer import policy_officer  # noqa: PLC0415
-    from eng_team.ai.agents.product_manager import product_manager  # noqa: PLC0415
-    from eng_team.ai.agents.qa_engineer import qa_engineer  # noqa: PLC0415
-    from eng_team.ai.agents.tech_lead import tech_lead  # noqa: PLC0415
-    agents = [
-        product_manager,
-        architect,
-        backend_engineer,
-        frontend_engineer,
-        qa_engineer,
-        tech_lead,
-        platform_engineer,
-        policy_officer,
-    ]
-    return {a.id: a for a in agents}
+    from eng_team.ai.agents.factory import build_agents  # noqa: PLC0415
+
+    return build_agents()
 
 
 def _extract_tool_names(agent: Agent) -> list[str]:
@@ -558,10 +542,11 @@ async def continue_workflow(
 ) -> StreamingResponse | dict[str, str]:
     from agno.os.utils import format_sse_event, get_workflow_by_id  # noqa: PLC0415
 
-    from eng_team.ai.workflows.engineering_workflow import engineering_workflow  # noqa: PLC0415
+    from eng_team.ai.workflows.factory import build_workflows  # noqa: PLC0415
+
     workflow = get_workflow_by_id(
         workflow_id=body.workflow_id,
-        workflows=[engineering_workflow],
+        workflows=build_workflows(),
         db=None,
         create_fresh=True,
     )

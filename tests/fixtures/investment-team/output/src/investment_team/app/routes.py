@@ -382,33 +382,9 @@ def setup_guide() -> dict[str, Any]:
 
 # ── Agent info ───────────────────────────────────────────────────────────────
 def _agent_map() -> dict[str, Any]:
-    from investment_team.ai.agents.committee_chair import committee_chair  # noqa: PLC0415
-    from investment_team.ai.agents.financial_analyst import financial_analyst  # noqa: PLC0415
-    from investment_team.ai.agents.knowledge_agent import knowledge_agent  # noqa: PLC0415
-    from investment_team.ai.agents.market_analyst import market_analyst  # noqa: PLC0415
-    from investment_team.ai.agents.memo_writer import memo_writer  # noqa: PLC0415
-    from investment_team.ai.agents.platform_engineer import platform_engineer  # noqa: PLC0415
-    from investment_team.ai.agents.policy_officer import policy_officer  # noqa: PLC0415
-    from investment_team.ai.agents.portfolio_agent import portfolio_agent  # noqa: PLC0415
-    from investment_team.ai.agents.research_analyst import research_analyst  # noqa: PLC0415
-    from investment_team.ai.agents.risk_officer import risk_officer  # noqa: PLC0415
-    from investment_team.ai.agents.stock_screener import stock_screener  # noqa: PLC0415
-    from investment_team.ai.agents.technical_analyst import technical_analyst  # noqa: PLC0415
-    agents = [
-        stock_screener,
-        research_analyst,
-        market_analyst,
-        financial_analyst,
-        technical_analyst,
-        risk_officer,
-        knowledge_agent,
-        memo_writer,
-        committee_chair,
-        portfolio_agent,
-        platform_engineer,
-        policy_officer,
-    ]
-    return {a.id: a for a in agents}
+    from investment_team.ai.agents.factory import build_agents  # noqa: PLC0415
+
+    return build_agents()
 
 
 def _extract_tool_names(agent: Agent) -> list[str]:
@@ -566,10 +542,11 @@ async def continue_workflow(
 ) -> StreamingResponse | dict[str, str]:
     from agno.os.utils import format_sse_event, get_workflow_by_id  # noqa: PLC0415
 
-    from investment_team.ai.workflows.investment_workflow import investment_workflow  # noqa: PLC0415
+    from investment_team.ai.workflows.factory import build_workflows  # noqa: PLC0415
+
     workflow = get_workflow_by_id(
         workflow_id=body.workflow_id,
-        workflows=[investment_workflow],
+        workflows=build_workflows(),
         db=None,
         create_fresh=True,
     )

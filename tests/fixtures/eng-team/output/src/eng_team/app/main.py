@@ -1,4 +1,4 @@
-"""AgentOS entry point — registers all agents, workflows, and mounts the API router."""
+"""AgentOS entry point — registers agents, teams, workflows, and mounts the API router."""
 
 import os
 from pathlib import Path
@@ -7,17 +7,11 @@ from agno.os import AgentOS
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from eng_team.ai.agents.architect import architect
-from eng_team.ai.agents.backend_engineer import backend_engineer
-from eng_team.ai.agents.frontend_engineer import frontend_engineer
-from eng_team.ai.agents.platform_engineer import platform_engineer
-from eng_team.ai.agents.policy_officer import policy_officer
-from eng_team.ai.agents.product_manager import product_manager
-from eng_team.ai.agents.qa_engineer import qa_engineer
-from eng_team.ai.agents.tech_lead import tech_lead
+from eng_team.ai.agents.factory import build_agents
 from eng_team.ai.refresh import start_scheduler
+from eng_team.ai.teams.factory import build_teams
 from eng_team.ai.tools.providers import import_universal_providers
-from eng_team.ai.workflows.engineering_workflow import engineering_workflow
+from eng_team.ai.workflows.factory import build_workflows
 from eng_team.app.routes import router
 from eng_team.db import create_app_tables, get_postgres_db, truncate_user_data
 from eng_team.org import bootstrap_overview_feeds, seed_policy_documents
@@ -42,23 +36,18 @@ import_universal_providers()
 # ---------------------------------------------------------------------------
 # Create AgentOS
 # ---------------------------------------------------------------------------
+agents = list(build_agents().values())
+teams = build_teams()
+workflows = build_workflows()
+
 agent_os = AgentOS(
     name="AI Software Engineering Team",
     tracing=True,
     scheduler=True,
     db=get_postgres_db(),
-    agents=[
-        product_manager,
-        architect,
-        backend_engineer,
-        frontend_engineer,
-        qa_engineer,
-        tech_lead,
-        platform_engineer,
-        policy_officer,
-    ],
-    teams=[],
-    workflows=[engineering_workflow],
+    agents=agents,
+    teams=teams,
+    workflows=workflows,
     config=str(Path(__file__).parent / "config.yaml"),
 )
 
@@ -82,6 +71,7 @@ app.include_router(router)
 async def _start_knowledge_scheduler() -> None:
     """Boot the refresh scheduler once the FastAPI event loop is running."""
     start_scheduler()
+
 
 # Serve Vite-built static assets (JS/CSS bundles) if the public/assets dir exists.
 _assets_dir = Path(__file__).parent.parent.parent.parent / "public" / "assets"
