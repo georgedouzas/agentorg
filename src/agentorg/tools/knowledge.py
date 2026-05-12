@@ -158,7 +158,7 @@ def list_knowledge(type: str = "", metadata_filter: dict[str, Any] | None = None
 
 def search_knowledge(query: str, types: list[str] | None = None) -> str:
     """Full-text search across knowledge content."""
-    sql = "SELECT type, name, metadata, LEFT(content, 400) AS excerpt" " FROM knowledge WHERE content ILIKE :q"
+    sql = "SELECT type, name, metadata, LEFT(content, 400) AS excerpt FROM knowledge WHERE content ILIKE :q"
     params: dict[str, Any] = {"q": f"%{query}%"}
     if types:
         sql += " AND type = ANY(CAST(:types AS TEXT[]))"
