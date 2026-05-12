@@ -12,11 +12,13 @@ from {{ org.package_name }}.ai.tools.knowledge import (
     read_knowledge,
     write_knowledge,
 )
+from {{ org.package_name }}.db import create_app_tables
 
 
-@pytest.fixture(autouse=True)
-def _gate(needs_google_api: None) -> None:  # noqa: PT004
-    """All tests in this module require the embedder."""
+@pytest.fixture(scope='module', autouse=True)
+def _setup(needs_google_api: None) -> None:  # noqa: PT004
+    """Embedder gate + ensure app tables exist (we don't import the app in this module)."""
+    create_app_tables()
 
 
 def test_write_then_read_round_trips() -> None:

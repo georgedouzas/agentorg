@@ -25,7 +25,7 @@ def run_tests() -> str:
 
     Returns a short summary line.
     """
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         ["uv", "run", "pytest", "-x", "--tb=line", "-q"],  # noqa: S607
         capture_output=True,
         text=True,

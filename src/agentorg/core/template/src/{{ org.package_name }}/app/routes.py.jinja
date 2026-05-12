@@ -101,7 +101,9 @@ def get_state(user_id: str = Query(default="default")) -> dict[str, Any]:
         ).first()
     if row is None:
         return {"configured": False, "parameters": {}, "data": {}}
-    return {"configured": True, "parameters": row.parameters or {}, "data": row.data or {}}
+    params = json.loads(row.parameters) if isinstance(row.parameters, str) else (row.parameters or {})
+    data = json.loads(row.data) if isinstance(row.data, str) else (row.data or {})
+    return {"configured": True, "parameters": params, "data": data}
 
 
 @router.post("/setup")
@@ -114,10 +116,10 @@ def setup_state(body: OrgConfig, user_id: str = Query(default="default")) -> dic
         conn.execute(
             text("""
                 INSERT INTO org_state (user_id, parameters, data)
-                VALUES (:uid, CAST(:p AS JSONB), '{}')
+                VALUES (:uid, :p, '{}')
                 ON CONFLICT (user_id) DO UPDATE
-                    SET parameters = EXCLUDED.parameters,
-                        updated_at = NOW()
+                    SET parameters = excluded.parameters,
+                        updated_at = CURRENT_TIMESTAMP
             """),
             {"uid": user_id, "p": json.dumps(params)},
         )
@@ -136,13 +138,15 @@ def reset_state(user_id: str = Query(default="default")) -> dict[str, Any]:
 
     try:
         with get_engine().begin() as conn:
-            conn.execute(text("TRUNCATE TABLE knowledge RESTART IDENTITY CASCADE"))
+            conn.execute(text("DELETE FROM knowledge"))
             conn.execute(text("DELETE FROM org_state WHERE user_id = :uid"), {"uid": user_id})
-        # Re-seed platform reference docs (param-independent). Policy docs are re-seeded
-        # by /api/setup once the user has submitted their parameters.
+        # Re-seed both platform reference docs and the policy charter, matching the
+        # boot sequence in `app/main.py`.
+        from {{ org.package_name }}.org import seed_policy_documents  # noqa: PLC0415
         from {{ org.package_name }}.org.platform_kb import seed_platform_kb  # noqa: PLC0415
 
         seed_platform_kb()
+        seed_policy_documents(user_id)
     except SQLAlchemyError as e:
         errors.append(f"app_tables: {e}")
 
@@ -160,7 +164,7 @@ def reset_state(user_id: str = Query(default="default")) -> dict[str, Any]:
         with get_engine().begin() as conn:
             for table in TRUNCATE_AGNO_TABLES:
                 try:
-                    conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+                    conn.execute(text(f"DELETE FROM {table}"))
                 except SQLAlchemyError as e:
                     errors.append(f"{table}: {e}")
     except SQLAlchemyError as e:
@@ -175,62 +179,48 @@ def list_documents(type: str = Query(default=""), ticker: str = Query(default=""
     """List documents (content-bearing knowledge rows). Excludes feed rows that back
     Overview widgets — those are infrastructure, not documents."""
     sql = "SELECT type, name, content, metadata, created_at FROM knowledge WHERE content IS NOT NULL"
-    conds: list[str] = []
     params: dict[str, Any] = {}
     if type:
-        conds.append("type = :t")
+        sql += " AND type = :t"
         params["t"] = type
-    if ticker:
-        conds.append("metadata @> CAST(:m AS JSONB)")
-        params["m"] = json.dumps({"ticker": ticker.upper()})
-    if conds:
-        sql += " AND " + " AND ".join(conds)
     sql += " ORDER BY created_at DESC"
     try:
         with get_engine().connect() as conn:
             rows = conn.execute(text(sql), params).fetchall()
     except SQLAlchemyError:
         return []
-    return [
-        {
-            "type": r.type,
-            "name": r.name,
-            "content": r.content,
-            "metadata": r.metadata or {},
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-        }
-        for r in rows
-    ]
+    results = []
+    for r in rows:
+        md = json.loads(r.metadata) if isinstance(r.metadata, str) else (r.metadata or {})
+        if ticker and md.get("ticker") != ticker.upper():
+            continue
+        created = r.created_at if isinstance(r.created_at, str) else (r.created_at.isoformat() if r.created_at else None)
+        results.append({"type": r.type, "name": r.name, "content": r.content, "metadata": md, "created_at": created})
+    return results
 
 
 @router.get("/documents/search")
 def search_docs(query: str = Query(..., min_length=1), types: list[str] = Query(default=[])) -> list[dict[str, Any]]:
-    """Full-text search across document content."""
+    """Substring search across document content (case-insensitive)."""
     sql = (
-        "SELECT type, name, content, metadata,"
-        " ts_rank(to_tsvector('english', content || ' ' || name),"
-        "         plainto_tsquery('english', :q)) AS score"
+        "SELECT type, name, content, metadata"
         " FROM knowledge"
-        " WHERE to_tsvector('english', content || ' ' || name)"
-        " @@ plainto_tsquery('english', :q)"
+        " WHERE LOWER(content || ' ' || name) LIKE LOWER(:q)"
     )
-    params: dict[str, Any] = {"q": query}
+    params: dict[str, Any] = {"q": f"%{query}%"}
     if types:
-        sql += " AND type = ANY(CAST(:types AS TEXT[]))"
-        params["types"] = types
-    sql += " ORDER BY score DESC LIMIT 15"
+        placeholders = ", ".join(f":t{i}" for i in range(len(types)))
+        sql += f" AND type IN ({placeholders})"
+        for i, t in enumerate(types):
+            params[f"t{i}"] = t
+    sql += " ORDER BY updated_at DESC LIMIT 15"
     with get_engine().connect() as conn:
         rows = conn.execute(text(sql), params).fetchall()
-    return [
-        {
-            "type": r.type,
-            "name": r.name,
-            "content": r.content,
-            "metadata": r.metadata or {},
-            "score": float(r.score),
-        }
-        for r in rows
-    ]
+    results = []
+    for r in rows:
+        md = json.loads(r.metadata) if isinstance(r.metadata, str) else (r.metadata or {})
+        results.append({"type": r.type, "name": r.name, "content": r.content, "metadata": md})
+    return results
 
 
 @router.get("/document/{type}/{name}")
@@ -243,12 +233,14 @@ def get_document(type: str, name: str) -> dict[str, Any]:  # noqa: A002
         ).first()
     if row is None:
         raise HTTPException(status_code=404, detail=f"{type}/{name} not found")
+    md = json.loads(row.metadata) if isinstance(row.metadata, str) else (row.metadata or {})
+    created = row.created_at if isinstance(row.created_at, str) else row.created_at.isoformat()
     return {
         "type": type,
         "name": name,
         "content": row.content,
-        "metadata": row.metadata or {},
-        "created_at": row.created_at.isoformat(),
+        "metadata": md,
+        "created_at": created,
     }
 
 
@@ -275,7 +267,7 @@ def learnings_list() -> list[dict[str, Any]]:
                 "id": r.id,
                 "content": r.content,
                 "meta_data": r.meta_data or {},
-                "created_at": r.created_at.isoformat(),
+                "created_at": r.created_at if isinstance(r.created_at, str) else r.created_at.isoformat(),
             }
             for r in rows
         ]
@@ -405,34 +397,22 @@ def agent_history(agent_id: str, user_id: str = Query(default="default")) -> dic
 # ── Agent reports (subset of documents with type='report') ───────────────────
 @router.get("/agent-reports")
 def agent_reports_list(agent_id: str = Query(default=""), ticker: str = Query(default="")) -> dict[str, Any]:
-    sql = (
-        "SELECT id, name, metadata, created_at FROM knowledge WHERE type = 'report'"
-    )
-    conds: list[str] = []
-    params: dict[str, Any] = {}
-    if agent_id:
-        conds.append("metadata @> CAST(:aid AS JSONB)")
-        params["aid"] = json.dumps({"agent_id": agent_id})
-    if ticker:
-        conds.append("metadata @> CAST(:t AS JSONB)")
-        params["t"] = json.dumps({"ticker": ticker.upper()})
-    if conds:
-        sql += " AND " + " AND ".join(conds)
-    sql += " ORDER BY created_at DESC"
+    sql = "SELECT id, name, metadata, created_at FROM knowledge WHERE type = 'report' ORDER BY created_at DESC"
     with get_engine().connect() as conn:
-        rows = conn.execute(text(sql), params).fetchall()
+        rows = conn.execute(text(sql)).fetchall()
 
     by_agent: dict[str, Any] = {}
     for r in rows:
-        aid = (r.metadata or {}).get("agent_id", "unknown")
+        md = json.loads(r.metadata) if isinstance(r.metadata, str) else (r.metadata or {})
+        if agent_id and md.get("agent_id") != agent_id:
+            continue
+        if ticker and md.get("ticker") != ticker.upper():
+            continue
+        aid = md.get("agent_id", "unknown")
         if aid not in by_agent:
             by_agent[aid] = {"agent_id": aid, "agent_name": AGENT_NAMES.get(aid, aid), "reports": []}
-        by_agent[aid]["reports"].append({
-            "id": r.id,
-            "title": r.name,
-            "ticker": (r.metadata or {}).get("ticker", ""),
-            "created_at": r.created_at.isoformat(),
-        })
+        created = r.created_at if isinstance(r.created_at, str) else r.created_at.isoformat()
+        by_agent[aid]["reports"].append({"id": r.id, "title": r.name, "ticker": md.get("ticker", ""), "created_at": created})
     return {"agents": list(by_agent.values())}
 
 
@@ -445,7 +425,7 @@ def agent_report_detail(report_id: int) -> dict[str, Any]:
         ).first()
     if row is None:
         raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
-    md = row.metadata or {}
+    md = json.loads(row.metadata) if isinstance(row.metadata, str) else (row.metadata or {})
     return {
         "id": report_id,
         "agent_id": md.get("agent_id", ""),
@@ -453,7 +433,7 @@ def agent_report_detail(report_id: int) -> dict[str, Any]:
         "title": row.name,
         "content": row.content,
         "ticker": md.get("ticker", ""),
-        "created_at": row.created_at.isoformat(),
+        "created_at": row.created_at if isinstance(row.created_at, str) else row.created_at.isoformat(),
     }
 
 
