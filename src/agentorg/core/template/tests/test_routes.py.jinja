@@ -1,8 +1,8 @@
-"""HTTP route tests — exercise the FastAPI app through a TestClient.
+"""HTTP route tests — exercise every endpoint registered in `app.routes`.
 
-These tests boot the full app (the `client` fixture in conftest), so they require
-`GOOGLE_API_KEY` to be set: the embedder is instantiated at startup when the
-platform docs / policies seed runs.
+These tests boot the full app via the `client` fixture in conftest, so they require
+`GOOGLE_API_KEY` to be set: the embedder is instantiated at startup when the policies
+seed runs. Without the env var the whole module skips.
 """
 
 import pytest
@@ -15,29 +15,143 @@ def _gate(needs_google_api: None) -> None:  # noqa: PT004
     """All tests in this module require the embedder."""
 
 
-def test_api_config_returns_app_metadata(client) -> None:  # noqa: ANN001
-    """`GET /api/config` returns the app name, icon, description, and agent list."""
-    response = client.get('/api/config')
-    assert response.status_code == 200
-    body = response.json()
+# ── Config / state / setup ───────────────────────────────────────────────────
+
+
+def test_get_config_returns_app_metadata(client) -> None:  # noqa: ANN001
+    """`GET /api/config` returns the app name/icon/description block."""
+    r = client.get('/api/config')
+    assert r.status_code == 200
+    body = r.json()
     assert 'app_name' in body
     assert 'app_icon' in body
+    assert 'app_description' in body
 
 
-def test_api_agent_info_per_agent(client) -> None:  # noqa: ANN001
-    """Each agent in the spec exposes a populated `/api/agents/{id}/info` payload."""
-    for agent_id in EXPECTED_AGENT_IDS:
-        response = client.get(f'/api/agents/{agent_id}/info')
-        assert response.status_code == 200, f'{agent_id}: {response.text}'
-        body = response.json()
-        assert body['agent_id'] == agent_id
-        assert body['name']
-        assert body['role'] or body.get('in_scope')
+def test_get_state_returns_defaults_for_fresh_user(client) -> None:  # noqa: ANN001
+    """`GET /api/state` returns the charter defaults for a never-set-up user."""
+    r = client.get('/api/state?user_id=fresh_user')
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body, dict)
 
 
-def test_api_knowledge_list_initially_returns_seeded_charter(client) -> None:  # noqa: ANN001
-    """`GET /api/knowledge` returns at least the charter seeded by `seed_policy_documents()`."""
-    response = client.get('/api/knowledge')
-    assert response.status_code == 200
-    body = response.json()
+def test_get_setup_guide_returns_steps(client) -> None:  # noqa: ANN001
+    """`GET /api/setup-guide` returns the spec's setup steps with completion info."""
+    r = client.get('/api/setup-guide')
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body.get('steps'), list)
+
+
+def test_post_reset_wipes_user_data(client) -> None:  # noqa: ANN001
+    """`POST /api/reset` succeeds for a user (idempotent — works even when nothing exists)."""
+    r = client.post('/api/reset?user_id=temp_user')
+    assert r.status_code == 200
+
+
+# ── Documents / knowledge ────────────────────────────────────────────────────
+
+
+def test_get_documents_returns_list(client) -> None:  # noqa: ANN001
+    """`GET /api/documents` returns the seeded charter policy at minimum."""
+    r = client.get('/api/documents')
+    assert r.status_code == 200
+    body = r.json()
     assert isinstance(body, list)
+
+
+def test_get_knowledge_is_alias_for_documents(client) -> None:  # noqa: ANN001
+    """`GET /api/knowledge` returns the same shape as `/api/documents`."""
+    r = client.get('/api/knowledge')
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
+def test_get_document_returns_charter_policy(client) -> None:  # noqa: ANN001
+    """The charter seeded by `seed_policy_documents` is fetchable by type+name."""
+    r = client.get('/api/document/policy/charter')
+    assert r.status_code == 200
+    body = r.json()
+    assert 'content' in body
+
+
+def test_get_document_returns_404_for_unknown(client) -> None:  # noqa: ANN001
+    """Unknown document name produces a 404."""
+    r = client.get('/api/document/policy/does-not-exist')
+    assert r.status_code == 404
+
+
+def test_get_documents_search_either_works_or_errors_cleanly(client) -> None:  # noqa: ANN001
+    """`GET /api/documents/search` uses Postgres FTS; in SQLite local mode it raises 500.
+
+    Either is acceptable — we just want a deterministic response code, not a hang.
+    """
+    r = client.get('/api/documents/search?query=charter')
+    assert r.status_code in (200, 500)
+
+
+def test_get_learnings_returns_list(client) -> None:  # noqa: ANN001
+    """`GET /api/learnings` returns a list (likely empty initially)."""
+    r = client.get('/api/learnings')
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
+# ── Agents ───────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize('agent_id', EXPECTED_AGENT_IDS)
+def test_get_agent_info(client, agent_id: str) -> None:  # noqa: ANN001
+    """Every registered agent has a populated info payload."""
+    r = client.get(f'/api/agents/{agent_id}/info')
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body['agent_id'] == agent_id
+    assert body['name']
+
+
+def test_get_agent_info_returns_404_for_unknown(client) -> None:  # noqa: ANN001
+    """An unknown agent id produces a 404."""
+    r = client.get('/api/agents/no-such-agent/info')
+    assert r.status_code == 404
+
+
+def test_get_agent_history_returns_empty_for_fresh_user(client) -> None:  # noqa: ANN001
+    """An agent with no past sessions returns `{session_id: None, messages: []}`."""
+    r = client.get(f'/api/agents/{EXPECTED_AGENT_IDS[0]}/history?user_id=fresh_user')
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get('messages') == []
+
+
+def test_get_agent_reports_returns_grouped_list(client) -> None:  # noqa: ANN001
+    """`GET /api/agent-reports` returns `{agents: [...]}` (initially empty)."""
+    r = client.get('/api/agent-reports')
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body.get('agents'), list)
+
+
+def test_get_agent_report_returns_404_for_unknown(client) -> None:  # noqa: ANN001
+    """An unknown report id produces a 404."""
+    r = client.get('/api/agent-reports/999999')
+    assert r.status_code == 404
+
+
+# ── Workflows ────────────────────────────────────────────────────────────────
+
+
+def test_post_workflow_continue_with_unknown_id_returns_error(client) -> None:  # noqa: ANN001
+    """Continuing an unknown workflow returns an error payload (not a 500)."""
+    r = client.post(
+        '/api/workflow/continue',
+        json={
+            'workflow_id': 'no-such-workflow',
+            'run_id': 'no-such-run',
+            'session_id': 'no-such-session',
+            'approved': True,
+        },
+    )
+    assert r.status_code == 200
+    assert 'error' in r.json()

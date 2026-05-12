@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-import yfinance as yf
 from agno.agent import Agent
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -250,60 +249,6 @@ def get_document(type: str, name: str) -> dict[str, Any]:  # noqa: A002
         "content": row.content,
         "metadata": row.metadata or {},
         "created_at": row.created_at.isoformat(),
-    }
-
-
-# ── Feeds: featured knowledge rows for the Overview tab ──────────────────────
-@router.get("/feeds")
-def list_feeds() -> list[dict[str, Any]]:
-    """Return featured knowledge rows for the Overview, ordered by display.order."""
-    sql = (
-        "SELECT type, name, title, display, metadata, last_computed"
-        " FROM knowledge"
-        " WHERE display @> CAST(:f AS JSONB)"
-        " ORDER BY (display->>'order')::int NULLS LAST, name"
-    )
-    with get_engine().connect() as conn:
-        rows = conn.execute(text(sql), {"f": json.dumps({"featured": True})}).fetchall()
-    return [
-        {
-            "type": r.type,
-            "name": r.name,
-            "title": r.title,
-            "display": r.display or {},
-            "metadata": r.metadata or {},
-            "last_computed": r.last_computed.isoformat() if r.last_computed else None,
-        }
-        for r in rows
-    ]
-
-
-# ── Live data endpoint for refreshable knowledge ─────────────────────────────
-@router.get("/knowledge/{type}/{name}/data")
-def knowledge_data(
-    type: str,  # noqa: A002
-    name: str,
-    user_id: str = Query(default="default"),
-) -> dict[str, Any]:
-    """Return the current `data` for a knowledge row. For `on_request` schedules, runs
-    the provider live before responding so callers always see fresh data. The `user_id`
-    query param is merged into the provider's call args so per-user feeds resolve
-    against the calling user's state."""
-    with get_engine().connect() as conn:
-        row = conn.execute(
-            text(
-                "SELECT data, schedule, last_computed, last_error"
-                " FROM knowledge WHERE type = :t AND name = :n",
-            ),
-            {"t": type, "n": name},
-        ).first()
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"{type}/{name} not found")
-
-    return {
-        "data": row.data,
-        "last_computed": row.last_computed.isoformat() if row.last_computed else None,
-        "last_error": row.last_error,
     }
 
 
@@ -563,31 +508,3 @@ async def continue_workflow(
     return StreamingResponse(_stream(), media_type="text/event-stream")
 
 
-# ── External data passthroughs (still investment-specific) ───────────────────
-@router.get("/prices/{ticker}")
-def prices(ticker: str) -> list[dict[str, Any]]:
-    """6-month daily OHLCV for a ticker."""
-    hist = yf.Ticker(ticker.upper()).history(period="6mo", interval="1d")
-    if hist.empty:
-        return []
-    return [
-        {
-            "time": ts.strftime("%Y-%m-%d"),
-            "open": round(float(row["Open"]), 2),
-            "high": round(float(row["High"]), 2),
-            "low": round(float(row["Low"]), 2),
-            "close": round(float(row["Close"]), 2),
-            "volume": int(row["Volume"]),
-        }
-        for ts, row in hist.iterrows()
-    ]
-
-
-@router.get("/current/{ticker}")
-def current_price(ticker: str) -> dict[str, Any]:
-    info = yf.Ticker(ticker.upper()).fast_info
-    return {
-        "ticker": ticker.upper(),
-        "price": round(float(info.last_price), 2),
-        "currency": getattr(info, "currency", "USD"),
-    }
