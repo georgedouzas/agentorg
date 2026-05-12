@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from agentorg.tools.knowledge import list_knowledge, read_knowledge, search_knowledge, write_knowledge
+from .knowledge import list_knowledge, read_knowledge, search_knowledge, write_knowledge
 
 
 def write_memo(name: str, title: str, content: str, metadata: dict[str, Any] | None = None) -> str:

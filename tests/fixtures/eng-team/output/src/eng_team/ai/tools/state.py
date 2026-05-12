@@ -1,8 +1,8 @@
-"""Generic org-state tools — read / write per-user structured state.
+"""Generic org-state tools — read/write per-user structured state.
 
 State has two parts:
-    - ``parameters``: charter parameters (user-editable, drives prompts and validation).
-    - ``data``: operational state (agent-managed, e.g. positions / decisions / etc).
+- `parameters`: charter parameters (user-editable, drives prompts and validation).
+- `data`: operational state (agent-managed, e.g. positions/decisions/etc).
 """
 
 import json
@@ -10,16 +10,16 @@ from typing import Any
 
 from sqlalchemy import text
 
-from ._engine import get_engine
+from eng_team.db import get_engine
 
 DEFAULT_USER_ID = "default"
 
 
 def get_state(user_id: str = DEFAULT_USER_ID) -> str:
-    """Return the full org state as JSON, including ``parameters`` and ``data``.
+    """Return the full org state as JSON, including parameters and data.
 
     Args:
-        user_id: Per-user state key (defaults to ``'default'``).
+        user_id: Per-user state key (defaults to 'default').
     """
     with get_engine().connect() as conn:
         row = conn.execute(
@@ -42,8 +42,8 @@ def update_state(
     """Merge updates into the org state.
 
     Args:
-        parameters_update: Charter parameters to set / update (merged into existing).
-        data_update: Operational data to set / update (merged into existing).
+        parameters_update: Charter parameters to set/update (merged into existing).
+        data_update: Operational data to set/update (merged into existing).
         user_id: Per-user state key.
     """
     with get_engine().begin() as conn:
@@ -72,7 +72,7 @@ def update_state(
 
 
 def reset_state(user_id: str = DEFAULT_USER_ID, parameters: dict[str, Any] | None = None) -> str:
-    """Reset operational data (preserve or replace ``parameters``)."""
+    """Reset operational data (preserve or replace parameters)."""
     with get_engine().begin() as conn:
         conn.execute(
             text("""

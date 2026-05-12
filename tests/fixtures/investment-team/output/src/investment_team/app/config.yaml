@@ -47,7 +47,7 @@ agents:
     workflow: ["Search learnings for relevant macro patterns.", "Use Exa for current macro news, Fed statements, sector flows.", "Use YFinance for index/sector ETF data.", "Identify the dominant theme and quantify its strength.", "Auto-save with `write_agent_report`."]
     output_format: {"kind": "narrative_with_callouts", "sections": ["Theme", "Evidence", "Sector Implications", "Risks"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers"]
+    tools: ["tools.reports.write_agent_report"]
   financial-analyst:
     name: "Financial Analyst"
     model: "gemini-3-flash-preview"
@@ -58,7 +58,7 @@ agents:
     workflow: ["Search learnings for relevant fundamentals patterns.", "Use YFinance for income, balance sheet, key ratios, analyst views.", "Compare to sector peers.", "Provide a fundamentals rating (Strong / Moderate / Weak).", "Auto-save with `write_agent_report`."]
     output_format: {"kind": "narrative_with_rating", "sections": ["Financial Health", "Valuation", "Comparison to Peers", "Rating"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers"]
+    tools: ["tools.reports.write_agent_report"]
   technical-analyst:
     name: "Technical Analyst"
     model: "gemini-3-flash-preview"
@@ -69,7 +69,7 @@ agents:
     workflow: ["Search learnings for relevant technical patterns.", "Use YFinance for price/volume history.", "Identify support/resistance and trend.", "Provide a technical signal (Bullish / Neutral / Bearish).", "Auto-save with `write_agent_report`.", "Optionally pin a live price chart to the Overview via `write_agent_report` with `display.featured=true` and a `provider` recipe."]
     output_format: {"kind": "narrative_with_signal", "sections": ["Trend", "Momentum", "Support/Resistance", "Signal"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers", "tools.reports.list_agent_reports", "tools.reports.delete_my_report"]
+    tools: ["tools.reports.write_agent_report", "tools.reports.list_agent_reports", "tools.reports.delete_my_report"]
   risk-officer:
     name: "Risk Officer"
     model: "gemini-3-flash-preview"
@@ -80,7 +80,7 @@ agents:
     workflow: ["Search learnings for relevant risk patterns.", "Use YFinance for beta, volatility, drawdown history.", "Apply fund mandate limits (max single position, sector caps, drawdown).", "Recommend a position size and risk tier.", "Auto-save with `write_agent_report`."]
     output_format: {"kind": "narrative_with_sizing", "sections": ["Risk Profile", "Recommended Sizing", "Mandate Compliance", "Stress Scenarios"]}
     save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date (e.g. stock_screen, aapl_fundamentals)", "note": "A re-run on the same topic overwrites the previous save, which is the point of leaving the date out.", "title_pattern": "Title Case with spaces — no count, no date (e.g. Stock Screen, AAPL Fundamentals)", "tool": "write_agent_report"}
-    tools: ["tools.reports.write_agent_report", "tools.providers.list_providers"]
+    tools: ["tools.reports.write_agent_report"]
   knowledge-agent:
     name: "Knowledge Agent"
     model: "gemini-3-flash-preview"
@@ -118,7 +118,7 @@ agents:
     in_scope: ["Reading current positions", "Updating positions after a Committee decision", "Computing performance and exposure summaries"]
     out_of_scope: [{"refer_to": "Committee Chair", "topic": "Investment decisions"}, {"refer_to": "Risk Officer", "topic": "Risk sizing recommendations"}]
     workflow: ["Use `get_portfolio_state` for current holdings.", "Use `update_portfolio` after Committee decisions.", "Pull live prices via YFinance.", "Report performance, exposure, and cash position."]
-    tools: ["agentorg.tools.state.get_state", "agentorg.tools.state.update_state"]
+    tools: ["tools.state.get_state", "tools.state.update_state"]
   platform-engineer:
     name: "Platform Engineer"
     model: "gemini-3-flash-preview"
@@ -127,7 +127,7 @@ agents:
     in_scope: ["Walking the user through pending setup steps", "Reading platform reference docs (Railway, Vercel, GitHub, Clerk)", "Researching infra alternatives via web search"]
     out_of_scope: [{"refer_to": "the relevant analyst agents", "topic": "Investment topics"}]
     workflow: ["Call `get_setup_status` to see what\u0027s pending. Mention blocked items first.", "For each pending step, read the relevant platform doc and explain what to do.", "If asked about a platform without docs, web-search and summarize trade-offs.", "Be concise and action-oriented — exact commands, exact env-var names."]
-    tools: ["tools.setup.get_setup_status", "tools.platform.list_platform_docs", "tools.platform.read_platform_doc", "tools.platform.search_platform_docs", "tools.providers.list_providers"]
+    tools: ["tools.setup.get_setup_status", "tools.platform.list_platform_docs", "tools.platform.read_platform_doc", "tools.platform.search_platform_docs"]
   policy-officer:
     name: "Policy Officer"
     model: "gemini-3-flash-preview"

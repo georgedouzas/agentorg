@@ -300,19 +300,6 @@ def knowledge_data(
     if row is None:
         raise HTTPException(status_code=404, detail=f"{type}/{name} not found")
 
-    if row.schedule == "on_request":
-        from {{ org.package_name }}.ai.refresh import refresh_knowledge_row  # noqa: PLC0415
-
-        refresh_knowledge_row(name, extra_args={"user_id": user_id})
-        with get_engine().connect() as conn:
-            row = conn.execute(
-                text(
-                    "SELECT data, last_computed, last_error"
-                    " FROM knowledge WHERE type = :t AND name = :n",
-                ),
-                {"t": type, "n": name},
-            ).first()
-
     return {
         "data": row.data,
         "last_computed": row.last_computed.isoformat() if row.last_computed else None,
@@ -574,11 +561,6 @@ async def continue_workflow(
             yield format_sse_event(chunk)
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
-
-
-# Overview widgets are now bootstrapped feeds — see `org.bootstrap_overview_feeds()`
-# and the providers in `ai/tools/_providers_portfolio.py`. Frontend reads via /api/feeds
-# and /api/knowledge/{type}/{name}/data.
 
 
 # ── External data passthroughs (still investment-specific) ───────────────────

@@ -1,5 +1,13 @@
-"""Engine accessor — thin re-export of ``agentorg.tools.get_engine``."""
+"""Singleton SQLAlchemy engine shared across the application."""
 
-from agentorg.tools import get_engine
+from functools import lru_cache
 
-__all__ = ["get_engine"]
+from sqlalchemy import Engine, create_engine
+
+from investment_team.db.url import db_url
+
+
+@lru_cache(maxsize=1)
+def get_engine() -> Engine:
+    """Return the shared SQLAlchemy engine, creating it on first call."""
+    return create_engine(db_url, pool_pre_ping=True)

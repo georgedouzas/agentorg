@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from agentorg.tools.knowledge import delete_knowledge, list_knowledge, read_knowledge, write_knowledge
+from .knowledge import delete_knowledge, list_knowledge, read_knowledge, write_knowledge
 
 
 def write_agent_report(name: str, title: str, content: str, metadata: dict[str, Any] | None = None) -> str:

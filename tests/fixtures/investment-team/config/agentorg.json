@@ -206,8 +206,7 @@
         "model": "gemini-3-flash-preview",
         "role": "Provide the macro context \u2014 what the broader market is doing \u2014 for individual investment decisions.",
         "tools": [
-          "tools.reports.write_agent_report",
-          "tools.providers.list_providers"
+          "tools.reports.write_agent_report"
         ],
         "learning": true,
         "in_scope": [
@@ -283,8 +282,7 @@
         "model": "gemini-3-flash-preview",
         "role": "Determine whether a stock is fundamentally sound and reasonably valued.",
         "tools": [
-          "tools.reports.write_agent_report",
-          "tools.providers.list_providers"
+          "tools.reports.write_agent_report"
         ],
         "learning": true,
         "in_scope": [
@@ -361,7 +359,6 @@
         "role": "Determine optimal entry and exit points using price-action and momentum.",
         "tools": [
           "tools.reports.write_agent_report",
-          "tools.providers.list_providers",
           "tools.reports.list_agent_reports",
           "tools.reports.delete_my_report"
         ],
@@ -441,8 +438,7 @@
         "model": "gemini-3-flash-preview",
         "role": "Quantify downside and recommend position sizing within mandate limits.",
         "tools": [
-          "tools.reports.write_agent_report",
-          "tools.providers.list_providers"
+          "tools.reports.write_agent_report"
         ],
         "learning": true,
         "in_scope": [
@@ -640,8 +636,8 @@
         "model": "gemini-3-flash-preview",
         "role": "Be the source of truth for what we own, in what size, and how it has performed.",
         "tools": [
-          "agentorg.tools.state.get_state",
-          "agentorg.tools.state.update_state"
+          "tools.state.get_state",
+          "tools.state.update_state"
         ],
         "learning": false,
         "in_scope": [
@@ -675,8 +671,7 @@
           "tools.setup.get_setup_status",
           "tools.platform.list_platform_docs",
           "tools.platform.read_platform_doc",
-          "tools.platform.search_platform_docs",
-          "tools.providers.list_providers"
+          "tools.platform.search_platform_docs"
         ],
         "learning": false,
         "in_scope": [

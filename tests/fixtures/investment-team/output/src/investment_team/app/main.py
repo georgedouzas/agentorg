@@ -8,13 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from investment_team.ai.agents.factory import build_agents
-from investment_team.ai.refresh import start_scheduler
 from investment_team.ai.teams.factory import build_teams
-from investment_team.ai.tools.providers import import_universal_providers
 from investment_team.ai.workflows.factory import build_workflows
 from investment_team.app.routes import router
 from investment_team.db import create_app_tables, get_postgres_db, truncate_user_data
-from investment_team.org import bootstrap_overview_feeds, seed_policy_documents
+from investment_team.org import seed_policy_documents
 from investment_team.org.platform_kb import seed_platform_kb
 
 # Ensure tables exist
@@ -25,13 +23,9 @@ create_app_tables()
 if os.getenv("RESET_ON_STARTUP", "").strip() == "1":
     truncate_user_data()
 
-# Seed reference docs (platform + policies + overview feeds) — idempotent
+# Seed reference docs (platform + policies) — idempotent
 seed_platform_kb()
 seed_policy_documents()
-bootstrap_overview_feeds()
-
-# Register universal refresh providers (yfinance, state, knowledge)
-import_universal_providers()
 
 # ---------------------------------------------------------------------------
 # Create AgentOS
@@ -65,12 +59,6 @@ app.add_middleware(
 )
 
 app.include_router(router)
-
-
-@app.on_event("startup")
-async def _start_knowledge_scheduler() -> None:
-    """Boot the refresh scheduler once the FastAPI event loop is running."""
-    start_scheduler()
 
 
 # Serve Vite-built static assets (JS/CSS bundles) if the public/assets dir exists.
