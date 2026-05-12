@@ -7,7 +7,7 @@ platform docs / policies seed runs.
 
 import pytest
 
-EXPECTED_AGENT_IDS = ["analyst", "researcher"]
+EXPECTED_AGENT_IDS = ["analyst", "backend-engineer", "frontend-engineer", "knowledge-engineer", "platform-engineer", "qa-engineer", "researcher", "security-engineer"]
 
 
 @pytest.fixture(autouse=True)

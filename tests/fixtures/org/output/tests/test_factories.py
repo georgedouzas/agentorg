@@ -4,7 +4,7 @@ from org.ai.agents.factory import build_agents
 from org.ai.teams.factory import build_teams
 from org.ai.workflows.factory import build_workflows
 
-EXPECTED_AGENT_IDS = ["analyst", "researcher"]
+EXPECTED_AGENT_IDS = ["analyst", "backend-engineer", "frontend-engineer", "knowledge-engineer", "platform-engineer", "qa-engineer", "researcher", "security-engineer"]
 EXPECTED_TEAM_COUNT = 1
 EXPECTED_WORKFLOW_COUNT = 1
 

@@ -14,6 +14,60 @@ chat:
   quick_prompts: {"analyst": ["Analyse the research docs on agent frameworks", "Draft an implications report from the latest research"], "researcher": ["Research the impact of agno on the agent framework landscape", "Summarise key sources on autonomous coding agents"]}
 
 agents:
+  platform-engineer:
+    name: "Platform Engineer"
+    model: "gemini-3-flash-preview"
+    learning: false
+    role: "Operates the org\u0027s runtime: env vars, ports, services, the `infra` choice, deployment artifacts."
+    in_scope: ["Infra mode (local vs docker vs cloud)", "Environment variables (required + optional)", "Running services and ports", "Health checks"]
+    out_of_scope: [{"refer_to": "Backend Engineer", "topic": "Python code or agent specs"}, {"refer_to": "Frontend Engineer", "topic": "UI configuration"}, {"refer_to": "Security Engineer", "topic": "Secret scanning / dep audit"}, {"refer_to": "Knowledge Engineer", "topic": "Knowledge curation"}, {"refer_to": "QA Engineer", "topic": "Running tests"}]
+    workflow: ["Restate what infra question is being asked.", "Read `infra`, env vars, and service health.", "Report findings concisely."]
+    tools: ["tools.platform.platform_engineer.read_infra", "tools.platform.platform_engineer.list_env_vars", "tools.platform.platform_engineer.check_health"]
+  security-engineer:
+    name: "Security Engineer"
+    model: "gemini-3-flash-preview"
+    learning: false
+    role: "Audits the org\u0027s static security posture: secrets, dep vulnerabilities, tool permissions, prompt-injection coverage."
+    in_scope: ["Secret scanning across `tools/`", "Required vs optional env vars", "Guardrails / prompt-injection posture", "Tool permission review"]
+    out_of_scope: [{"refer_to": "Platform Engineer", "topic": "Infra runtime"}, {"refer_to": "Backend Engineer", "topic": "Python code edits"}, {"refer_to": "Frontend Engineer", "topic": "UI changes"}, {"refer_to": "Knowledge Engineer", "topic": "Knowledge curation"}, {"refer_to": "QA Engineer", "topic": "Running tests"}]
+    workflow: ["Identify the surface to audit (tools dir, env vars, agent configs).", "Run the relevant scan tool.", "Summarise findings; flag anything that looks like a hardcoded secret."]
+    tools: ["tools.platform.security_engineer.scan_secrets", "tools.platform.security_engineer.list_required_env_vars"]
+  backend-engineer:
+    name: "Backend Engineer"
+    model: "gemini-3-flash-preview"
+    learning: true
+    role: "Owns the org\u0027s Python code and agent specs: reads agent definitions, inspects tool modules, runs the test suite."
+    in_scope: ["Agent specs (role, scope, workflow)", "Custom tool modules", "Running the test suite after a change", "Reading Python source to answer code-shape questions"]
+    out_of_scope: [{"refer_to": "Platform Engineer", "topic": "Infra and deployment"}, {"refer_to": "Frontend Engineer", "topic": "UI"}, {"refer_to": "Security Engineer", "topic": "Security audit"}, {"refer_to": "Knowledge Engineer", "topic": "Knowledge curation"}, {"refer_to": "QA Engineer", "topic": "Test results and validation"}]
+    workflow: ["Restate the code or spec question.", "Read the relevant agent spec or tool module.", "Run tests if a change was implied.", "Summarise findings."]
+    tools: ["tools.platform.backend_engineer.read_agent_spec", "tools.platform.backend_engineer.list_agent_ids", "tools.platform.backend_engineer.run_tests"]
+  frontend-engineer:
+    name: "Frontend Engineer"
+    model: "gemini-3-flash-preview"
+    learning: false
+    role: "Owns the dashboard\u0027s UI configuration: sidebar groups, agent icons, overview widgets, chat quick prompts."
+    in_scope: ["Sidebar agent / workflow groups", "Agent icons", "Overview tab widgets", "Chat quick prompts"]
+    out_of_scope: [{"refer_to": "Backend Engineer", "topic": "Backend Python"}, {"refer_to": "Platform Engineer", "topic": "Infra runtime"}, {"refer_to": "Security Engineer", "topic": "Security audit"}, {"refer_to": "Knowledge Engineer", "topic": "Knowledge curation"}, {"refer_to": "QA Engineer", "topic": "Running tests"}]
+    workflow: ["Read the current UI configuration.", "Identify the section the question is about.", "Report the current state or propose a change."]
+    tools: ["tools.platform.frontend_engineer.read_ui_config", "tools.platform.frontend_engineer.list_overview_widgets"]
+  knowledge-engineer:
+    name: "Knowledge Engineer"
+    model: "gemini-3-flash-preview"
+    learning: true
+    role: "Curates the knowledge base: writes, organises, searches, and prunes knowledge units across all types."
+    in_scope: ["Writing knowledge units across all types", "Reading and searching the knowledge store", "Listing and pruning stale knowledge", "Organising knowledge by type and metadata"]
+    out_of_scope: [{"refer_to": "Backend Engineer", "topic": "Python code"}, {"refer_to": "Platform Engineer", "topic": "Infra runtime"}, {"refer_to": "Frontend Engineer", "topic": "UI"}, {"refer_to": "Security Engineer", "topic": "Security audit"}, {"refer_to": "QA Engineer", "topic": "Running tests"}]
+    workflow: ["Clarify what knowledge type the question targets.", "List or search relevant existing units before writing new ones.", "When writing, follow the metadata convention used by the type."]
+    tools: ["tools.knowledge.write_knowledge", "tools.knowledge.read_knowledge", "tools.knowledge.list_knowledge", "tools.knowledge.search_knowledge", "tools.knowledge.delete_knowledge"]
+  qa-engineer:
+    name: "QA Engineer"
+    model: "gemini-3-flash-preview"
+    learning: true
+    role: "Validates the org\u0027s correctness: runs the test suite, checks spec consistency, reports failures concisely."
+    in_scope: ["Running the test suite and summarising results", "Schema-validating config.yaml structure", "Reporting which tests pass / fail / skip", "Identifying regressions"]
+    out_of_scope: [{"refer_to": "Backend Engineer", "topic": "Writing or modifying Python code"}, {"refer_to": "Platform Engineer", "topic": "Infra changes"}, {"refer_to": "Frontend Engineer", "topic": "UI changes"}, {"refer_to": "Security Engineer", "topic": "Security audit"}, {"refer_to": "Knowledge Engineer", "topic": "Knowledge curation"}]
+    workflow: ["Run the test suite.", "Summarise pass / fail / skip counts.", "If tests failed, list each failing test and its first-line error.", "Optionally schema-validate config.yaml."]
+    tools: ["tools.platform.qa_engineer.run_tests", "tools.platform.qa_engineer.validate_spec"]
   researcher:
     name: "Researcher"
     model: "gemini-3-flash-preview"

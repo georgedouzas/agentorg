@@ -7,6 +7,20 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+_PLATFORM_AGENTS_PATH = 'platform/agents.json'
+
+
+def _merge_platform_agents(data: dict) -> None:
+    """Prepend agentorg's required platform agents to `data['generated']['agents']`.
+
+    Platform agents (Platform Engineer, Security Engineer, Backend Engineer, Frontend Engineer, Knowledge Engineer, QA
+    Engineer) are part of the agentorg contract — every generated org gets them, identity is fixed.
+    """
+    platform = json.loads((files(__package__) / _PLATFORM_AGENTS_PATH).read_text())
+    generated = data.setdefault('generated', {})
+    user_agents = generated.get('agents') or []
+    generated['agents'] = platform['agents'] + user_agents
+
 
 def render(config_dir: Path, output_dir: Path, template_dir: Path | None = None) -> None:
     """Render the project template.
@@ -17,6 +31,7 @@ def render(config_dir: Path, output_dir: Path, template_dir: Path | None = None)
         template_dir: Override the template root. Defaults to the agentorg-shipped template; tests pass a synthetic dir.
     """
     data = json.loads((config_dir / 'agentorg.json').read_text())
+    _merge_platform_agents(data)
     if template_dir is None:
         template_dir = Path(str(files(__package__) / 'template'))
     env = Environment(
