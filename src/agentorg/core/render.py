@@ -18,7 +18,7 @@ def render(config_dir: Path, output_dir: Path, template_dir: Path | None = None)
     """
     data = json.loads((config_dir / 'agentorg.json').read_text())
     if template_dir is None:
-        template_dir = Path(str(files('agentorg') / 'template'))
+        template_dir = Path(str(files(__package__) / 'template'))
     env = Environment(
         loader=FileSystemLoader(str(template_dir)),
         autoescape=select_autoescape(disabled_extensions=('jinja',), default=False),
