@@ -1,4 +1,4 @@
-"""Unit tests for `agentorg.render.render`'s path-rendering behaviour.
+"""Unit tests for `agentorg.core.render`'s path-rendering behaviour.
 
 Each test builds a small synthetic template tree + spec on disk, runs `render()` against it with `template_dir`
 injected, and asserts what landed (or didn't) in the output. Keeps fast, focused, and independent of the shipped
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from agentorg.render import render
+from agentorg.core import render
 
 
 def _write(path: Path, content: str = '') -> None:

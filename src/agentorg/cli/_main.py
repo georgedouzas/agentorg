@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from agentorg.render import render
+from agentorg.core import render
 
 
 @click.group()

@@ -1,0 +1,49 @@
+ui:
+  app: {"description": "Small research team for testing the agentorg renderer end-to-end.", "icon": "🔬", "name": "Test Org"}
+  empty_state: {"body": "Try the research pipeline or chat directly with the analyst.", "icon": "🔬", "title": "Pick an agent or workflow"}
+  knowledge_empty: {"documents": "No knowledge yet — run the researcher first.", "learnings": "No learnings accumulated yet."}
+  sidebar:
+    agent_groups: [{"ids": ["researcher", "analyst"], "label": "Research Team"}]
+    workflow_groups: [{"ids": ["research-pipeline"], "label": "Pipelines"}]
+    featured_agents: ["analyst"]
+    agent_icons: {"analyst": "🧪", "researcher": "📚"}
+  overview: {"widgets": []}
+  agent_configs: {"analyst": {"description": "Synthesises research into structured reports.", "features": ["Institutional Learning"], "model": "gemini-3-flash-preview", "tools": ["write_agent_report"]}, "researcher": {"description": "Gathers source material; writes research docs.", "features": [], "model": "gemini-3-flash-preview", "tools": ["write_research_doc"]}}
+
+chat:
+  quick_prompts: {"analyst": ["Analyse the research docs on agent frameworks", "Draft an implications report from the latest research"], "researcher": ["Research the impact of agno on the agent framework landscape", "Summarise key sources on autonomous coding agents"]}
+
+agents:
+  researcher:
+    name: "Researcher"
+    model: "gemini-3-flash-preview"
+    learning: false
+    role: "Gather source material on a topic and write a structured research document."
+    in_scope: ["Topic scoping", "Source gathering", "Drafting research docs", "Citing sources inline"]
+    out_of_scope: [{"refer_to": "Analyst", "topic": "Final synthesis and recommendations"}]
+    workflow: ["Restate the topic in one paragraph.", "Gather at least the configured minimum number of sources.", "Draft a research doc with sections: Background, Findings, Sources.", "Auto-save with `write_research_doc`."]
+    output_format: {"kind": "structured_markdown", "sections": ["Background", "Findings", "Sources"]}
+    save_rule: {"name_pattern": "snake_case slug for the topic — no count, no date", "title_pattern": "Title Case with spaces — no count, no date", "tool": "write_research_doc"}
+    tools: ["tools.research.write_research_doc", "tools.research.read_research_doc", "tools.research.list_research_docs"]
+  analyst:
+    name: "Analyst"
+    model: "gemini-3-flash-preview"
+    learning: true
+    role: "Synthesise existing research docs into a structured analysis report with implications and open questions."
+    in_scope: ["Reading research docs", "Cross-referencing findings", "Drafting analysis reports", "Surfacing implications and open questions"]
+    out_of_scope: [{"refer_to": "Researcher", "topic": "Primary source gathering"}]
+    workflow: ["List the available research docs on the topic.", "Read the most relevant ones.", "Draft a report with sections: Overview, Findings, Implications, Open Questions.", "Auto-save with `write_agent_report`."]
+    output_format: {"kind": "structured_markdown", "sections": ["Overview", "Findings", "Implications", "Open Questions"]}
+    save_rule: {"name_pattern": "snake_case slug — no count, no date", "title_pattern": "Title Case with spaces — no count, no date", "tool": "write_agent_report"}
+    tools: ["tools.research.read_research_doc", "tools.research.list_research_docs", "tools.reports.write_agent_report"]
+teams: [{"description": "Two-agent unit that owns the full path from raw sources to a published analysis report. The analyst coordinates: it decides what\u0027s worth synthesising and pulls in the researcher when more primary material is needed.", "id": "research-team", "leader": "analyst", "members": ["researcher"], "name": "Research Team"}]
+
+workflows: [{"description": "Sequential pipeline: researcher gathers material, then analyst publishes a report.", "id": "research-pipeline", "name": "Research Pipeline", "steps": [{"agent": "researcher", "name": "Gather"}, {"agent": "analyst", "hitl": {"message": "Approve the analysis report?", "on_reject": "cancel", "type": "output_review"}, "name": "Analyse"}]}]
+
+charter: {"derived": [], "parameters": [{"default": "applied research", "label": "Domain Focus", "name": "domain_focus", "type": "string"}, {"default": 3, "label": "Min Sources per Research Doc", "name": "min_sources", "type": "int"}], "sections": [{"body": "## Mission\n- Focus area: {domain_focus}\n- Every research doc cites at least {min_sources} sources.\n- Reports are structured: Overview, Findings, Implications, Open Questions.", "id": "charter", "title": "Charter"}, {"body": "1. Researcher gathers material and writes research docs.\n2. Analyst synthesises research into a final report.\n3. Both auto-save their outputs.", "id": "process", "title": "Process"}]}
+
+state: {"data_fields": [], "model_name": "OrgConfig"}
+
+documents: {"types": [{"id": "research", "label": "Research Docs", "metadata_fields": [{"name": "source_count", "type": "int"}]}, {"id": "report", "label": "Analyst Reports", "metadata_fields": [{"name": "agent_id", "type": "string"}]}]}
+
+setup: {"steps": [{"id": "secrets", "title": "Set GOOGLE_API_KEY in .env", "vars": ["GOOGLE_API_KEY"]}]}

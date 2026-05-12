@@ -1,22 +1,19 @@
-"""End-to-end test: render each fixture and assert byte-identity against fixture output.
+"""End-to-end test: render each fixture and assert byte-identity against the fixture's `output/` snapshot.
 
-`agentorg.render.render` walks `project/`, renders Jinja templates, and copies the rest verbatim. The fixture's
-`output/` directory is the golden snapshot; this test diffs every file the renderer produces against that snapshot.
-
-Files that exist in the fixture but are NOT produced by the renderer (per-agent `.py`, per-workflow `.py`, org-specific
-tools, `CLAUDE.md`, `.env`, `node_modules/`, `uv.lock`) are out of scope — those are written by the metaagent later or
-are runtime artifacts.
+`agentorg.core.render` walks the template, renders Jinja files, and copies the rest verbatim. The fixture's `output/`
+directory is the golden snapshot; this test diffs every file the renderer produces against it. Run-time artifacts like
+`.env` / `uv.lock` / `node_modules/` sit alongside in the fixture as out-of-scope extras.
 """
 
 from pathlib import Path
 
 import pytest
 
-from agentorg.render import render
+from agentorg.core import render
 
 REPO_ROOT = Path(__file__).parent.parent
 FIXTURES_DIR = Path(__file__).parent / 'fixtures'
-FIXTURES = ['investment-team', 'eng-team']
+FIXTURES = ['org']
 
 
 @pytest.mark.parametrize('fixture_id', FIXTURES)
