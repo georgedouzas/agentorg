@@ -8,15 +8,17 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
-def render(config_dir: Path, output_dir: Path) -> None:
+def render(config_dir: Path, output_dir: Path, template_dir: Path | None = None) -> None:
     """Render the project template.
 
     Args:
         config_dir: Path to the spec directory (must contain `agentorg.json`; may contain `tools/`).
         output_dir: Output directory.
+        template_dir: Override the template root. Defaults to the agentorg-shipped template; tests pass a synthetic dir.
     """
     data = json.loads((config_dir / 'agentorg.json').read_text())
-    template_dir = Path(str(files('agentorg') / 'template'))
+    if template_dir is None:
+        template_dir = Path(str(files('agentorg') / 'template'))
     env = Environment(
         loader=FileSystemLoader(str(template_dir)),
         autoescape=select_autoescape(disabled_extensions=('jinja',), default=False),
