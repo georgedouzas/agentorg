@@ -28,11 +28,8 @@ dependencies = [
     "fastapi[standard]",
     "pyyaml",
     "google-genai",
-    "mcp",
-    "pgvector",
-    "psycopg[binary]",
+    "chromadb",
     "sqlalchemy",
-    "yfinance",
 ]
 
 [project.urls]

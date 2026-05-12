@@ -24,15 +24,22 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+{% if infra == 'docker' %}
     "agno",
     "fastapi[standard]",
     "pyyaml",
     "google-genai",
-    "mcp",
     "pgvector",
     "psycopg[binary]",
     "sqlalchemy",
-    "yfinance",
+{% else %}
+    "agno",
+    "fastapi[standard]",
+    "pyyaml",
+    "google-genai",
+    "chromadb",
+    "sqlalchemy",
+{% endif %}
 ]
 
 [project.urls]
