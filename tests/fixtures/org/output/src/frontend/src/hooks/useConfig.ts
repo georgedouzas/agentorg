@@ -3,7 +3,7 @@ import { apiFetch } from '../api';
 import type { AppConfig } from '../types';
 
 const DEFAULT_CONFIG: AppConfig = {
-  app_name: "Test Org",
+  app_name: "Org",
   app_icon: "🔬",
   app_description: "Small research team for testing the agentorg renderer end-to-end.",
   empty_state: {
@@ -15,8 +15,8 @@ const DEFAULT_CONFIG: AppConfig = {
     documents: "No knowledge yet — run the researcher first.",
     learnings: "No learnings accumulated yet.",
   },
-  document_types: [{"id": "research", "label": "Research Docs", "metadata_fields": [{"name": "source_count", "type": "int"}]}, {"id": "report", "label": "Analyst Reports", "metadata_fields": [{"name": "agent_id", "type": "string"}]}],
-  state_parameters: [{"default": "applied research", "label": "Domain Focus", "name": "domain_focus", "type": "string"}, {"default": 3, "label": "Min Sources per Research Doc", "name": "min_sources", "type": "int"}],
+  document_types: [{"id": "research", "label": "Research Docs", "metadata_fields": []}, {"id": "report", "label": "Analyst Reports", "metadata_fields": []}],
+  state_parameters: [{"default": "applied research", "format": null, "label": "Domain Focus", "name": "domain_focus", "type": "string"}, {"default": 3, "format": null, "label": "Min Sources per Research Doc", "name": "min_sources", "type": "int"}],
   agent_groups: [],
   featured_agents: [],
   agent_icons: {},

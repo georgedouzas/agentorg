@@ -80,7 +80,7 @@ feat(directive): A new feature of code
 A description of the new feature.
 It contains **important** information.
 
-Issue #10: https://github.com/example/test-org/issues/10
+Issue #10: https://github.com/example/org/issues/10
 Related to PR example/other-project#15: https://github.com/example/other-project/pull/15
 ```
 

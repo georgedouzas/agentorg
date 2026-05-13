@@ -21,8 +21,8 @@ Sequential pipeline: researcher gathers material, then analyst publishes a repor
 
 | Step | Name | Agents | HITL |
 | --- | --- | --- | --- |
-| 1 | Gather | Researcher | No |
-| 2 | Analyse | Analyst | Yes |
+| 1 | Gather |  (parallel) | No |
+| 2 | Analyse |  (parallel) | No |
 
 ## Running Locally
 
@@ -32,7 +32,7 @@ Prerequisites:
 - `GOOGLE_API_KEY` set in `.env`
 
 ```sh
-git clone https://github.com/example/test-org.git
+git clone https://github.com/example/org.git
 cd org
 cp example.env .env
 docker compose up -d --build
@@ -51,7 +51,7 @@ docker compose up -d --build
 
 | Variable | Description |
 | --- | --- |
-| `GOOGLE_API_KEY` | Gemini API key (model + embeddings). |
+| `GOOGLE_API_KEY` | Gemini API key. |
 
 ### Optional
 

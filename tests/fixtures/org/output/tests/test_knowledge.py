@@ -6,13 +6,13 @@ The embedder runs whenever a knowledge unit is written, so these tests require
 
 import pytest
 
-from org.ai.tools.knowledge import (
+from agentorg.core.tools.knowledge import (
     delete_knowledge,
     list_knowledge,
     read_knowledge,
     write_knowledge,
 )
-from org.db import create_app_tables
+from agentorg.core.tools.tables import create_app_tables
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -42,7 +42,7 @@ def test_list_filters_by_type() -> None:
 
 
 def test_delete_removes_a_unit() -> None:
-    """`delete_knowledge` removes a previously-written unit; subsequent read raises."""
+    """`delete_knowledge` removes a previously-written unit; subsequent listing doesn't show it."""
     write_knowledge(type='report', name='to_be_deleted', title='X', content='gone soon')
     delete_knowledge(type='report', name='to_be_deleted')
     listing = list_knowledge(type='report')

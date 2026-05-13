@@ -1,34 +1,26 @@
-"""Workflow factory — builds workflows declaratively from config.yaml.
+"""Workflow factory — builds workflows from the spec.
 
 Architecture: `pipeline`.
 """
 
-from pathlib import Path
-from typing import Any
+from agno.agent import Agent as AgnoAgent
+from agno.workflow import Parallel, Step
+from agno.workflow import Workflow as AgnoWorkflow
 
-import yaml
-from agno.workflow import Parallel, Step, Workflow
-
-from org.ai.agents.factory import build_agents
-
-_CONFIG_PATH = Path(__file__).parent.parent.parent / "app" / "config.yaml"
+from agentorg.core.schema import Spec
+from agentorg.core.schema.models import Step as SpecStep
 
 
-def _load_workflow_specs() -> list[dict[str, Any]]:
-    return yaml.safe_load(_CONFIG_PATH.read_text()).get("workflows", [])
+def _build_step(step: SpecStep, agents: dict[str, AgnoAgent]) -> Step | Parallel:
+    if step.parallel:
+        return Parallel(*[_build_step(sub, agents) for sub in step.parallel])
+    return Step(name=step.name, agent=agents[step.agent])  # type: ignore[arg-type]
 
 
-def _build_step(step: dict[str, Any], agents: dict[str, Any]) -> Any:
-    if "parallel" in step:
-        return Parallel(*[_build_step(sub, agents) for sub in step["parallel"]])
-    return Step(name=step.get("name", step["agent"]), agent=agents[step["agent"]])
-
-
-def build_workflows() -> list[Workflow]:
-    """Build a list of sequential `pipeline` workflows from the spec."""
-    agents = build_agents()
-    workflows: list[Workflow] = []
-    for spec in _load_workflow_specs():
-        steps = [_build_step(s, agents) for s in spec.get("steps", [])]
-        workflows.append(Workflow(name=spec.get("name", spec["id"]), steps=steps))
+def build_workflows(spec: Spec, agents: dict[str, AgnoAgent]) -> list[AgnoWorkflow]:
+    """Build sequential `pipeline` workflows from the spec."""
+    workflows: list[AgnoWorkflow] = []
+    for wf in spec.generated.workflows:
+        steps = [_build_step(s, agents) for s in wf.steps]
+        workflows.append(AgnoWorkflow(name=wf.name, steps=steps))
     return workflows

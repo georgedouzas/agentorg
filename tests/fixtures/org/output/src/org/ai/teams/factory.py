@@ -1,36 +1,30 @@
-"""Team factory — builds teams declaratively from config.yaml.
+"""Team factory — builds teams from the spec.
 
 Architecture: `coordinate`.
 """
 
-from pathlib import Path
-from typing import Any
-
-import yaml
+from agno.agent import Agent as AgnoAgent
 from agno.team import Team
 
-from org.ai.agents.factory import build_agents
+from agentorg.core.schema import Spec
 
-_CONFIG_PATH = Path(__file__).parent.parent.parent / "app" / "config.yaml"
-_MODE = "coordinate"
+_MODE = 'coordinate'
 
 
-def build_teams() -> list[Team]:
-    """Return one `Team` per team spec, in `coordinate` mode."""
-    agents = build_agents()
-    specs: list[dict[str, Any]] = yaml.safe_load(_CONFIG_PATH.read_text()).get("teams", [])
+def build_teams(spec: Spec, agents: dict[str, AgnoAgent]) -> list[Team]:
+    """Return one `Team` per spec entry, in `coordinate` mode."""
     teams: list[Team] = []
-    for spec in specs:
-        leader_id = spec["leader"]
-        member_agents = [agents[m] for m in spec.get("members", [])]
+    for team_spec in spec.generated.teams:
+        leader = agents[team_spec.leader]
+        members = [agents[m] for m in team_spec.members]
         teams.append(
             Team(
-                id=spec["id"],
-                name=spec.get("name", spec["id"]),
-                description=spec.get("description", ""),
+                id=team_spec.id,
+                name=team_spec.name,
+                description=team_spec.description,
                 mode=_MODE,
-                model=agents[leader_id].model,
-                members=member_agents,
+                model=leader.model,
+                members=members,
             ),
         )
     return teams

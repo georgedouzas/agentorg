@@ -1,33 +1,33 @@
-"""Instruction-composer tests — `get_instructions()` produces well-formed prompts per agent."""
+"""Instruction-composer tests — every built agent has a well-formed prompt."""
 
-from org.ai.agents.settings import AGENT_CONFIGS, get_instructions
+from org.ai.agents.factory import build_agents
+from org.spec import spec
 
 
 def test_every_agent_has_non_empty_instructions() -> None:
-    """Every agent listed in config.yaml renders a non-empty instruction string."""
-    for agent_id in AGENT_CONFIGS:
-        prompt = get_instructions(agent_id)
-        assert prompt.strip(), f'{agent_id} produced an empty prompt'
+    """Every built agent has a non-empty instruction string."""
+    for agent_id, agent in build_agents(spec).items():
+        assert agent.instructions, f'{agent_id} produced an empty prompt'
 
 
 def test_instructions_always_include_committee_rules_header() -> None:
     """The charter / committee-rules block is unconditionally prepended."""
-    for agent_id in AGENT_CONFIGS:
-        prompt = get_instructions(agent_id)
-        assert '## Committee Rules' in prompt, f'{agent_id} is missing the charter block'
+    for agent_id, agent in build_agents(spec).items():
+        assert '## Committee Rules' in agent.instructions, f'{agent_id} missing charter block'
 
 
 def test_instructions_start_with_agent_identity() -> None:
     """Every prompt opens with `You are the <agent name>.`."""
-    for agent_id, cfg in AGENT_CONFIGS.items():
-        prompt = get_instructions(agent_id)
+    for agent_spec in spec.generated.agents:
+        agents = build_agents(spec)
+        prompt = agents[agent_spec.id].instructions
         first_line = prompt.splitlines()[0]
-        assert first_line == f"You are the {cfg.get('name', agent_id)}.", first_line
+        assert first_line == f'You are the {agent_spec.name}.', first_line
 
 
 def test_save_rule_emits_auto_save_section() -> None:
     """Agents with a `save_rule` get an `## Auto-save the report` block in their prompt."""
-    for agent_id, cfg in AGENT_CONFIGS.items():
-        if cfg.get('save_rule'):
-            prompt = get_instructions(agent_id)
-            assert '## Auto-save the report' in prompt, f'{agent_id} save_rule not in prompt'
+    agents = build_agents(spec)
+    for agent_spec in spec.generated.agents:
+        if agent_spec.save_rule:
+            assert '## Auto-save the report' in agents[agent_spec.id].instructions

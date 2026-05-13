@@ -3,37 +3,40 @@
 from org.ai.agents.factory import build_agents
 from org.ai.teams.factory import build_teams
 from org.ai.workflows.factory import build_workflows
+from org.spec import spec
 
-EXPECTED_AGENT_IDS = ["analyst", "backend-engineer", "frontend-engineer", "knowledge-engineer", "platform-engineer", "qa-engineer", "researcher", "security-engineer"]
-EXPECTED_TEAM_COUNT = 1
-EXPECTED_WORKFLOW_COUNT = 1
+EXPECTED_AGENT_IDS = sorted(a.id for a in spec.generated.agents)
+EXPECTED_TEAM_COUNT = len(spec.generated.teams)
+EXPECTED_WORKFLOW_COUNT = len(spec.generated.workflows)
 
 
 def test_build_agents_returns_every_spec_agent() -> None:
-    """`build_agents()` produces one Agent instance per spec entry, keyed by id."""
-    agents = build_agents()
+    """`build_agents(spec)` produces one Agent instance per spec entry, keyed by id."""
+    agents = build_agents(spec)
     assert sorted(agents.keys()) == EXPECTED_AGENT_IDS
 
 
 def test_each_agent_has_a_model_and_instructions() -> None:
     """Every built agent has a `model` configured and non-empty `instructions`."""
-    for agent_id, agent in build_agents().items():
+    for agent_id, agent in build_agents(spec).items():
         assert agent.model is not None, f'{agent_id} missing model'
         assert agent.instructions, f'{agent_id} has empty instructions'
 
 
 def test_each_agent_has_resolved_tools() -> None:
-    """Tool import paths in the spec resolved to real callables (none are still strings)."""
-    for agent_id, agent in build_agents().items():
-        for tool in getattr(agent, 'tools', None) or []:
-            assert callable(tool) or hasattr(tool, 'name'), f'{agent_id} has unresolved tool: {tool!r}'
+    """Every tool on every spec agent is a real callable (not a string path)."""
+    for agent_spec in spec.generated.agents:
+        for tool in agent_spec.tools:
+            assert callable(tool), f'{agent_spec.id} has non-callable tool: {tool!r}'
 
 
 def test_build_workflows_returns_expected_count() -> None:
-    """`build_workflows()` produces one Workflow per spec entry."""
-    assert len(build_workflows()) == EXPECTED_WORKFLOW_COUNT
+    """`build_workflows(spec, agents)` produces one Workflow per spec entry."""
+    agents = build_agents(spec)
+    assert len(build_workflows(spec, agents)) == EXPECTED_WORKFLOW_COUNT
 
 
 def test_build_teams_returns_expected_count() -> None:
-    """`build_teams()` produces one Team per spec entry (or none if `team_architecture` is null)."""
-    assert len(build_teams()) == EXPECTED_TEAM_COUNT
+    """`build_teams(spec, agents)` produces one Team per spec entry (none if team_architecture is null)."""
+    agents = build_agents(spec)
+    assert len(build_teams(spec, agents)) == EXPECTED_TEAM_COUNT

@@ -24,21 +24,17 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "agno",
+    "agentorg",
     "fastapi[standard]",
-    "pyyaml",
-    "google-genai",
-    "chromadb",
-    "sqlalchemy",
 ]
 
 [project.urls]
-Homepage = "https://github.com/example/test-org"
-Documentation = "https://github.com/example/test-org"
-Changelog = "https://github.com/example/test-org"
-Repository = "https://github.com/example/test-org"
-Issues = "https://github.com/example/test-org/issues"
-Discussions = "https://github.com/example/test-org/discussions"
+Homepage = "https://github.com/example/org"
+Documentation = "https://github.com/example/org"
+Changelog = "https://github.com/example/org"
+Repository = "https://github.com/example/org"
+Issues = "https://github.com/example/org/issues"
+Discussions = "https://github.com/example/org/discussions"
 Funding = "https://github.com/sponsors/example"
 
 [dependency-groups]

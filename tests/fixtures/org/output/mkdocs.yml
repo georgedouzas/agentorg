@@ -1,7 +1,7 @@
 site_name: "org"
 site_description: "Small research team that gathers source material, synthesises findings, and publishes structured analysis reports."
-repo_url: "https://github.com/example/test-org"
-repo_name: "example/test-org"
+repo_url: "https://github.com/example/org"
+repo_name: "example/org"
 site_dir: "site"
 watch: [README.md, CHANGELOG.md]
 

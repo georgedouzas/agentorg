@@ -1,21 +1,20 @@
 """HTTP route tests — exercise every endpoint registered in `app.routes`.
 
 These tests boot the full app via the `client` fixture in conftest, so they require
-`GOOGLE_API_KEY` to be set: the embedder is instantiated at startup when the policies
-seed runs. Without the env var the whole module skips.
+`GOOGLE_API_KEY` to be set (the embedder is instantiated when the agent factory imports).
+Without the env var the whole module skips.
 """
 
 import pytest
 
-EXPECTED_AGENT_IDS = {{ generated.agents | map(attribute='id') | list | sort | tojson }}
+from {{ org.package_name }}.spec import spec
+
+EXPECTED_AGENT_IDS = sorted(a.id for a in spec.generated.agents)
 
 
 @pytest.fixture(autouse=True)
 def _gate(needs_google_api: None) -> None:  # noqa: PT004
     """All tests in this module require the embedder."""
-
-
-# ── Config / state / setup ───────────────────────────────────────────────────
 
 
 def test_get_config_returns_app_metadata(client) -> None:  # noqa: ANN001
@@ -32,33 +31,26 @@ def test_get_state_returns_defaults_for_fresh_user(client) -> None:  # noqa: ANN
     """`GET /api/state` returns the charter defaults for a never-set-up user."""
     r = client.get('/api/state?user_id=fresh_user')
     assert r.status_code == 200
-    body = r.json()
-    assert isinstance(body, dict)
 
 
 def test_get_setup_guide_returns_steps(client) -> None:  # noqa: ANN001
-    """`GET /api/setup-guide` returns the spec's setup steps with completion info."""
+    """`GET /api/setup-guide` returns the spec's setup steps."""
     r = client.get('/api/setup-guide')
     assert r.status_code == 200
-    body = r.json()
-    assert isinstance(body.get('steps'), list)
+    assert isinstance(r.json().get('steps'), list)
 
 
-def test_post_reset_wipes_user_data(client) -> None:  # noqa: ANN001
-    """`POST /api/reset` succeeds for a user (idempotent — works even when nothing exists)."""
+def test_post_reset_succeeds(client) -> None:  # noqa: ANN001
+    """`POST /api/reset` is idempotent — works even when nothing exists."""
     r = client.post('/api/reset?user_id=temp_user')
     assert r.status_code == 200
 
 
-# ── Documents / knowledge ────────────────────────────────────────────────────
-
-
 def test_get_documents_returns_list(client) -> None:  # noqa: ANN001
-    """`GET /api/documents` returns the seeded charter policy at minimum."""
+    """`GET /api/documents` returns a list (empty on a fresh DB)."""
     r = client.get('/api/documents')
     assert r.status_code == 200
-    body = r.json()
-    assert isinstance(body, list)
+    assert isinstance(r.json(), list)
 
 
 def test_get_knowledge_is_alias_for_documents(client) -> None:  # noqa: ANN001
@@ -68,37 +60,24 @@ def test_get_knowledge_is_alias_for_documents(client) -> None:  # noqa: ANN001
     assert isinstance(r.json(), list)
 
 
-def test_get_document_returns_charter_policy(client) -> None:  # noqa: ANN001
-    """The charter seeded by `seed_policy_documents` is fetchable by type+name."""
-    r = client.get('/api/document/policy/charter')
-    assert r.status_code == 200
-    body = r.json()
-    assert 'content' in body
-
-
 def test_get_document_returns_404_for_unknown(client) -> None:  # noqa: ANN001
-    """Unknown document name produces a 404."""
+    """Unknown document produces a 404."""
     r = client.get('/api/document/policy/does-not-exist')
     assert r.status_code == 404
 
 
-def test_get_documents_search_either_works_or_errors_cleanly(client) -> None:  # noqa: ANN001
-    """`GET /api/documents/search` uses Postgres FTS; in SQLite local mode it raises 500.
-
-    Either is acceptable — we just want a deterministic response code, not a hang.
-    """
-    r = client.get('/api/documents/search?query=charter')
-    assert r.status_code in (200, 500)
-
-
-def test_get_learnings_returns_list(client) -> None:  # noqa: ANN001
-    """`GET /api/learnings` returns a list (likely empty initially)."""
-    r = client.get('/api/learnings')
+def test_get_documents_search_returns_list(client) -> None:  # noqa: ANN001
+    """`GET /api/documents/search` returns a (possibly empty) list — works on both Postgres + SQLite."""
+    r = client.get('/api/documents/search?query=anything')
     assert r.status_code == 200
     assert isinstance(r.json(), list)
 
 
-# ── Agents ───────────────────────────────────────────────────────────────────
+def test_get_learnings_returns_list(client) -> None:  # noqa: ANN001
+    """`GET /api/learnings` returns a list (empty initially)."""
+    r = client.get('/api/learnings')
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
 
 
 @pytest.mark.parametrize('agent_id', EXPECTED_AGENT_IDS)
@@ -121,25 +100,20 @@ def test_get_agent_history_returns_empty_for_fresh_user(client) -> None:  # noqa
     """An agent with no past sessions returns `{session_id: None, messages: []}`."""
     r = client.get(f'/api/agents/{EXPECTED_AGENT_IDS[0]}/history?user_id=fresh_user')
     assert r.status_code == 200
-    body = r.json()
-    assert body.get('messages') == []
+    assert r.json().get('messages') == []
 
 
 def test_get_agent_reports_returns_grouped_list(client) -> None:  # noqa: ANN001
     """`GET /api/agent-reports` returns `{agents: [...]}` (initially empty)."""
     r = client.get('/api/agent-reports')
     assert r.status_code == 200
-    body = r.json()
-    assert isinstance(body.get('agents'), list)
+    assert isinstance(r.json().get('agents'), list)
 
 
 def test_get_agent_report_returns_404_for_unknown(client) -> None:  # noqa: ANN001
     """An unknown report id produces a 404."""
     r = client.get('/api/agent-reports/999999')
     assert r.status_code == 404
-
-
-# ── Workflows ────────────────────────────────────────────────────────────────
 
 
 def test_post_workflow_continue_with_unknown_id_returns_error(client) -> None:  # noqa: ANN001

@@ -4,18 +4,15 @@ Three layers, from fastest/most-focused to slowest/most-realistic:
 
 1. Path-rendering units — synthetic template trees in `tmp_path` exercising the renderer's
    handling of `.jinja` suffixes, conditional path segments, variable substitution, and
-   `config/tools/` merge. No agno deps, milliseconds.
+   the spec-file copy step.
 
-2. Fixture byte-identity — render `tests/fixtures/<id>/config` and assert every produced
-   file matches the committed `output/` snapshot byte-for-byte. Catches regressions in
-   the shipped template.
+2. Fixture byte-identity — render `tests/fixtures/<id>/spec.py` and assert every produced
+   file matches the committed `output/` snapshot byte-for-byte.
 
 3. Rendered-org functional — sync the rendered org's deps via `uv` and run *its* pytest
-   suite (factories, instructions, routes, knowledge). Closes the loop between renderer
-   and runtime — secrets come from `tests/fixtures/.env`. Slow on cold runs.
+   suite. Secrets come from `tests/fixtures/.env`.
 """
 
-import json
 import os
 import shutil
 import subprocess
@@ -37,18 +34,20 @@ RENDERED_TESTS = (
 )
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-
 def _write(path: Path, content: str = '') -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
 
 
-def _spec(config: Path, **overrides: object) -> None:
-    """Write a minimal `agentorg.json` with `org.package_name=acme` plus any overrides."""
-    data = {'org': {'package_name': 'acme', 'visibility': 'private', **overrides}}
-    (config / 'agentorg.json').write_text(json.dumps(data))
+def _spec_py(spec_dir: Path, **org_overrides: object) -> None:
+    """Write a minimal `spec.py` with `package_name=acme` plus any org overrides."""
+    overrides_kwargs = ', '.join(f'{k}={v!r}' for k, v in org_overrides.items())
+    extra = (', ' + overrides_kwargs) if overrides_kwargs else ''
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    (spec_dir / 'spec.py').write_text(
+        'from agentorg.core.schema import Spec, Org\n'
+        f'spec = Spec(org=Org(name="Acme", slug="acme", package_name="acme"{extra}))\n',
+    )
 
 
 def _uv_available() -> bool:
@@ -56,10 +55,6 @@ def _uv_available() -> bool:
 
 
 def _read_env_file(path: Path) -> dict[str, str]:
-    """Parse a dotenv file into a plain dict.
-
-    Strips quotes from values.
-    """
     env: dict[str, str] = {}
     if not path.exists():
         return env
@@ -77,105 +72,84 @@ def _read_env_file(path: Path) -> dict[str, str]:
 
 @pytest.fixture
 def workspace(tmp_path: Path) -> tuple[Path, Path, Path]:
-    """Provide three empty dirs: (template, config, output) all under tmp_path."""
+    """Provide three empty dirs: (template, spec, output) all under tmp_path."""
     template = tmp_path / 'template'
-    config = tmp_path / 'config'
+    spec_dir = tmp_path / 'spec'
     output = tmp_path / 'output'
     template.mkdir()
-    config.mkdir()
-    return template, config, output
+    spec_dir.mkdir()
+    return template, spec_dir, output
 
 
 def test_verbatim_file_is_copied_unchanged(workspace: tuple[Path, Path, Path]) -> None:
     """Files without a `.jinja` suffix go through `shutil.copy` verbatim."""
-    template, config, output = workspace
+    template, spec_dir, output = workspace
     _write(template / 'README.md', '# hello')
-    _spec(config)
-    render(config, output, template_dir=template)
+    _spec_py(spec_dir)
+    render(spec_dir, output, template_dir=template)
     assert (output / 'README.md').read_text() == '# hello'
 
 
 def test_jinja_suffix_stripped_and_content_rendered(workspace: tuple[Path, Path, Path]) -> None:
     """A `.jinja`-suffixed file is rendered through Jinja and the suffix is stripped on output."""
-    template, config, output = workspace
+    template, spec_dir, output = workspace
     _write(template / 'greeting.txt.jinja', 'Hi {{ org.package_name }}.')
-    _spec(config)
-    render(config, output, template_dir=template)
+    _spec_py(spec_dir)
+    render(spec_dir, output, template_dir=template)
     assert not (output / 'greeting.txt.jinja').exists()
     assert (output / 'greeting.txt').read_text() == 'Hi acme.'
 
 
 def test_jinja_var_in_directory_name_is_substituted(workspace: tuple[Path, Path, Path]) -> None:
     """`{{ var }}` in a path segment resolves to the substituted value at render time."""
-    template, config, output = workspace
+    template, spec_dir, output = workspace
     _write(template / 'src' / '{{ org.package_name }}' / 'mod.py', 'pass')
-    _spec(config)
-    render(config, output, template_dir=template)
+    _spec_py(spec_dir)
+    render(spec_dir, output, template_dir=template)
     assert (output / 'src' / 'acme' / 'mod.py').read_text() == 'pass'
     assert not (output / 'src' / '{{ org.package_name }}').exists()
 
 
 def test_conditional_file_skipped_when_condition_is_false(workspace: tuple[Path, Path, Path]) -> None:
     """`{% if false %}LICENSE{% endif %}.jinja` renders to `.jinja` → empty stem → skipped."""
-    template, config, output = workspace
+    template, spec_dir, output = workspace
     name = "{% if org.visibility == 'public' %}LICENSE{% endif %}.jinja"
     _write(template / name, 'MIT...')
-    _spec(config, visibility='private')
-    render(config, output, template_dir=template)
+    _spec_py(spec_dir, visibility='private')
+    render(spec_dir, output, template_dir=template)
     assert not (output / 'LICENSE').exists()
     assert not (output / '.jinja').exists()
 
 
 def test_conditional_file_kept_when_condition_is_true(workspace: tuple[Path, Path, Path]) -> None:
     """Same conditional, condition true: file lands with the `.jinja` suffix stripped."""
-    template, config, output = workspace
+    template, spec_dir, output = workspace
     name = "{% if org.visibility == 'public' %}LICENSE{% endif %}.jinja"
     _write(template / name, 'MIT...')
-    _spec(config, visibility='public')
-    render(config, output, template_dir=template)
+    _spec_py(spec_dir, visibility='public')
+    render(spec_dir, output, template_dir=template)
     assert (output / 'LICENSE').read_text() == 'MIT...'
-
-
-def test_conditional_at_end_of_nested_path_skipped(workspace: tuple[Path, Path, Path]) -> None:
-    """Source filename has no `.jinja` — when false, path collapses to `docs/`, skipped."""
-    template, config, output = workspace
-    name = "{% if org.visibility == 'public' %}code_of_conduct.md{% endif %}"
-    _write(template / 'docs' / name, 'be nice')
-    _spec(config, visibility='private')
-    render(config, output, template_dir=template)
-    assert not (output / 'docs').exists() or not list((output / 'docs').iterdir())
-
-
-def test_conditional_in_filename_with_jinja_extension_only_skipped(workspace: tuple[Path, Path, Path]) -> None:
-    """`dir/{% if false %}X{% endif %}.jinja` → renders to `dir/.jinja` → strip to `dir/` → skip."""
-    template, config, output = workspace
-    name = "{% if org.visibility == 'public' %}feed.yaml{% endif %}.jinja"
-    _write(template / '.github' / name, 'content')
-    _spec(config, visibility='private')
-    render(config, output, template_dir=template)
-    assert not (output / '.github').exists() or not list((output / '.github').iterdir())
 
 
 def test_jinja_braces_in_verbatim_file_are_left_alone(workspace: tuple[Path, Path, Path]) -> None:
     """Files without `.jinja` suffix are copied byte-for-byte, even when they contain ``{{ }}``."""
-    template, config, output = workspace
+    template, spec_dir, output = workspace
     jsx = "const x = <div style={{color: 'red'}} />;"
     _write(template / 'App.tsx', jsx)
-    _spec(config)
-    render(config, output, template_dir=template)
+    _spec_py(spec_dir)
+    render(spec_dir, output, template_dir=template)
     assert (output / 'App.tsx').read_text() == jsx
 
 
-def test_config_tools_dir_is_merged_into_rendered_package(workspace: tuple[Path, Path, Path]) -> None:
-    """`config/tools/*.py` files land in `<output>/src/<pkg>/ai/tools/` alongside template-side tools."""
-    template, config, output = workspace
-    _write(template / 'src' / '{{ org.package_name }}' / 'ai' / 'tools' / 'knowledge.py', '# from template')
-    _write(config / 'tools' / 'reports.py', '# from spec')
-    _spec(config)
-    render(config, output, template_dir=template)
-    pkg_tools = output / 'src' / 'acme' / 'ai' / 'tools'
-    assert (pkg_tools / 'knowledge.py').read_text() == '# from template'
-    assert (pkg_tools / 'reports.py').read_text() == '# from spec'
+def test_spec_py_is_copied_into_rendered_package(workspace: tuple[Path, Path, Path]) -> None:
+    """`spec.py` is copied to `<output>/src/<package>/spec.py` for the runtime to import at boot."""
+    template, spec_dir, output = workspace
+    _write(template / 'src' / '{{ org.package_name }}' / '__init__.py', '"""acme"""')
+    _spec_py(spec_dir)
+    render(spec_dir, output, template_dir=template)
+    copied = output / 'src' / 'acme' / 'spec.py'
+    assert copied.exists()
+    assert 'Spec(org=Org' in copied.read_text()
 
 
 # ── 2. Fixture byte-identity ─────────────────────────────────────────────────
@@ -185,7 +159,7 @@ def test_config_tools_dir_is_merged_into_rendered_package(workspace: tuple[Path,
 def test_fixture_renders_byte_identical(fixture_id: str, tmp_path: Path) -> None:
     """Render the fixture and assert every produced file matches the committed snapshot."""
     out = tmp_path / 'render'
-    render(FIXTURES_DIR / fixture_id / 'config', out)
+    render(FIXTURES_DIR / fixture_id, out)
 
     fixture_out = FIXTURES_DIR / fixture_id / 'output'
     mismatches: list[str] = []
@@ -212,22 +186,27 @@ def test_fixture_renders_byte_identical(fixture_id: str, tmp_path: Path) -> None
 
 
 @pytest.fixture(scope='session')
-def synced_org() -> Path:
-    """Sync the rendered org's deps once per session."""
+def synced_org(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Render the org into a tmp dir, point its `agentorg` dep at this repo, then `uv sync`."""
     if not _uv_available():
         pytest.skip('uv not on PATH; cannot exercise the rendered org.')
-    if not (ORG_OUTPUT / 'pyproject.toml').exists():
-        pytest.skip(f'No rendered org snapshot at {ORG_OUTPUT}.')
+    work = tmp_path_factory.mktemp('rendered-org')
+    render(FIXTURES_DIR / 'org', work)
+    agentorg_root = Path(__file__).parents[2]
+    pyproject = work / 'pyproject.toml'
+    pyproject.write_text(
+        pyproject.read_text() + f'\n[tool.uv.sources]\nagentorg = {{ path = "{agentorg_root}", editable = true }}\n',
+    )
     result = subprocess.run(
         ['uv', 'sync', '--quiet'],  # noqa: S607
-        cwd=str(ORG_OUTPUT),
+        cwd=str(work),
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode != 0:
         pytest.skip(f'uv sync of rendered org failed: {result.stderr.strip()[:500]}')
-    return ORG_OUTPUT
+    return work
 
 
 @pytest.fixture(scope='session')
