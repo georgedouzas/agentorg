@@ -9,7 +9,7 @@ import pytest
 
 from {{ org.package_name }}.spec import spec
 
-EXPECTED_AGENT_IDS = sorted(a.id for a in spec.generated.agents)
+EXPECTED_AGENT_IDS = sorted(a.id for a in spec.agents if a.id)
 
 
 @pytest.fixture(autouse=True)

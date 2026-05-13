@@ -1,6 +1,6 @@
 # Research Organisation
 
-Small research team that gathers source material, synthesises findings, and publishes structured analysis reports.
+Small research team that gathers sources and publishes structured analysis reports.
 
 ## Agents
 
@@ -9,7 +9,7 @@ Small research team that gathers source material, synthesises findings, and publ
 | Agent | Role |
 | --- | --- |
 | Researcher | Gather source material on a topic and write a structured research document. |
-| Analyst | Synthesise existing research docs into a structured analysis report with implications and open questions. |
+| Analyst | Synthesise existing research docs into a structured analysis report. |
 
 ## Workflows
 
@@ -17,12 +17,12 @@ Small research team that gathers source material, synthesises findings, and publ
 
 #### Research Pipeline
 
-Sequential pipeline: researcher gathers material, then analyst publishes a report.
+
 
 | Step | Name | Agents | HITL |
 | --- | --- | --- | --- |
-| 1 | Gather |  (parallel) | No |
-| 2 | Analyse |  (parallel) | No |
+| 1 | Gather | Researcher | No |
+| 2 | Analyse | Analyst | Yes |
 
 ## Running Locally
 

@@ -23,10 +23,10 @@ create_app_tables()
 if os.getenv('RESET_ON_STARTUP', '').strip() == '1':
     truncate_user_data()
 
-# Build agents -> workflows + teams reference the agent map
+# Spec already holds agno-native agents/teams/workflows — factories just return them.
 _agents = build_agents(spec)
-_teams = build_teams(spec, _agents)
-_workflows = build_workflows(spec, _agents)
+_teams = build_teams(spec)
+_workflows = build_workflows(spec)
 
 agent_os = AgentOS(
     name=spec.org.name,

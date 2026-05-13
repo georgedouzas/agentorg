@@ -4,37 +4,14 @@ Two custom agents (`researcher`, `analyst`), one pipeline workflow, one coordina
 The six platform agents are populated automatically by `Spec`'s default factory.
 """
 
-from agentorg.core.schema import (
-    Agent,
-    AppUI,
-    Charter,
-    CharterParameter,
-    CharterSection,
-    DocumentType,
-    EmptyState,
-    EnvVar,
-    EnvVars,
-    Generated,
-    GroupRef,
-    KnowledgeEmpty,
-    Org,
-    PLATFORM_AGENTS,
-    SaveRule,
-    ScopeRef,
-    Setup,
-    SetupStep,
-    Spec,
-    Step,
-    StepRouteHitl,
-    Team,
-    UI,
-    Workflow,
-)
-from agentorg.core.tools.knowledge import (
-    list_knowledge,
-    read_knowledge,
-    write_knowledge,
-)
+from agno.agent import Agent
+from agno.team import Team
+from agno.workflow import Step, Workflow
+
+from agentorg.core.schema import PLATFORM_AGENTS, Org, Spec
+from agentorg.core.tools.knowledge import list_knowledge, read_knowledge, write_knowledge
+
+_MODEL = 'google:gemini-2.0-flash'
 
 
 def write_research_doc(name: str, title: str, content: str, metadata: dict | None = None) -> str:
@@ -57,28 +34,21 @@ def write_agent_report(name: str, title: str, content: str, metadata: dict | Non
     return write_knowledge(type='report', name=name, title=title, content=content, metadata=metadata)
 
 
-_DOMAIN_REFS = [
-    ScopeRef(topic='Final synthesis and recommendations', refer_to='Analyst'),
-]
-
-
 researcher = Agent(
     id='researcher',
     name='Researcher',
     role='Gather source material on a topic and write a structured research document.',
+    model=_MODEL,
     tools=[write_research_doc, read_research_doc, list_research_docs],
-    in_scope=['Topic scoping', 'Source gathering', 'Drafting research docs', 'Citing sources inline'],
-    out_of_scope=_DOMAIN_REFS,
-    workflow=[
-        'Restate the topic in one paragraph.',
-        'Gather at least the configured minimum number of sources.',
-        'Draft a research doc with sections: Background, Findings, Sources.',
-        'Auto-save with `write_research_doc`.',
-    ],
-    save_rule=SaveRule(
-        tool='write_research_doc',
-        name_pattern='snake_case slug for the topic — no count, no date',
-        title_pattern='Title Case with spaces — no count, no date',
+    instructions=(
+        'You are the Researcher.\n\n'
+        '## Workflow\n'
+        '1. Restate the topic in one paragraph.\n'
+        '2. Gather at least the configured minimum number of sources.\n'
+        '3. Draft a research doc with sections: Background, Findings, Sources.\n'
+        '4. Auto-save with `write_research_doc`.\n\n'
+        '## Out of scope\n'
+        '- Final synthesis and recommendations → **Analyst**.\n'
     ),
 )
 
@@ -86,30 +56,38 @@ researcher = Agent(
 analyst = Agent(
     id='analyst',
     name='Analyst',
-    role=(
-        'Synthesise existing research docs into a structured analysis report with implications and '
-        'open questions.'
-    ),
+    role='Synthesise existing research docs into a structured analysis report.',
+    model=_MODEL,
     tools=[read_research_doc, list_research_docs, write_agent_report],
-    learning=True,
-    in_scope=[
-        'Reading research docs',
-        'Cross-referencing findings',
-        'Drafting analysis reports',
-        'Surfacing implications and open questions',
-    ],
-    out_of_scope=[ScopeRef(topic='Primary source gathering', refer_to='Researcher')],
-    workflow=[
-        'List the available research docs on the topic.',
-        'Read the most relevant ones.',
-        'Draft a report with sections: Overview, Findings, Implications, Open Questions.',
-        'Auto-save with `write_agent_report`.',
-    ],
-    save_rule=SaveRule(
-        tool='write_agent_report',
-        name_pattern='snake_case slug — no count, no date',
-        title_pattern='Title Case with spaces — no count, no date',
+    instructions=(
+        'You are the Analyst.\n\n'
+        '## Workflow\n'
+        '1. List the available research docs on the topic.\n'
+        '2. Read the most relevant ones.\n'
+        '3. Draft a report with sections: Overview, Findings, Implications, Open Questions.\n'
+        '4. Auto-save with `write_agent_report`.\n\n'
+        '## Out of scope\n'
+        '- Primary source gathering → **Researcher**.\n'
     ),
+)
+
+
+research_team = Team(
+    id='research-team',
+    name='Research Team',
+    members=[researcher, analyst],
+    mode='coordinate',
+    model=_MODEL,
+)
+
+
+research_pipeline = Workflow(
+    id='research-pipeline',
+    name='Research Pipeline',
+    steps=[
+        Step(name='Gather', agent=researcher),
+        Step(name='Analyse', agent=analyst, requires_output_review=True),
+    ],
 )
 
 
@@ -122,102 +100,73 @@ spec = Spec(
         slug='org',
         package_name='org',
         domain='applied research',
-        description=(
-            'Small research team that gathers source material, synthesises findings, and publishes '
-            'structured analysis reports.'
-        ),
+        description='Small research team that gathers sources and publishes structured analysis reports.',
         repository='https://github.com/example/org',
         author_name='Agentorg Authors',
         author_email='agentorg@example.com',
         visibility='private',
     ),
-    generated=Generated(
-        agents=[*PLATFORM_AGENTS, researcher, analyst],
-        teams=[
-            Team(
-                id='research-team',
-                name='Research Team',
-                description=(
-                    'Two-agent unit that owns the full path from raw sources to a published analysis report. '
-                    "The analyst coordinates: it decides what's worth synthesising and pulls in the researcher "
-                    'when more primary material is needed.'
-                ),
-                leader='analyst',
-                members=['researcher'],
-            ),
+    agents=[*PLATFORM_AGENTS, researcher, analyst],
+    teams=[research_team],
+    workflows=[research_pipeline],
+    charter={
+        'parameters': [
+            {'name': 'domain_focus', 'type': 'string', 'default': 'applied research', 'label': 'Domain Focus'},
+            {'name': 'min_sources', 'type': 'int', 'default': 3, 'label': 'Min Sources per Research Doc'},
         ],
-        workflows=[
-            Workflow(
-                id='research-pipeline',
-                name='Research Pipeline',
-                description='Sequential pipeline: researcher gathers material, then analyst publishes a report.',
-                steps=[
-                    Step(name='Gather', agent='researcher'),
-                    Step(
-                        name='Analyse',
-                        agent='analyst',
-                        hitl=StepRouteHitl(type='output_review', message='Approve the analysis report?'),
-                    ),
-                ],
-            ),
+        'sections': [
+            {
+                'id': 'charter',
+                'title': 'Charter',
+                'body': (
+                    '## Mission\n'
+                    '- Focus area: {domain_focus}\n'
+                    '- Every research doc cites at least {min_sources} sources.\n'
+                    '- Reports are structured: Overview, Findings, Implications, Open Questions.'
+                ),
+            },
+            {
+                'id': 'process',
+                'title': 'Process',
+                'body': (
+                    '1. Researcher gathers material and writes research docs.\n'
+                    '2. Analyst synthesises research into a final report.\n'
+                    '3. Both auto-save their outputs.'
+                ),
+            },
         ],
-        charter=Charter(
-            parameters=[
-                CharterParameter(name='domain_focus', type='string', default='applied research', label='Domain Focus'),
-                CharterParameter(name='min_sources', type='int', default=3, label='Min Sources per Research Doc'),
-            ],
-            sections=[
-                CharterSection(
-                    id='charter',
-                    title='Charter',
-                    body=(
-                        '## Mission\n'
-                        '- Focus area: {domain_focus}\n'
-                        '- Every research doc cites at least {min_sources} sources.\n'
-                        '- Reports are structured: Overview, Findings, Implications, Open Questions.'
-                    ),
-                ),
-                CharterSection(
-                    id='process',
-                    title='Process',
-                    body=(
-                        '1. Researcher gathers material and writes research docs.\n'
-                        '2. Analyst synthesises research into a final report.\n'
-                        '3. Both auto-save their outputs.'
-                    ),
-                ),
-            ],
-        ),
-        documents={
-            'types': [
-                DocumentType(id='research', label='Research Docs'),
-                DocumentType(id='report', label='Analyst Reports'),
-            ],
+    },
+    documents={
+        'types': [
+            {'id': 'research', 'label': 'Research Docs'},
+            {'id': 'report', 'label': 'Analyst Reports'},
+        ],
+    },
+    agent_groups=[{'label': 'Research Team', 'ids': ['researcher', 'analyst']}],
+    workflow_groups=[{'label': 'Pipelines', 'ids': ['research-pipeline']}],
+    ui={
+        'app': {
+            'name': 'Org',
+            'icon': '🔬',
+            'description': 'Small research team for testing the agentorg renderer end-to-end.',
         },
-        agent_groups=[GroupRef(label='Research Team', ids=['researcher', 'analyst'])],
-        workflow_groups=[GroupRef(label='Pipelines', ids=['research-pipeline'])],
-        ui=UI(
-            app=AppUI(
-                name='Org',
-                icon='🔬',
-                description='Small research team for testing the agentorg renderer end-to-end.',
-            ),
-            empty_state=EmptyState(
-                icon='🔬',
-                title='Pick an agent or workflow',
-                body='Try the research pipeline or chat directly with the analyst.',
-            ),
-            knowledge_empty=KnowledgeEmpty(
-                documents='No knowledge yet — run the researcher first.',
-                learnings='No learnings accumulated yet.',
-            ),
-            featured_agents=['analyst'],
-            agent_icons={'researcher': '📚', 'analyst': '🧪'},
-        ),
-        env_vars=EnvVars(
-            required=[EnvVar(name='GOOGLE_API_KEY', description='Gemini API key.')],
-            optional=[EnvVar(name='RUNTIME_ENV', description='Set to `dev` for uvicorn auto-reload.')],
-        ),
-    ),
-    setup=Setup(steps=[SetupStep(id='secrets', title='Set GOOGLE_API_KEY in .env', vars=['GOOGLE_API_KEY'])]),
+        'empty_state': {
+            'icon': '🔬',
+            'title': 'Pick an agent or workflow',
+            'body': 'Try the research pipeline or chat directly with the analyst.',
+        },
+        'knowledge_empty': {
+            'documents': 'No knowledge yet — run the researcher first.',
+            'learnings': 'No learnings accumulated yet.',
+        },
+        'featured_agents': ['analyst'],
+        'agent_icons': {'researcher': '📚', 'analyst': '🧪'},
+    },
+    env_vars={
+        'required': [{'name': 'GOOGLE_API_KEY', 'description': 'Gemini API key.'}],
+        'optional': [{'name': 'RUNTIME_ENV', 'description': 'Set to `dev` for uvicorn auto-reload.'}],
+    },
+    setup={
+        'steps': [{'id': 'secrets', 'title': 'Set GOOGLE_API_KEY in .env', 'vars': ['GOOGLE_API_KEY']}],
+    },
 )

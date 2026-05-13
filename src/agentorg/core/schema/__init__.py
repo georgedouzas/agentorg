@@ -1,40 +1,30 @@
 """Pydantic models describing the agentorg spec.
 
-The Spec model is the single contract between user-authored spec files and the agentorg renderer / runtime. Built-in
-defaults (the six platform agents) live in `platform_agents.PLATFORM_AGENTS` and are populated automatically when a user
-constructs `Spec(...)` without overriding `generated.agents`.
+User-facing surface is small: `Spec`, `Org`, and `PLATFORM_AGENTS`. Agents/teams/workflows come from agno
+(`agno.agent.Agent`, `agno.team.Team`, `agno.workflow.Workflow`/`Step`). The rest of the models exist so dict literals
+get validated — users don't need to import them.
 """
 
 from agentorg.core.schema.models import (
     UI,
-    Agent,
     AgentConfigUI,
     AppUI,
     Charter,
     CharterParameter,
     CharterSection,
-    CountRule,
     Deployment,
     DocumentType,
     EmptyState,
     EnvVar,
     EnvVars,
-    Generated,
     GroupRef,
     KnowledgeEmpty,
     Org,
-    OutputFormat,
-    SaveRule,
-    ScopeRef,
     Setup,
     SetupStep,
     Spec,
     StateField,
     StateSchema,
-    Step,
-    StepRouteHitl,
-    Team,
-    Workflow,
 )
 from agentorg.core.schema.platform_agents import PLATFORM_AGENT_IDS, PLATFORM_AGENTS
 
@@ -42,32 +32,22 @@ __all__ = [
     'PLATFORM_AGENTS',
     'PLATFORM_AGENT_IDS',
     'UI',
-    'Agent',
     'AgentConfigUI',
     'AppUI',
     'Charter',
     'CharterParameter',
     'CharterSection',
-    'CountRule',
     'Deployment',
     'DocumentType',
     'EmptyState',
     'EnvVar',
     'EnvVars',
-    'Generated',
     'GroupRef',
     'KnowledgeEmpty',
     'Org',
-    'OutputFormat',
-    'SaveRule',
-    'ScopeRef',
     'Setup',
     'SetupStep',
     'Spec',
     'StateField',
     'StateSchema',
-    'Step',
-    'StepRouteHitl',
-    'Team',
-    'Workflow',
 ]

@@ -5,29 +5,13 @@ from org.spec import spec
 
 
 def test_every_agent_has_non_empty_instructions() -> None:
-    """Every built agent has a non-empty instruction string."""
+    """Every built agent has a non-empty instruction string (or callable)."""
     for agent_id, agent in build_agents(spec).items():
         assert agent.instructions, f'{agent_id} produced an empty prompt'
 
 
-def test_instructions_always_include_committee_rules_header() -> None:
-    """The charter / committee-rules block is unconditionally prepended."""
-    for agent_id, agent in build_agents(spec).items():
-        assert '## Committee Rules' in agent.instructions, f'{agent_id} missing charter block'
-
-
-def test_instructions_start_with_agent_identity() -> None:
-    """Every prompt opens with `You are the <agent name>.`."""
-    for agent_spec in spec.generated.agents:
-        agents = build_agents(spec)
-        prompt = agents[agent_spec.id].instructions
-        first_line = prompt.splitlines()[0]
-        assert first_line == f'You are the {agent_spec.name}.', first_line
-
-
-def test_save_rule_emits_auto_save_section() -> None:
-    """Agents with a `save_rule` get an `## Auto-save the report` block in their prompt."""
-    agents = build_agents(spec)
-    for agent_spec in spec.generated.agents:
-        if agent_spec.save_rule:
-            assert '## Auto-save the report' in agents[agent_spec.id].instructions
+def test_charter_is_prepended_when_supplied() -> None:
+    """When `build_agents` receives a `charter_text`, agents start with a `## Committee Rules` block."""
+    for agent_id, agent in build_agents(spec, charter_text='Always be excellent.').items():
+        text = agent.instructions if isinstance(agent.instructions, str) else ''
+        assert '## Committee Rules' in text, f'{agent_id} missing charter block'

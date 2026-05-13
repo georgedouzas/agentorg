@@ -1,7 +1,7 @@
 """FastAPI router exposing app config, state, documents, agents, reports, and workflows.
 
-`build_router(spec, agents, workflows)` returns a router whose handlers are closed over
-the already-built spec + agents + workflows — no re-reading of configuration per request.
+`build_router(spec, agents, workflows)` returns a router whose handlers are closed over the already-built spec +
+agents + workflows — no re-reading of configuration per request.
 """
 
 import json
@@ -9,8 +9,8 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
-from agno.agent import Agent as AgnoAgent
-from agno.workflow import Workflow as AgnoWorkflow
+from agno.agent import Agent
+from agno.workflow import Workflow
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, create_model
@@ -27,10 +27,10 @@ def _py_type(t: str) -> type:
 
 def _state_model(spec: Spec) -> type[BaseModel]:
     fields: dict[str, Any] = {}
-    for p in spec.generated.charter.parameters:
+    for p in spec.charter.parameters:
         py = _py_type(p.type)
         fields[p.name] = (py, Field(default=p.default))
-    return create_model(spec.generated.state.model_name, **fields)  # type: ignore[call-overload]
+    return create_model(spec.state.model_name, **fields)  # type: ignore[call-overload]
 
 
 def _decode_json(maybe: Any) -> Any:
@@ -41,26 +41,26 @@ def _decode_json(maybe: Any) -> Any:
 
 def build_router(  # noqa: C901, PLR0915
     spec: Spec,
-    agents: dict[str, AgnoAgent],
-    workflows: list[AgnoWorkflow],
+    agents: dict[str, Agent],
+    workflows: list[Workflow],
 ) -> APIRouter:
     """Build the FastAPI router with handlers closed over the spec + agents + workflows."""
     router = APIRouter(prefix='/api', tags=['api'])
-    agent_names = {a.id: a.name for a in spec.generated.agents}
+    agent_names = {a.id: (a.name or a.id) for a in spec.agents if a.id}
     org_config = _state_model(spec)
 
     # ── Config ──────────────────────────────────────────────────────────────
     @router.get('/config')
     def ui_config() -> dict[str, Any]:
-        ui = spec.generated.ui
+        ui = spec.ui
         return {
             'app_name': ui.app.name if ui else spec.org.name,
             'app_icon': ui.app.icon if ui else '🤖',
             'app_description': ui.app.description if ui else spec.org.description,
             'empty_state': ui.empty_state.model_dump() if ui else {},
             'knowledge_empty': ui.knowledge_empty.model_dump() if ui else {},
-            'agent_groups': [g.model_dump() for g in spec.generated.agent_groups],
-            'workflow_groups': [g.model_dump() for g in spec.generated.workflow_groups],
+            'agent_groups': [g.model_dump() for g in spec.agent_groups],
+            'workflow_groups': [g.model_dump() for g in spec.workflow_groups],
             'featured_agents': ui.featured_agents if ui else [],
             'agent_icons': ui.agent_icons if ui else {},
             'agent_configs': {k: v.model_dump() for k, v in (ui.agent_configs if ui else {}).items()},
@@ -204,16 +204,13 @@ def build_router(  # noqa: C901, PLR0915
         agent = agents.get(agent_id)
         if agent is None:
             raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
-        agent_spec = next((a for a in spec.generated.agents if a.id == agent_id), None)
         return {
             'agent_id': agent_id,
             'name': agent.name or agent_id,
+            'role': agent.role or '',
             'model_id': getattr(agent.model, 'id', '') if getattr(agent, 'model', None) else '',
-            'role': agent_spec.role if agent_spec else '',
-            'in_scope': agent_spec.in_scope if agent_spec else [],
-            'out_of_scope': [s.model_dump() for s in (agent_spec.out_of_scope if agent_spec else [])],
-            'workflow': agent_spec.workflow if agent_spec else [],
-            'tools': [getattr(t, '__name__', type(t).__name__) for t in (agent_spec.tools if agent_spec else [])],
+            'instructions': agent.instructions if isinstance(agent.instructions, str) else '',
+            'tools': [getattr(t, '__name__', type(t).__name__) for t in (agent.tools or [])],
         }
 
     @router.get('/agents/{agent_id}/history')

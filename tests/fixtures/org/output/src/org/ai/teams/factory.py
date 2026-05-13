@@ -1,30 +1,13 @@
-"""Team factory — builds teams from the spec.
+"""Team factory — returns the teams declared in `spec.py`.
 
-Architecture: `coordinate`.
+The user constructs `agno.Team(...)` directly, so this factory is a thin lookup that returns them keyed by id.
 """
 
-from agno.agent import Agent as AgnoAgent
 from agno.team import Team
 
 from agentorg.core.schema import Spec
 
-_MODE = 'coordinate'
 
-
-def build_teams(spec: Spec, agents: dict[str, AgnoAgent]) -> list[Team]:
-    """Return one `Team` per spec entry, in `coordinate` mode."""
-    teams: list[Team] = []
-    for team_spec in spec.generated.teams:
-        leader = agents[team_spec.leader]
-        members = [agents[m] for m in team_spec.members]
-        teams.append(
-            Team(
-                id=team_spec.id,
-                name=team_spec.name,
-                description=team_spec.description,
-                mode=_MODE,
-                model=leader.model,
-                members=members,
-            ),
-        )
-    return teams
+def build_teams(spec: Spec) -> list[Team]:
+    """Return the teams declared in the spec, in the order they appear."""
+    return list(spec.teams)

@@ -18,6 +18,10 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from agno.agent import Agent as AgnoAgent
+from agno.team import Team as AgnoTeam
+from agno.workflow import Step as AgnoStep
+from agno.workflow import Workflow as AgnoWorkflow
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from agentorg.core.schema import Spec
@@ -50,12 +54,58 @@ def _spec_from_module(module: ModuleType) -> Spec:
     return spec
 
 
+def _agent_summary(agent: AgnoAgent) -> dict[str, Any]:
+    return {'id': agent.id or '', 'name': agent.name or agent.id or '', 'role': agent.role or ''}
+
+
+def _team_summary(team: AgnoTeam) -> dict[str, Any]:
+    members = [m.id for m in (team.members or []) if getattr(m, 'id', None)]
+    return {'id': team.id or '', 'name': team.name or team.id or '', 'members': members}
+
+
+def _step_summary(step: AgnoStep) -> dict[str, Any]:
+    parallel = getattr(step, 'steps', None) if type(step).__name__ == 'Parallel' else None
+    if parallel is not None:
+        return {'name': getattr(step, 'name', '') or 'Parallel', 'parallel': [_step_summary(s) for s in parallel]}
+    agent = getattr(step, 'agent', None)
+    hitl = bool(
+        getattr(step, 'requires_output_review', False)
+        or getattr(step, 'requires_confirmation', False)
+        or getattr(step, 'requires_user_input', False),
+    )
+    return {'name': step.name or '', 'agent': getattr(agent, 'id', None) if agent else None, 'hitl': hitl}
+
+
+def _workflow_summary(workflow: AgnoWorkflow) -> dict[str, Any]:
+    return {
+        'id': workflow.id or '',
+        'name': workflow.name or workflow.id or '',
+        'description': getattr(workflow, 'description', '') or '',
+        'steps': [_step_summary(s) for s in (workflow.steps or [])],
+    }
+
+
 def _jinja_context(spec: Spec) -> dict[str, Any]:
     """Convert the Pydantic Spec to a plain dict for Jinja consumption.
 
-    Drops non-serialisable callables.
+    Agents / teams / workflows are agno-native (not Pydantic) so we summarise them by hand for templates that need `{id,
+    name, steps, ...}`. The rest (org, ui, charter, env vars, setup, groups, documents) round-trips through
+    `model_dump`. Templates that referenced the old `generated.foo` shape see a backwards-compatible namespace.
     """
-    return spec.model_dump(mode='json', exclude={'generated': {'agents': {'__all__': {'tools'}}}})
+    base = spec.model_dump(mode='json', exclude={'agents', 'teams', 'workflows'})
+    base['generated'] = {
+        'agents': [_agent_summary(a) for a in spec.agents],
+        'teams': [_team_summary(t) for t in spec.teams],
+        'workflows': [_workflow_summary(w) for w in spec.workflows],
+        'agent_groups': base['agent_groups'],
+        'workflow_groups': base['workflow_groups'],
+        'ui': base['ui'],
+        'charter': base['charter'],
+        'state': base['state'],
+        'documents': base['documents'],
+        'env_vars': base['env_vars'],
+    }
+    return base
 
 
 def render(spec_dir: Path, output_dir: Path, template_dir: Path | None = None) -> None:

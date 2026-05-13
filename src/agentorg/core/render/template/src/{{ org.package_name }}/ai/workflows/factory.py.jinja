@@ -1,38 +1,14 @@
-"""Workflow factory — builds workflows from the spec.
+"""Workflow factory — returns the workflows declared in `spec.py`.
 
-Architecture: `{{ workflow_architecture }}`.
+The user constructs `agno.Workflow(...)` directly (with native `Step`/`Parallel`/`Loop`/HITL flags), so this factory is
+a thin lookup that returns them in order.
 """
 
-from agno.agent import Agent as AgnoAgent
-from agno.workflow import Parallel, Step
-from agno.workflow import Workflow as AgnoWorkflow
+from agno.workflow import Workflow
 
 from agentorg.core.schema import Spec
-from agentorg.core.schema.models import Step as SpecStep
 
 
-def _build_step(step: SpecStep, agents: dict[str, AgnoAgent]) -> Step | Parallel:
-    if step.parallel:
-        return Parallel(*[_build_step(sub, agents) for sub in step.parallel])
-    return Step(name=step.name, agent=agents[step.agent])  # type: ignore[arg-type]
-
-
-{% if workflow_architecture == 'pipeline' %}
-def build_workflows(spec: Spec, agents: dict[str, AgnoAgent]) -> list[AgnoWorkflow]:
-    """Build sequential `pipeline` workflows from the spec."""
-    workflows: list[AgnoWorkflow] = []
-    for wf in spec.generated.workflows:
-        steps = [_build_step(s, agents) for s in wf.steps]
-        workflows.append(AgnoWorkflow(name=wf.name, steps=steps))
-    return workflows
-{% elif workflow_architecture == 'router' %}
-def build_workflows(spec: Spec, agents: dict[str, AgnoAgent]) -> list[AgnoWorkflow]:
-    """Router-style workflows — first step picks one downstream branch."""
-    msg = 'Router workflow architecture not implemented yet.'
-    raise NotImplementedError(msg)
-{% elif workflow_architecture == 'agentic' %}
-def build_workflows(spec: Spec, agents: dict[str, AgnoAgent]) -> list[AgnoWorkflow]:
-    """Agentic workflows — the model picks each next step at runtime."""
-    msg = 'Agentic workflow architecture not implemented yet.'
-    raise NotImplementedError(msg)
-{% endif %}
+def build_workflows(spec: Spec) -> list[Workflow]:
+    """Return the workflows declared in the spec, in the order they appear."""
+    return list(spec.workflows)

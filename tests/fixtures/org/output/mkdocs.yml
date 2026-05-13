@@ -1,5 +1,5 @@
 site_name: "org"
-site_description: "Small research team that gathers source material, synthesises findings, and publishes structured analysis reports."
+site_description: "Small research team that gathers sources and publishes structured analysis reports."
 repo_url: "https://github.com/example/org"
 repo_name: "example/org"
 site_dir: "site"

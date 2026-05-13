@@ -1,120 +1,18 @@
 """Pydantic models for the agentorg spec.
 
-Every user-authored `spec.py` constructs a `Spec(...)` instance. Defaults are baked into the model so a minimal spec
-(just `org=Org(...)`) still produces a valid org with the six platform agents already present.
+User-facing principles:
+- Agents, teams and workflows are **agno-native** (`agno.Agent`, `agno.Team`, `agno.Workflow`). No agentorg wrapper.
+- Everything else (UI, charter, env vars, setup, documents, groups) is a typed Pydantic model **that accepts plain
+  dicts**. Pydantic v2 coerces them at construction time, so users write one dict literal instead of importing five
+  small classes.
+
+The result: a typical `spec.py` imports `Spec`, `Org`, `PLATFORM_AGENTS` from agentorg, and `Agent`/`Team`/`Workflow`/
+`Step` from agno — that's it.
 """
 
-from collections.abc import Callable
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-
-class ScopeRef(BaseModel):
-    """Out-of-scope topic + agent to delegate it to."""
-
-    topic: str
-    refer_to: str
-
-
-class CountRuleEntry(BaseModel):
-    """One row in the count_rule decision table."""
-
-    phrase: str
-    count: int | str
-
-
-class CountRule(BaseModel):
-    """How an agent decides how many results to return."""
-
-    default: int | str | None = None
-    rules: list[CountRuleEntry] = Field(default_factory=list)
-
-
-class OutputFormat(BaseModel):
-    """Output shape an agent is expected to produce."""
-
-    kind: Literal['markdown_table', 'structured_markdown']
-    columns: list[str] | None = None
-    sections: list[str] | None = None
-    trailer: str | None = None
-
-
-class SaveRule(BaseModel):
-    """Auto-save instructions tacked onto the agent's prompt."""
-
-    tool: str
-    name_pattern: str
-    title_pattern: str
-    note: str | None = None
-
-
-class Agent(BaseModel):
-    """One agent.
-
-    Tools are real callables — Python-as-spec wins over string import paths.
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    id: str
-    name: str
-    model: str = 'gemini-3-flash-preview'
-    role: str
-    tools: list[Callable[..., Any]] = Field(default_factory=list)
-    learning: bool = False
-    in_scope: list[str] = Field(default_factory=list)
-    out_of_scope: list[ScopeRef] = Field(default_factory=list)
-    workflow: list[str] = Field(default_factory=list)
-    output_format: OutputFormat | None = None
-    save_rule: SaveRule | None = None
-    count_rule: CountRule | None = None
-
-
-class StepRouteHitl(BaseModel):
-    """Human-in-the-loop checkpoint inside a workflow step."""
-
-    type: Literal['output_review']
-    message: str
-    on_reject: Literal['cancel', 'retry'] = 'cancel'
-
-
-class Step(BaseModel):
-    """One step in a workflow.
-
-    Either runs a single agent, or runs several agents in parallel.
-    """
-
-    name: str
-    agent: str | None = None
-    parallel: list['Step'] | None = None
-    hitl: StepRouteHitl | None = None
-
-    @model_validator(mode='after')
-    def _validate_agent_or_parallel(self) -> 'Step':
-        if self.agent is None and not self.parallel:
-            msg = f'Step {self.name!r} must specify either `agent` or `parallel`.'
-            raise ValueError(msg)
-        return self
-
-
-class Workflow(BaseModel):
-    """An ordered pipeline of steps."""
-
-    id: str
-    name: str
-    description: str = ''
-    steps: list[Step] = Field(default_factory=list)
-
-
-class Team(BaseModel):
-    """A team of agents under a leader."""
-
-    id: str
-    name: str
-    description: str = ''
-    leader: str
-    members: list[str] = Field(default_factory=list)
 
 
 class CharterParameter(BaseModel):
@@ -240,36 +138,6 @@ class EnvVars(BaseModel):
     optional: list[EnvVar] = Field(default_factory=list)
 
 
-def _import_platform_agents() -> list[Agent]:
-    """Indirection to break a circular import: platform_agents imports Agent from this module."""
-    from agentorg.core.schema.platform_agents import PLATFORM_AGENTS  # noqa: PLC0415
-
-    return list(PLATFORM_AGENTS)
-
-
-def _default_documents() -> dict[str, list[DocumentType]]:
-    return {'types': []}
-
-
-class Generated(BaseModel):
-    """Everything an interview / scaffold produces under the user's authorship.
-
-    The six platform agents are pre-populated via `default_factory` — the user gets them for free without having to
-    spell them out. They can be replaced or extended, but cannot be removed entirely (see Spec.validate_platform).
-    """
-
-    agents: list[Agent] = Field(default_factory=_import_platform_agents)
-    teams: list[Team] = Field(default_factory=list)
-    workflows: list[Workflow] = Field(default_factory=list)
-    charter: Charter = Field(default_factory=Charter)
-    state: StateSchema = Field(default_factory=StateSchema)
-    documents: dict[str, list[DocumentType]] = Field(default_factory=_default_documents)
-    agent_groups: list[GroupRef] = Field(default_factory=list)
-    workflow_groups: list[GroupRef] = Field(default_factory=list)
-    ui: UI | None = None
-    env_vars: EnvVars = Field(default_factory=EnvVars)
-
-
 class Org(BaseModel):
     """Org metadata (name, slug, repository, author, license)."""
 
@@ -309,39 +177,63 @@ class Setup(BaseModel):
     steps: list[SetupStep] = Field(default_factory=list)
 
 
-AgentArchitecture = Annotated[Literal['default'], 'default']
-WorkflowArchitecture = Annotated[Literal['pipeline', 'router', 'agentic'], 'pipeline']
-TeamArchitecture = Annotated[Literal['coordinate', 'route', 'collaborate', 'broadcast'] | None, None]
-InfraMode = Annotated[Literal['local', 'docker'], 'local']
+def _default_agents() -> list[Any]:
+    """Indirection to break a circular import: platform_agents imports back from here."""
+    from agentorg.core.schema.platform_agents import PLATFORM_AGENTS  # noqa: PLC0415
+
+    return list(PLATFORM_AGENTS)
+
+
+def _default_documents() -> dict[str, list[DocumentType]]:
+    return {'types': []}
 
 
 class Spec(BaseModel):
-    """The whole org spec — a single Python value the user constructs in `spec.py`."""
+    """The whole org spec — a single Python value the user constructs in `spec.py`.
 
+    Agents/teams/workflows are agno-native objects. Everything else accepts dicts that Pydantic coerces into the
+    matching model, so the user side reads as one dict literal per section.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # platform / architecture
     agentorg_version: str = '0.1.0'
     agent_architecture: Literal['default'] = 'default'
     workflow_architecture: Literal['pipeline', 'router', 'agentic'] = 'pipeline'
     team_architecture: Literal['coordinate', 'route', 'collaborate', 'broadcast'] | None = None
     infra: Literal['local', 'docker'] = 'local'
+
+    # org metadata
     org: Org
     deployment: Deployment = Field(default_factory=Deployment)
-    generated: Generated = Field(default_factory=Generated)
+
+    # agno-native runtime objects (typed `Any` so Pydantic does not introspect agno's complex annotations)
+    agents: list[Any] = Field(default_factory=_default_agents)
+    teams: list[Any] = Field(default_factory=list)
+    workflows: list[Any] = Field(default_factory=list)
+
+    # org content
+    charter: Charter = Field(default_factory=Charter)
+    state: StateSchema = Field(default_factory=StateSchema)
+    documents: dict[str, list[DocumentType]] = Field(default_factory=_default_documents)
+    agent_groups: list[GroupRef] = Field(default_factory=list)
+    workflow_groups: list[GroupRef] = Field(default_factory=list)
+    ui: UI | None = None
+    env_vars: EnvVars = Field(default_factory=EnvVars)
     setup: Setup = Field(default_factory=Setup)
 
     @model_validator(mode='after')
     def _validate_platform_agents_present(self) -> 'Spec':
         from agentorg.core.schema.platform_agents import PLATFORM_AGENT_IDS  # noqa: PLC0415
 
-        present = {a.id for a in self.generated.agents}
+        present = {a.id for a in self.agents if a.id}
         missing = PLATFORM_AGENT_IDS - present
         if missing:
             msg = (
                 f'Spec is missing required platform agents: {sorted(missing)}. '
                 'Platform agents are the default behaviour for every agentorg-generated org; '
-                'remove them only by overriding `Generated(agents=[...])` deliberately.'
+                'they ship pre-built — start from `PLATFORM_AGENTS` and extend.'
             )
             raise ValueError(msg)
         return self
-
-
-Step.model_rebuild()

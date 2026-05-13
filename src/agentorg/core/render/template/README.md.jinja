@@ -31,7 +31,7 @@
 | {{ loop.index }} | {{ step.name }} | {{ agent_names | join(', ') }} (parallel) | No |
 {% else -%}
 {% set agent_name = (generated.agents | selectattr('id', 'equalto', step.agent) | first).name -%}
-| {{ loop.index }} | {{ step.name }} | {{ agent_name }} | {% if step.hitl is defined %}Yes{% else %}No{% endif %} |
+| {{ loop.index }} | {{ step.name }} | {{ agent_name }} | {% if step.hitl %}Yes{% else %}No{% endif %} |
 {% endif -%}
 {% endfor %}
 
