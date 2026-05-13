@@ -10,12 +10,10 @@ Output: a project directory with:
     and tools at boot.
 """
 
-import importlib.util
+import runpy
 import shutil
-import sys
 from importlib.resources import files
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 from agno.agent import Agent as AgnoAgent
@@ -25,33 +23,6 @@ from agno.workflow import Workflow as AgnoWorkflow
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from agentorg.core.schema import Spec
-
-
-def _load_spec_module(spec_path: Path) -> ModuleType:
-    """Import the user's `spec.py` from disk."""
-    if not spec_path.exists():
-        msg = f'No spec at {spec_path}'
-        raise FileNotFoundError(msg)
-    module_spec = importlib.util.spec_from_file_location('_agentorg_user_spec', spec_path)
-    if module_spec is None or module_spec.loader is None:
-        msg = f'Cannot load spec from {spec_path}'
-        raise ImportError(msg)
-    module = importlib.util.module_from_spec(module_spec)
-    sys.modules['_agentorg_user_spec'] = module
-    module_spec.loader.exec_module(module)
-    return module
-
-
-def _spec_from_module(module: ModuleType) -> Spec:
-    """Extract and validate the `spec` attribute from the loaded module."""
-    if not hasattr(module, 'spec'):
-        msg = "spec.py must define a top-level `spec` variable (instance of agentorg.core.schema.Spec)."
-        raise AttributeError(msg)
-    spec = module.spec
-    if not isinstance(spec, Spec):
-        msg = f'`spec` must be an instance of Spec, got {type(spec).__name__}.'
-        raise TypeError(msg)
-    return spec
 
 
 def _agent_summary(agent: AgnoAgent) -> dict[str, Any]:
@@ -116,8 +87,13 @@ def render(spec_path: Path, output_dir: Path, template_dir: Path | None = None) 
         output_dir: Output directory (created/overwritten in place).
         template_dir: Override the template root (defaults to the agentorg-shipped template).
     """
-    user_module = _load_spec_module(spec_path)
-    spec = _spec_from_module(user_module)
+
+    # Load specification
+    spec = runpy.run_path(str(spec_path)).get('spec')
+    if not isinstance(spec, Spec):
+        msg = f'spec.py must define a top-level `spec` of type Spec, got {type(spec).__name__}.'
+        raise TypeError(msg)
+
     data = _jinja_context(spec)
 
     if template_dir is None:
