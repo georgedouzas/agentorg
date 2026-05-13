@@ -1,13 +1,13 @@
 """Render an organization from a single `spec.py` file.
 
-Input: a directory containing `spec.py`, in which the user constructs a `Spec(...)` instance
-named `spec`. The spec file may also define custom tool functions used by the agents.
+Input: a path to a `spec.py` file in which the user constructs a `Spec(...)` instance named `spec`. The file may also
+define custom tool functions used by the agents.
 
 Output: a project directory with:
-  - The renderer's template tree (pyproject, README, frontend, factory boilerplate, ...)
-    materialised against the spec's data.
-  - The user's `spec.py` copied into `<output>/src/<package>/spec.py`, so the rendered
-    runtime can import its agents and tools at boot.
+  - The renderer's template tree (pyproject, README, frontend, factory boilerplate, ...) materialised against the
+    spec's data.
+  - The user's `spec.py` copied into `<output>/src/<package>/spec.py`, so the rendered runtime can import its agents
+    and tools at boot.
 """
 
 import importlib.util
@@ -108,15 +108,14 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
     return base
 
 
-def render(spec_dir: Path, output_dir: Path, template_dir: Path | None = None) -> None:
-    """Render the project template from a spec directory.
+def render(spec_path: Path, output_dir: Path, template_dir: Path | None = None) -> None:
+    """Render the project template from a spec file.
 
     Args:
-        spec_dir: Directory containing `spec.py`.
+        spec_path: Path to the user's `spec.py`.
         output_dir: Output directory (created/overwritten in place).
         template_dir: Override the template root (defaults to the agentorg-shipped template).
     """
-    spec_path = spec_dir / 'spec.py'
     user_module = _load_spec_module(spec_path)
     spec = _spec_from_module(user_module)
     data = _jinja_context(spec)

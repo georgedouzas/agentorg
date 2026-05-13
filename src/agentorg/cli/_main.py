@@ -15,8 +15,9 @@ def cli() -> None:
 
 @cli.command(name='render')
 @click.argument(
-    'spec_dir',
-    type=click.Path(exists=True, dir_okay=True, file_okay=False, path_type=Path),
+    'spec_path',
+    required=False,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True, path_type=Path),
 )
 @click.option(
     '--output',
@@ -24,9 +25,13 @@ def cli() -> None:
     type=click.Path(file_okay=False, path_type=Path),
     help='Output directory.',
 )
-def render_project(spec_dir: Path, output: Path) -> None:
-    """Render a project from a directory containing `spec.py`."""
-    render(spec_dir, output)
+def render_project(spec_path: Path | None, output: Path) -> None:
+    """Render a project from a `spec.py` file (defaults to `./spec.py`)."""
+    target = spec_path or Path.cwd() / 'spec.py'
+    if not target.exists():
+        msg = f'No spec at {target}'
+        raise click.ClickException(msg)
+    render(target, output)
     click.echo(f'Rendered into {output}')
 
 

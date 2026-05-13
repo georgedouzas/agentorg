@@ -86,7 +86,7 @@ def test_verbatim_file_is_copied_unchanged(workspace: tuple[Path, Path, Path]) -
     template, spec_dir, output = workspace
     _write(template / 'README.md', '# hello')
     _spec_py(spec_dir)
-    render(spec_dir, output, template_dir=template)
+    render(spec_dir / 'spec.py', output, template_dir=template)
     assert (output / 'README.md').read_text() == '# hello'
 
 
@@ -95,7 +95,7 @@ def test_jinja_suffix_stripped_and_content_rendered(workspace: tuple[Path, Path,
     template, spec_dir, output = workspace
     _write(template / 'greeting.txt.jinja', 'Hi {{ org.package_name }}.')
     _spec_py(spec_dir)
-    render(spec_dir, output, template_dir=template)
+    render(spec_dir / 'spec.py', output, template_dir=template)
     assert not (output / 'greeting.txt.jinja').exists()
     assert (output / 'greeting.txt').read_text() == 'Hi acme.'
 
@@ -105,7 +105,7 @@ def test_jinja_var_in_directory_name_is_substituted(workspace: tuple[Path, Path,
     template, spec_dir, output = workspace
     _write(template / 'src' / '{{ org.package_name }}' / 'mod.py', 'pass')
     _spec_py(spec_dir)
-    render(spec_dir, output, template_dir=template)
+    render(spec_dir / 'spec.py', output, template_dir=template)
     assert (output / 'src' / 'acme' / 'mod.py').read_text() == 'pass'
     assert not (output / 'src' / '{{ org.package_name }}').exists()
 
@@ -116,7 +116,7 @@ def test_conditional_file_skipped_when_condition_is_false(workspace: tuple[Path,
     name = "{% if org.visibility == 'public' %}LICENSE{% endif %}.jinja"
     _write(template / name, 'MIT...')
     _spec_py(spec_dir, visibility='private')
-    render(spec_dir, output, template_dir=template)
+    render(spec_dir / 'spec.py', output, template_dir=template)
     assert not (output / 'LICENSE').exists()
     assert not (output / '.jinja').exists()
 
@@ -127,7 +127,7 @@ def test_conditional_file_kept_when_condition_is_true(workspace: tuple[Path, Pat
     name = "{% if org.visibility == 'public' %}LICENSE{% endif %}.jinja"
     _write(template / name, 'MIT...')
     _spec_py(spec_dir, visibility='public')
-    render(spec_dir, output, template_dir=template)
+    render(spec_dir / 'spec.py', output, template_dir=template)
     assert (output / 'LICENSE').read_text() == 'MIT...'
 
 
@@ -137,7 +137,7 @@ def test_jinja_braces_in_verbatim_file_are_left_alone(workspace: tuple[Path, Pat
     jsx = "const x = <div style={{color: 'red'}} />;"
     _write(template / 'App.tsx', jsx)
     _spec_py(spec_dir)
-    render(spec_dir, output, template_dir=template)
+    render(spec_dir / 'spec.py', output, template_dir=template)
     assert (output / 'App.tsx').read_text() == jsx
 
 
@@ -146,7 +146,7 @@ def test_spec_py_is_copied_into_rendered_package(workspace: tuple[Path, Path, Pa
     template, spec_dir, output = workspace
     _write(template / 'src' / '{{ org.package_name }}' / '__init__.py', '"""acme"""')
     _spec_py(spec_dir)
-    render(spec_dir, output, template_dir=template)
+    render(spec_dir / 'spec.py', output, template_dir=template)
     copied = output / 'src' / 'acme' / 'spec.py'
     assert copied.exists()
     assert 'Spec(org=Org' in copied.read_text()
@@ -159,7 +159,7 @@ def test_spec_py_is_copied_into_rendered_package(workspace: tuple[Path, Path, Pa
 def test_fixture_renders_byte_identical(fixture_id: str, tmp_path: Path) -> None:
     """Render the fixture and assert every produced file matches the committed snapshot."""
     out = tmp_path / 'render'
-    render(FIXTURES_DIR / fixture_id, out)
+    render(FIXTURES_DIR / fixture_id / 'spec.py', out)
 
     fixture_out = FIXTURES_DIR / fixture_id / 'output'
     mismatches: list[str] = []
@@ -191,7 +191,7 @@ def synced_org(tmp_path_factory: pytest.TempPathFactory) -> Path:
     if not _uv_available():
         pytest.skip('uv not on PATH; cannot exercise the rendered org.')
     work = tmp_path_factory.mktemp('rendered-org')
-    render(FIXTURES_DIR / 'org', work)
+    render(FIXTURES_DIR / 'org' / 'spec.py', work)
     agentorg_root = Path(__file__).parents[2]
     pyproject = work / 'pyproject.toml'
     pyproject.write_text(
