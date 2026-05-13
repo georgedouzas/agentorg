@@ -7,7 +7,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-_PLATFORM_AGENTS_PATH = 'platform/agents.json'
+_PLATFORM_AGENTS_PATH = 'platform_agents.json'
 
 
 def _merge_platform_agents(data: dict) -> None:
