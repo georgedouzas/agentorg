@@ -9,11 +9,11 @@ from agentorg.core import render
 
 @click.group()
 @click.version_option(package_name='agentorg')
-def cli() -> None:
+def main() -> None:
     """Agentorg: Generate runnable multi-agent organisations from a Python `spec.py`."""
 
 
-@cli.command(name='render')
+@main.command(name='render')
 @click.argument(
     'spec_path',
     required=False,
@@ -33,7 +33,3 @@ def render_project(spec_path: Path | None, output: Path) -> None:
         raise click.ClickException(msg)
     render(target, output)
     click.echo(f'Rendered into {output}')
-
-
-if __name__ == '__main__':
-    cli()

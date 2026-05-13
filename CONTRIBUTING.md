@@ -9,31 +9,31 @@ the project for more details. You can run any of the following commands and subc
 
 ### Documentation
 
-- `uv run docs`: Serve the documentation.
-- `uv run docs -- build`: Build locally the documentation.
+- `uv run nox -s docs`: Serve the documentation.
+- `uv run nox -s docs -- build`: Build locally the documentation.
 
 ### Formatting
 
-- `uv run formatting`: Format both the code and docstrings.
-  - `uv run formatting -- code`: Format only the code.
-  - `uv run formatting -- docstrings`: Format only the docstrings.
+- `uv run nox -s formatting`: Format both the code and docstrings.
+  - `uv run nox -s formatting -- code`: Format only the code.
+  - `uv run nox -s formatting -- docstrings`: Format only the docstrings.
 
 ### Checks
 
-- `uv run checks`: Run all checks.
-  - `uv run checks -- quality`: Check only code quality.
-  - `uv run checks -- types`: Check only type annotations.
-  - `uv run checks -- dependencies`: Check only for vulnerabilities in dependencies.
+- `uv run nox -s checks`: Run all checks.
+  - `uv run nox -s checks -- quality`: Check only code quality.
+  - `uv run nox -s checks -- types`: Check only type annotations.
+  - `uv run nox -s checks -- dependencies`: Check only for vulnerabilities in dependencies.
 
 ### Tests
 
-- `uv run tests`: Run the tests.
+- `uv run nox -s tests`: Run the tests.
 
 ### Templates
 
 The `project/` directory holds the Jinja2 templates used by `agentorg render`. The
 fixtures under `tests/fixtures/<id>/output/` are the **expected** rendered trees,
-hand-maintained. After changing a template, run `uv run tests -- test_project_templates`
+hand-maintained. After changing a template, run `uv run nox -s tests -- test_project_templates`
 and inspect any diff — if the renderer's new output is intended, edit the fixture by
 hand to match; otherwise fix the template.
 
@@ -42,21 +42,21 @@ See [`CLAUDE.md`](CLAUDE.md) for the templating contract and
 
 ### Changelog
 
-- `uv run changelog`: Build the changelog.
+- `uv run nox -s changelog`: Build the changelog.
 
 ### Release
 
-- `uv run release`: Release a new Python package with an updated version.
+- `uv run nox -s release`: Release a new Python package with an updated version.
 
 ## Development
 
 The next steps should be followed during development:
 
 - `git checkout -b new-branch-name` to create a new branch and then modify the code.
-- `uv run formatting` to auto-format the code and docstrings.
-- `uv run checks` to apply all checks.
-- `uv run tests` to run the tests.
-- `uv run docs` if you updated the documentation or the project dependencies to check that everything looks as expected.
+- `uv run nox -s formatting` to auto-format the code and docstrings.
+- `uv run nox -s checks` to apply all checks.
+- `uv run nox -s tests` to run the tests.
+- `uv run nox -s docs` if you updated the documentation or the project dependencies to check that everything looks as expected.
 
 ## Commit message convention
 

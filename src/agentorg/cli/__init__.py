@@ -1,5 +1,5 @@
 """Implementation of the agentorg CLI."""
 
-from agentorg.cli._main import cli
+from agentorg.cli._main import main
 
-__all__ = ['cli']
+__all__ = ['main']
