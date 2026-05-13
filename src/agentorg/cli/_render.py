@@ -7,7 +7,7 @@ import click
 from agentorg.core import render as _render
 
 
-@click.command(name='render')
+@click.command()
 @click.argument(
     'spec_path',
     required=False,
