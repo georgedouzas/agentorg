@@ -1,20 +1,9 @@
-"""HTTP route tests — exercise every endpoint registered in `app.routes`.
+"""HTTP route tests — exercise the agentorg-specific endpoints in `app.routes`.
 
-These tests boot the full app via the `client` fixture in conftest, so they require
-`GOOGLE_API_KEY` to be set (the embedder is instantiated when the agent factory imports).
-Without the env var the whole module skips.
+These boot the full app via the `client` fixture in conftest. Booting no longer instantiates the embedder (agents
+are registered as reasoners, not constructed with knowledge), so these tests don't need `GOOGLE_API_KEY`. Agent
+invocation / discovery / workflow continuation aren't tested here — those are AgentField's surface, not agentorg's.
 """
-
-import pytest
-
-from {{ org.package_name }}.spec import spec
-
-EXPECTED_AGENT_IDS = sorted(a.id for a in spec.ai.agents if a.id)
-
-
-@pytest.fixture(autouse=True)
-def _gate(needs_google_api: None) -> None:  # noqa: PT004
-    """All tests in this module require the embedder."""
 
 
 def test_get_config_returns_app_metadata(client) -> None:  # noqa: ANN001
@@ -25,6 +14,13 @@ def test_get_config_returns_app_metadata(client) -> None:  # noqa: ANN001
     assert 'app_name' in body
     assert 'app_icon' in body
     assert 'app_description' in body
+
+
+def test_get_config_includes_sidebar_groups(client) -> None:  # noqa: ANN001
+    """`GET /api/config` surfaces the UI's agent/workflow groups."""
+    body = client.get('/api/config').json()
+    assert isinstance(body.get('agent_groups'), list)
+    assert isinstance(body.get('workflow_groups'), list)
 
 
 def test_get_state_returns_defaults_for_fresh_user(client) -> None:  # noqa: ANN001
@@ -80,29 +76,6 @@ def test_get_learnings_returns_list(client) -> None:  # noqa: ANN001
     assert isinstance(r.json(), list)
 
 
-@pytest.mark.parametrize('agent_id', EXPECTED_AGENT_IDS)
-def test_get_agent_info(client, agent_id: str) -> None:  # noqa: ANN001
-    """Every registered agent has a populated info payload."""
-    r = client.get(f'/api/agents/{agent_id}/info')
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body['agent_id'] == agent_id
-    assert body['name']
-
-
-def test_get_agent_info_returns_404_for_unknown(client) -> None:  # noqa: ANN001
-    """An unknown agent id produces a 404."""
-    r = client.get('/api/agents/no-such-agent/info')
-    assert r.status_code == 404
-
-
-def test_get_agent_history_returns_empty_for_fresh_user(client) -> None:  # noqa: ANN001
-    """An agent with no past sessions returns `{session_id: None, messages: []}`."""
-    r = client.get(f'/api/agents/{EXPECTED_AGENT_IDS[0]}/history?user_id=fresh_user')
-    assert r.status_code == 200
-    assert r.json().get('messages') == []
-
-
 def test_get_agent_reports_returns_grouped_list(client) -> None:  # noqa: ANN001
     """`GET /api/agent-reports` returns `{agents: [...]}` (initially empty)."""
     r = client.get('/api/agent-reports')
@@ -114,18 +87,3 @@ def test_get_agent_report_returns_404_for_unknown(client) -> None:  # noqa: ANN0
     """An unknown report id produces a 404."""
     r = client.get('/api/agent-reports/999999')
     assert r.status_code == 404
-
-
-def test_post_workflow_continue_with_unknown_id_returns_error(client) -> None:  # noqa: ANN001
-    """Continuing an unknown workflow returns an error payload (not a 500)."""
-    r = client.post(
-        '/api/workflow/continue',
-        json={
-            'workflow_id': 'no-such-workflow',
-            'run_id': 'no-such-run',
-            'session_id': 'no-such-session',
-            'approved': True,
-        },
-    )
-    assert r.status_code == 200
-    assert 'error' in r.json()

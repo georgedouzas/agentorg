@@ -1,27 +1,32 @@
-"""Agent factory — returns the agno agents declared in `spec.py`.
+"""Agent factory — registers the spec's agents as reasoners on the AgentField node.
 
-Charter integration: each agent's `instructions` string is prefixed with the rendered charter (if any) so the agent
-sees the committee rules at every turn. Tools, models, and knowledge come from the user's spec — agentorg does not
-re-wire them.
+Each agent is "anything runnable" (a plain async callable, or an agno `Agent` / any object with `.arun()`).
+`register_agents` adapts each into a reasoner. Charter integration: for runnables that carry an `instructions`
+string (agno-style agents), the rendered charter is prepended so the agent sees the committee rules every turn.
 """
 
-from agno.agent import Agent
+from typing import Any
 
 from agentorg.core.spec import Spec
+from agentorg.core.tools.runtime import register_runnable
 
 
-def _prepend_charter(agent: Agent, charter_text: str) -> Agent:
+def _prepend_charter(runnable: Any, charter_text: str) -> None:
+    """Prepend the charter to an agno-style runnable's `instructions` (no-op for plain callables)."""
     if not charter_text:
-        return agent
-    existing = agent.instructions or ''
+        return
+    existing = getattr(runnable, 'instructions', None)
+    if existing is None or callable(existing):
+        return
     if isinstance(existing, list):
         existing = '\n'.join(existing)
-    elif callable(existing):
-        return agent  # caller-supplied callable — leave it alone
-    agent.instructions = f'## Committee Rules\n\n{charter_text}\n\n{existing}'
-    return agent
+    runnable.instructions = f'## Committee Rules\n\n{charter_text}\n\n{existing}'
 
 
-def build_agents(spec: Spec, charter_text: str = '') -> dict[str, Agent]:
-    """Return ``{agent_id: agno.Agent}`` for every agent declared in the spec."""
-    return {a.id: _prepend_charter(a, charter_text) for a in spec.ai.agents if a.id}
+def register_agents(app: Any, spec: Spec, charter_text: str = '') -> list[str]:
+    """Register every agent in the spec as a reasoner; return the registered reasoner names."""
+    names: list[str] = []
+    for agent in spec.ai.agents:
+        _prepend_charter(agent, charter_text)
+        names.append(register_runnable(app, agent))
+    return names

@@ -1,14 +1,16 @@
-"""Workflow factory — returns the workflows declared in `spec.py`.
+"""Workflow factory — registers the spec's workflows as reasoners on the AgentField node.
 
-The user constructs `agno.Workflow(...)` directly (with native `Step`/`Parallel`/`Loop`/HITL flags), so this factory is
-a thin lookup that returns them in order.
+A workflow is "anything runnable" — typically an agno `Workflow` (`.arun()` over native `Step`/`Parallel`/`Loop`),
+or a plain callable that orchestrates step reasoners via `app.call` (with `app.pause` for HITL steps).
+`register_workflows` adapts each into a reasoner.
 """
 
-from agno.workflow import Workflow
+from typing import Any
 
 from agentorg.core.spec import Spec
+from agentorg.core.tools.runtime import register_runnable
 
 
-def build_workflows(spec: Spec) -> list[Workflow]:
-    """Return the workflows declared in the spec, in the order they appear."""
-    return list(spec.ai.workflows)
+def register_workflows(app: Any, spec: Spec) -> list[str]:
+    """Register every workflow in the spec as a reasoner; return the registered reasoner names."""
+    return [register_runnable(app, workflow) for workflow in spec.ai.workflows]

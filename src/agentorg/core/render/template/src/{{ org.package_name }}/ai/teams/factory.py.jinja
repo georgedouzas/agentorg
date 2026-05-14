@@ -1,13 +1,15 @@
-"""Team factory — returns the teams declared in `spec.py`.
+"""Team factory — registers the spec's teams as reasoners on the AgentField node.
 
-The user constructs `agno.Team(...)` directly, so this factory is a thin lookup that returns them keyed by id.
+A team is "anything runnable" — typically an agno `Team` (which exposes `.arun()` and orchestrates its members), or
+a plain callable that fans out to member reasoners via `app.call`. `register_teams` adapts each into a reasoner.
 """
 
-from agno.team import Team
+from typing import Any
 
 from agentorg.core.spec import Spec
+from agentorg.core.tools.runtime import register_runnable
 
 
-def build_teams(spec: Spec) -> list[Team]:
-    """Return the teams declared in the spec, in the order they appear."""
-    return list(spec.ai.teams)
+def register_teams(app: Any, spec: Spec) -> list[str]:
+    """Register every team in the spec as a reasoner; return the registered reasoner names."""
+    return [register_runnable(app, team) for team in spec.ai.teams]

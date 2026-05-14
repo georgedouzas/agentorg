@@ -41,8 +41,8 @@ docker compose up -d --build
 ### Endpoints
 
 - Dashboard: `http://localhost:5173`
-- API: `http://localhost:8000`
-- AgentOS UI (optional): connect `http://localhost:8000` at [os.agno.com](https://os.agno.com)
+- API (the AgentField node): `http://localhost:8000` — agents are exposed at `/reasoners/{name}`
+- AgentField control plane (optional): `http://localhost:8080` — discovery, execution DAG, audit
 
 ---
 ## Environment Variables
@@ -62,5 +62,5 @@ docker compose up -d --build
 
 ## Learn More
 
-- [Agno Documentation](https://docs.agno.com)
-- [AgentOS Documentation](https://docs.agno.com/agent-os/introduction)
+- [AgentField Documentation](https://www.agentfield.ai/docs) — the runtime, control plane, and reasoner model
+- [Agno Documentation](https://docs.agno.com) — for agents that use agno as their backend

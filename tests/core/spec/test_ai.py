@@ -54,4 +54,4 @@ def test_all_fields_required(missing: str) -> None:
     }
     del fields[missing]
     with pytest.raises(ValidationError):
-        AI(**fields)  # type: ignore[arg-type]
+        AI(**fields)

@@ -17,25 +17,29 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from agno.agent import Agent as AgnoAgent
-from agno.team import Team as AgnoTeam
-from agno.workflow import Step as AgnoStep
-from agno.workflow import Workflow as AgnoWorkflow
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from agentorg.core.spec import Spec
 
 
-def _agent_summary(agent: AgnoAgent) -> dict[str, Any]:
-    return {'id': agent.id or '', 'name': agent.name or agent.id or '', 'role': agent.role or ''}
+def _runnable_name(obj: object) -> str:
+    """Best-effort stable name for a runnable: `.id`, then `.name`, then `.__name__`."""
+    name = getattr(obj, 'id', None) or getattr(obj, 'name', None) or getattr(obj, '__name__', None)
+    return str(name) if name else ''
 
 
-def _team_summary(team: AgnoTeam) -> dict[str, Any]:
-    members = [m.id for m in (team.members or []) if getattr(m, 'id', None)]
-    return {'id': team.id or '', 'name': team.name or team.id or '', 'members': members}
+def _agent_summary(agent: object) -> dict[str, Any]:
+    name = _runnable_name(agent)
+    return {'id': name, 'name': getattr(agent, 'name', None) or name, 'role': getattr(agent, 'role', '') or ''}
 
 
-def _step_summary(step: AgnoStep) -> dict[str, Any]:
+def _team_summary(team: object) -> dict[str, Any]:
+    members = [_runnable_name(m) for m in (getattr(team, 'members', None) or []) if _runnable_name(m)]
+    name = _runnable_name(team)
+    return {'id': name, 'name': getattr(team, 'name', None) or name, 'members': members}
+
+
+def _step_summary(step: object) -> dict[str, Any]:
     parallel = getattr(step, 'steps', None) if type(step).__name__ == 'Parallel' else None
     if parallel is not None:
         return {'name': getattr(step, 'name', '') or 'Parallel', 'parallel': [_step_summary(s) for s in parallel]}
@@ -45,15 +49,20 @@ def _step_summary(step: AgnoStep) -> dict[str, Any]:
         or getattr(step, 'requires_confirmation', False)
         or getattr(step, 'requires_user_input', False),
     )
-    return {'name': step.name or '', 'agent': getattr(agent, 'id', None) if agent else None, 'hitl': hitl}
-
-
-def _workflow_summary(workflow: AgnoWorkflow) -> dict[str, Any]:
     return {
-        'id': workflow.id or '',
-        'name': workflow.name or workflow.id or '',
+        'name': getattr(step, 'name', '') or '',
+        'agent': _runnable_name(agent) if agent is not None else None,
+        'hitl': hitl,
+    }
+
+
+def _workflow_summary(workflow: object) -> dict[str, Any]:
+    name = _runnable_name(workflow)
+    return {
+        'id': name,
+        'name': getattr(workflow, 'name', None) or name,
         'description': getattr(workflow, 'description', '') or '',
-        'steps': [_step_summary(s) for s in (workflow.steps or [])],
+        'steps': [_step_summary(s) for s in (getattr(workflow, 'steps', None) or [])],
     }
 
 

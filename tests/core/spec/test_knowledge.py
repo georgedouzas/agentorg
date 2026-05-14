@@ -28,7 +28,7 @@ def test_charter_parameter_fields() -> None:
     param = CharterParameter(**PARAMETER)
     assert param.name == 'min_sources'
     assert param.type == 'int'
-    assert param.default == 3
+    assert param.default == PARAMETER['default']
     assert param.format is None
 
 

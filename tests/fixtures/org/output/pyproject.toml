@@ -25,6 +25,8 @@ classifiers = [
 ]
 dependencies = [
     "agentorg",
+    "agentfield>=0.1.84",
+    "agno>=2.0",
     "fastapi[standard]",
 ]
 

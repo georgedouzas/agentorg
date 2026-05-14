@@ -1,18 +1,15 @@
-"""FastAPI router exposing app config, state, documents, agents, reports, and workflows.
+"""FastAPI router for agentorg-specific endpoints — app config, state, knowledge, documents, reports.
 
-`build_router(spec, agents, workflows)` returns a router whose handlers are closed over the already-built spec +
-agents + workflows — no re-reading of configuration per request.
+`build_router(spec)` returns a router closed over the spec. Agent invocation, discovery, history, and workflow
+continuation are *not* here — those are AgentField's job (reasoners auto-expose at `/reasoners/{name}`, the control
+plane serves discovery / DAG / execution history, and HITL is `app.pause`).
 """
 
 import json
-from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
-from agno.agent import Agent
-from agno.workflow import Workflow
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, create_model
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -39,14 +36,9 @@ def _decode_json(maybe: Any) -> Any:
     return maybe or {}
 
 
-def build_router(  # noqa: C901, PLR0915
-    spec: Spec,
-    agents: dict[str, Agent],
-    workflows: list[Workflow],
-) -> APIRouter:
-    """Build the FastAPI router with handlers closed over the spec + agents + workflows."""
+def build_router(spec: Spec) -> APIRouter:  # noqa: C901, PLR0915
+    """Build the FastAPI router with handlers closed over the spec."""
     router = APIRouter(prefix='/api', tags=['api'])
-    agent_names = {a.id: (a.name or a.id) for a in spec.ai.agents if a.id}
     org_config = _state_model(spec)
 
     # ── Config ──────────────────────────────────────────────────────────────
@@ -54,16 +46,16 @@ def build_router(  # noqa: C901, PLR0915
     def ui_config() -> dict[str, Any]:
         ui = spec.ui
         return {
-            'app_name': ui.app.name if ui else spec.org.name,
-            'app_icon': ui.app.icon if ui else '🤖',
-            'app_description': ui.app.description if ui else spec.org.description,
-            'empty_state': ui.empty_state.model_dump() if ui else {},
-            'knowledge_empty': ui.knowledge_empty.model_dump() if ui else {},
-            'agent_groups': [g.model_dump() for g in spec.ui.agent_groups],
-            'workflow_groups': [g.model_dump() for g in spec.ui.workflow_groups],
-            'featured_agents': ui.featured_agents if ui else [],
-            'agent_icons': ui.agent_icons if ui else {},
-            'agent_configs': {k: v.model_dump() for k, v in (ui.agent_configs if ui else {}).items()},
+            'app_name': ui.app.name,
+            'app_icon': ui.app.icon,
+            'app_description': ui.app.description,
+            'empty_state': ui.empty_state.model_dump(),
+            'knowledge_empty': ui.knowledge_empty.model_dump(),
+            'agent_groups': [g.model_dump() for g in ui.agent_groups],
+            'workflow_groups': [g.model_dump() for g in ui.workflow_groups],
+            'featured_agents': ui.featured_agents,
+            'agent_icons': ui.agent_icons,
+            'agent_configs': {k: v.model_dump() for k, v in ui.agent_configs.items()},
         }
 
     # ── State / setup / reset ───────────────────────────────────────────────
@@ -198,49 +190,6 @@ def build_router(  # noqa: C901, PLR0915
             for r in rows
         ]
 
-    # ── Agents ──────────────────────────────────────────────────────────────
-    @router.get('/agents/{agent_id}/info')
-    def get_agent_info(agent_id: str) -> dict[str, Any]:
-        agent = agents.get(agent_id)
-        if agent is None:
-            raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
-        return {
-            'agent_id': agent_id,
-            'name': agent.name or agent_id,
-            'role': agent.role or '',
-            'model_id': getattr(agent.model, 'id', '') if getattr(agent, 'model', None) else '',
-            'instructions': agent.instructions if isinstance(agent.instructions, str) else '',
-            'tools': [getattr(t, '__name__', type(t).__name__) for t in (agent.tools or [])],
-        }
-
-    @router.get('/agents/{agent_id}/history')
-    def agent_history(agent_id: str, user_id: str = Query(default='default')) -> dict[str, Any]:
-        try:
-            with get_engine().connect() as conn:
-                row = conn.execute(
-                    text(
-                        'SELECT session_id, runs FROM agno_sessions'
-                        ' WHERE agent_id = :aid AND user_id = :uid'
-                        ' ORDER BY updated_at DESC, created_at DESC LIMIT 1',
-                    ),
-                    {'aid': agent_id, 'uid': user_id},
-                ).first()
-        except SQLAlchemyError:
-            return {'session_id': None, 'messages': []}
-        if row is None or not row.runs:
-            return {'session_id': None, 'messages': []}
-        runs = _decode_json(row.runs) if isinstance(row.runs, str) else (row.runs or [])
-        messages: list[dict[str, Any]] = []
-        for run in runs:
-            for m in run.get('messages') or []:
-                role = m.get('role')
-                content = m.get('content')
-                if not content:
-                    continue
-                if role in ('user', 'assistant'):
-                    messages.append({'role': role, 'content': content})
-        return {'session_id': row.session_id, 'messages': messages}
-
     # ── Agent reports ───────────────────────────────────────────────────────
     @router.get('/agent-reports')
     def agent_reports_list(agent_id: str = Query(default='')) -> dict[str, Any]:
@@ -253,7 +202,7 @@ def build_router(  # noqa: C901, PLR0915
             if agent_id and md.get('agent_id') != agent_id:
                 continue
             aid = md.get('agent_id', 'unknown')
-            by_agent.setdefault(aid, {'agent_id': aid, 'agent_name': agent_names.get(aid, aid), 'reports': []})
+            by_agent.setdefault(aid, {'agent_id': aid, 'agent_name': aid, 'reports': []})
             created = r.created_at if isinstance(r.created_at, str) else r.created_at.isoformat()
             by_agent[aid]['reports'].append({'id': r.id, 'title': r.name, 'created_at': created})
         return {'agents': list(by_agent.values())}
@@ -271,57 +220,10 @@ def build_router(  # noqa: C901, PLR0915
         return {
             'id': report_id,
             'agent_id': md.get('agent_id', ''),
-            'agent_name': agent_names.get(md.get('agent_id', ''), md.get('agent_id', '')),
+            'agent_name': md.get('agent_id', ''),
             'title': row.name,
             'content': row.content,
             'created_at': row.created_at if isinstance(row.created_at, str) else row.created_at.isoformat(),
         }
-
-    # ── Workflows ───────────────────────────────────────────────────────────
-    class WorkflowContinueRequest(BaseModel):
-        workflow_id: str
-        run_id: str
-        session_id: str
-        approved: bool
-        user_input: str | None = None
-        user_input_fields: dict[str, Any] | None = None
-
-    @router.post('/workflow/continue', response_model=None)
-    async def continue_workflow(
-        body: WorkflowContinueRequest,
-        background_tasks: BackgroundTasks,
-    ) -> StreamingResponse | dict[str, str]:
-        from agno.os.utils import format_sse_event, get_workflow_by_id  # noqa: PLC0415
-
-        workflow = get_workflow_by_id(
-            workflow_id=body.workflow_id,
-            workflows=workflows,
-            db=None,
-            create_fresh=True,
-        )
-        if workflow is None:
-            return {'error': f"Workflow '{body.workflow_id}' not found"}
-
-        run_response = await workflow.aget_run_output(run_id=body.run_id, session_id=body.session_id)
-        if run_response is None:
-            return {'error': 'Run not found'}
-
-        for req in run_response.step_requirements or []:
-            if req.confirmed is None:
-                if body.approved:
-                    req.confirmed = True
-                    if req.requires_user_input and body.user_input_fields:
-                        req.user_input = body.user_input_fields
-                    elif req.requires_user_input and body.user_input:
-                        field_name = (req.user_input_schema or [{}])[0].get('name', 'input')
-                        req.user_input = {field_name: body.user_input}
-                else:
-                    req.confirmed = False
-
-        async def _stream() -> AsyncGenerator[str, None]:
-            async for chunk in workflow.acontinue_run(run_response, stream=True, stream_events=True):
-                yield format_sse_event(chunk)
-
-        return StreamingResponse(_stream(), media_type='text/event-stream')
 
     return router

@@ -1,40 +1,43 @@
-"""Factory wiring tests — every agent/team/workflow listed in the spec builds without errors."""
+"""Factory wiring tests — the spec's agents/teams/workflows register as reasoners without error."""
 
-from org.ai.agents.factory import build_agents
-from org.ai.teams.factory import build_teams
-from org.ai.workflows.factory import build_workflows
+from agentfield import Agent
+
+from org.ai.agents.factory import register_agents
+from org.ai.teams.factory import register_teams
+from org.ai.workflows.factory import register_workflows
 from org.spec import spec
 
-EXPECTED_AGENT_IDS = sorted(a.id for a in spec.ai.agents if a.id)
+EXPECTED_AGENT_COUNT = len(spec.ai.agents)
 EXPECTED_TEAM_COUNT = len(spec.ai.teams)
 EXPECTED_WORKFLOW_COUNT = len(spec.ai.workflows)
 
 
-def test_build_agents_returns_every_spec_agent() -> None:
-    """`build_agents(spec)` produces one Agent instance per spec entry, keyed by id."""
-    agents = build_agents(spec)
-    assert sorted(agents.keys()) == EXPECTED_AGENT_IDS
+def _node() -> Agent:
+    """A standalone in-process node — no control plane, no registration."""
+    return Agent(node_id='test-node', auto_register=False, enable_did=False, vc_enabled=False, dev_mode=True)
 
 
-def test_each_agent_has_a_model_and_instructions() -> None:
-    """Every built agent has a `model` configured and non-empty `instructions`."""
-    for agent_id, agent in build_agents(spec).items():
-        assert agent.model is not None, f'{agent_id} missing model'
-        assert agent.instructions, f'{agent_id} has empty instructions'
+def test_register_agents_registers_every_spec_agent() -> None:
+    """`register_agents` registers one reasoner per spec agent and returns their names."""
+    names = register_agents(_node(), spec)
+    assert len(names) == EXPECTED_AGENT_COUNT
+    assert all(names), 'every agent must produce a non-empty reasoner name'
 
 
-def test_each_agent_has_resolved_tools() -> None:
-    """Every tool on every spec agent is a real callable (not a string path)."""
-    for agent in spec.ai.agents:
-        for tool in agent.tools or []:
-            assert callable(tool), f'{agent.id} has non-callable tool: {tool!r}'
+def test_register_teams_registers_every_spec_team() -> None:
+    """`register_teams` registers one reasoner per spec team."""
+    assert len(register_teams(_node(), spec)) == EXPECTED_TEAM_COUNT
 
 
-def test_build_workflows_returns_expected_count() -> None:
-    """`build_workflows(spec)` returns one Workflow per spec entry."""
-    assert len(build_workflows(spec)) == EXPECTED_WORKFLOW_COUNT
+def test_register_workflows_registers_every_spec_workflow() -> None:
+    """`register_workflows` registers one reasoner per spec workflow."""
+    assert len(register_workflows(_node(), spec)) == EXPECTED_WORKFLOW_COUNT
 
 
-def test_build_teams_returns_expected_count() -> None:
-    """`build_teams(spec)` returns one Team per spec entry (empty if no teams)."""
-    assert len(build_teams(spec)) == EXPECTED_TEAM_COUNT
+def test_registered_agents_are_exposed_as_reasoner_routes() -> None:
+    """Every registered agent becomes a `/reasoners/{name}` endpoint on the node."""
+    node = _node()
+    names = register_agents(node, spec)
+    paths = {str(r.path) for r in node.routes}
+    for name in names:
+        assert f'/reasoners/{name}' in paths, f'{name} not exposed as a reasoner route'

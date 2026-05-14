@@ -22,9 +22,9 @@ from agentorg.core.spec.models import Spec
 from agentorg.core.spec.platform_agents import PLATFORM_AGENT_IDS, PLATFORM_AGENTS
 
 __all__ = [
+    'AI',
     'PLATFORM_AGENTS',
     'PLATFORM_AGENT_IDS',
-    'AI',
     'UI',
     'AgentConfigUI',
     'AppUI',
