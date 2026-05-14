@@ -64,12 +64,12 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
     name, steps, ...}`. The rest (org, ui, charter, env vars, setup, groups, documents) round-trips through
     `model_dump`. Templates that referenced the old `generated.foo` shape see a backwards-compatible namespace.
     """
-    base = spec.model_dump(mode='json', exclude={'agents', 'teams', 'workflows'})
+    base = spec.model_dump(mode='json', exclude={'ai'})
     base['year'] = datetime.now(tz=UTC).year
     base['generated'] = {
-        'agents': [_agent_summary(a) for a in spec.agents],
-        'teams': [_team_summary(t) for t in spec.teams],
-        'workflows': [_workflow_summary(w) for w in spec.workflows],
+        'agents': [_agent_summary(a) for a in spec.ai.agents],
+        'teams': [_team_summary(t) for t in spec.ai.teams],
+        'workflows': [_workflow_summary(w) for w in spec.ai.workflows],
         'agent_groups': base['agent_groups'],
         'workflow_groups': base['workflow_groups'],
         'ui': base['ui'],

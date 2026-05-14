@@ -24,4 +24,4 @@ def _prepend_charter(agent: Agent, charter_text: str) -> Agent:
 
 def build_agents(spec: Spec, charter_text: str = '') -> dict[str, Agent]:
     """Return ``{agent_id: agno.Agent}`` for every agent declared in the spec."""
-    return {a.id: _prepend_charter(a, charter_text) for a in spec.agents if a.id}
+    return {a.id: _prepend_charter(a, charter_text) for a in spec.ai.agents if a.id}

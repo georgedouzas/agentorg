@@ -12,8 +12,9 @@ The result: a typical `spec.py` imports `Spec`, `Org`, `PLATFORM_AGENTS` from ag
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
+from agentorg.core.spec._ai import AI
 from agentorg.core.spec._org import Org
 from agentorg.core.spec._runtime import Runtime
 
@@ -126,33 +127,18 @@ class UI(BaseModel):
     chat_quick_prompts: dict[str, list[str]] = Field(default_factory=dict)
 
 
-def _default_agents() -> list[Any]:
-    """Indirection to break a circular import: platform_agents imports back from here."""
-    from agentorg.core.spec.platform_agents import PLATFORM_AGENTS  # noqa: PLC0415
-
-    return list(PLATFORM_AGENTS)
-
-
 def _default_documents() -> dict[str, list[DocumentType]]:
     return {'types': []}
 
 
 class Spec(BaseModel):
-    """The whole org spec — a single Python value the user constructs in `spec.py`.
-
-    Agents/teams/workflows are agno-native objects. Everything else accepts dicts that Pydantic coerces into the
-    matching model, so the user side reads as one dict literal per section.
-    """
+    """The whole org spec — a single Python value the user constructs in `spec.py`."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     org: Org
     runtime: Runtime
-
-    # agno-native runtime objects (typed `Any` so Pydantic does not introspect agno's complex annotations)
-    agents: list[Any] = Field(default_factory=_default_agents)
-    teams: list[Any] = Field(default_factory=list)
-    workflows: list[Any] = Field(default_factory=list)
+    ai: AI
 
     # org content
     charter: Charter = Field(default_factory=Charter)
@@ -161,18 +147,3 @@ class Spec(BaseModel):
     agent_groups: list[GroupRef] = Field(default_factory=list)
     workflow_groups: list[GroupRef] = Field(default_factory=list)
     ui: UI | None = None
-
-    @model_validator(mode='after')
-    def _validate_platform_agents_present(self) -> 'Spec':
-        from agentorg.core.spec.platform_agents import PLATFORM_AGENT_IDS  # noqa: PLC0415
-
-        present = {a.id for a in self.agents if a.id}
-        missing = PLATFORM_AGENT_IDS - present
-        if missing:
-            msg = (
-                f'Spec is missing required platform agents: {sorted(missing)}. '
-                'Platform agents are the default behaviour for every agentorg-generated org; '
-                'they ship pre-built — start from `PLATFORM_AGENTS` and extend.'
-            )
-            raise ValueError(msg)
-        return self

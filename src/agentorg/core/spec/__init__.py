@@ -5,6 +5,7 @@ User-facing surface is small: `Spec`, `Org`, `Runtime`, and `PLATFORM_AGENTS`. A
 get validated — users don't need to import them.
 """
 
+from agentorg.core.spec._ai import AI
 from agentorg.core.spec._org import Org
 from agentorg.core.spec._runtime import EnvVar, EnvVars, Infra, Runtime, SetupStep
 from agentorg.core.spec.models import (
@@ -27,6 +28,7 @@ from agentorg.core.spec.platform_agents import PLATFORM_AGENT_IDS, PLATFORM_AGEN
 __all__ = [
     'PLATFORM_AGENTS',
     'PLATFORM_AGENT_IDS',
+    'AI',
     'UI',
     'AgentConfigUI',
     'AppUI',

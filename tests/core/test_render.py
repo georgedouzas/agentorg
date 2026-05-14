@@ -69,8 +69,12 @@ def _spec_py(spec_dir: Path, **org_overrides: object) -> None:
     org_kwargs = ', '.join(f'{k}={v!r}' for k, v in org_fields.items())
     spec_dir.mkdir(parents=True, exist_ok=True)
     (spec_dir / 'spec.py').write_text(
-        'from agentorg.core.spec import Spec, Org\n'
-        f'spec = Spec(org=Org({org_kwargs}), runtime={_MINIMAL_RUNTIME!r})\n',
+        'from agentorg.core.spec import Spec, Org, AI, PLATFORM_AGENTS\n'
+        f'spec = Spec(\n'
+        f'    org=Org({org_kwargs}),\n'
+        f'    runtime={_MINIMAL_RUNTIME!r},\n'
+        f'    ai=AI(agents=list(PLATFORM_AGENTS), teams=[], workflows=[]),\n'
+        f')\n',
     )
 
 
@@ -173,7 +177,7 @@ def test_spec_py_is_copied_into_rendered_package(workspace: tuple[Path, Path, Pa
     render(spec_dir / 'spec.py', output, template_dir=template)
     copied = output / 'src' / 'acme' / 'spec.py'
     assert copied.exists()
-    assert 'Spec(org=Org' in copied.read_text()
+    assert copied.read_text() == (spec_dir / 'spec.py').read_text()
 
 
 # ── 2. Fixture byte-identity ─────────────────────────────────────────────────

@@ -5,9 +5,9 @@ from org.ai.teams.factory import build_teams
 from org.ai.workflows.factory import build_workflows
 from org.spec import spec
 
-EXPECTED_AGENT_IDS = sorted(a.id for a in spec.agents if a.id)
-EXPECTED_TEAM_COUNT = len(spec.teams)
-EXPECTED_WORKFLOW_COUNT = len(spec.workflows)
+EXPECTED_AGENT_IDS = sorted(a.id for a in spec.ai.agents if a.id)
+EXPECTED_TEAM_COUNT = len(spec.ai.teams)
+EXPECTED_WORKFLOW_COUNT = len(spec.ai.workflows)
 
 
 def test_build_agents_returns_every_spec_agent() -> None:
@@ -25,7 +25,7 @@ def test_each_agent_has_a_model_and_instructions() -> None:
 
 def test_each_agent_has_resolved_tools() -> None:
     """Every tool on every spec agent is a real callable (not a string path)."""
-    for agent in spec.agents:
+    for agent in spec.ai.agents:
         for tool in agent.tools or []:
             assert callable(tool), f'{agent.id} has non-callable tool: {tool!r}'
 

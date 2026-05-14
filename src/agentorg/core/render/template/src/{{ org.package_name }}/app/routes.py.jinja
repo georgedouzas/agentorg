@@ -46,7 +46,7 @@ def build_router(  # noqa: C901, PLR0915
 ) -> APIRouter:
     """Build the FastAPI router with handlers closed over the spec + agents + workflows."""
     router = APIRouter(prefix='/api', tags=['api'])
-    agent_names = {a.id: (a.name or a.id) for a in spec.agents if a.id}
+    agent_names = {a.id: (a.name or a.id) for a in spec.ai.agents if a.id}
     org_config = _state_model(spec)
 
     # ── Config ──────────────────────────────────────────────────────────────

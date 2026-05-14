@@ -1,14 +1,13 @@
 """Spec for the `org` fixture — a tiny research team.
 
-Two custom agents (`researcher`, `analyst`), one pipeline workflow, one coordinate team.
-The six platform agents are populated automatically by `Spec`'s default factory.
+Two custom agents (`researcher`, `analyst`), one pipeline workflow, one coordinate team, plus the six platform agents.
 """
 
 from agno.agent import Agent
 from agno.team import Team
 from agno.workflow import Step, Workflow
 
-from agentorg.core.spec import PLATFORM_AGENTS, Org, Spec
+from agentorg.core.spec import AI, PLATFORM_AGENTS, Org, Spec
 from agentorg.core.tools.knowledge import list_knowledge, read_knowledge, write_knowledge
 
 _MODEL = 'google:gemini-2.0-flash'
@@ -129,9 +128,11 @@ spec = Spec(
             },
         ],
     },
-    agents=[*PLATFORM_AGENTS, researcher, analyst],
-    teams=[research_team],
-    workflows=[research_pipeline],
+    ai=AI(
+        agents=[*PLATFORM_AGENTS, researcher, analyst],
+        teams=[research_team],
+        workflows=[research_pipeline],
+    ),
     charter={
         'parameters': [
             {'name': 'domain_focus', 'type': 'string', 'default': 'applied research', 'label': 'Domain Focus'},

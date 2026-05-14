@@ -11,4 +11,4 @@ from agentorg.core.spec import Spec
 
 def build_workflows(spec: Spec) -> list[Workflow]:
     """Return the workflows declared in the spec, in the order they appear."""
-    return list(spec.workflows)
+    return list(spec.ai.workflows)

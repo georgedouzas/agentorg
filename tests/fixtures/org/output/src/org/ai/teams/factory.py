@@ -10,4 +10,4 @@ from agentorg.core.spec import Spec
 
 def build_teams(spec: Spec) -> list[Team]:
     """Return the teams declared in the spec, in the order they appear."""
-    return list(spec.teams)
+    return list(spec.ai.teams)
