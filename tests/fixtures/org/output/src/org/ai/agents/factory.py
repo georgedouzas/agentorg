@@ -7,7 +7,7 @@ re-wire them.
 
 from agno.agent import Agent
 
-from agentorg.core.schema import Spec
+from agentorg.core.spec import Spec
 
 
 def _prepend_charter(agent: Agent, charter_text: str) -> Agent:

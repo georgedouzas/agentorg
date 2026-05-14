@@ -39,14 +39,38 @@ def _write(path: Path, content: str = '') -> None:
     path.write_text(content)
 
 
+_MINIMAL_RUNTIME = {
+    'infra': {
+        'packaging': 'none',
+        'database': 'sqlite',
+        'vector_db': 'chromadb',
+        'api': 'none',
+        'frontend': 'none',
+        'auth': 'none',
+    },
+    'env_vars': {'required': [], 'optional': []},
+    'setup': [],
+}
+
+
 def _spec_py(spec_dir: Path, **org_overrides: object) -> None:
     """Write a minimal `spec.py` with `package_name=acme` plus any org overrides."""
-    overrides_kwargs = ', '.join(f'{k}={v!r}' for k, v in org_overrides.items())
-    extra = (', ' + overrides_kwargs) if overrides_kwargs else ''
+    org_fields = {
+        'name': 'Acme',
+        'slug': 'acme',
+        'package_name': 'acme',
+        'description': '',
+        'repository': '',
+        'author_name': '',
+        'author_email': '',
+        'visibility': 'private',
+        **org_overrides,
+    }
+    org_kwargs = ', '.join(f'{k}={v!r}' for k, v in org_fields.items())
     spec_dir.mkdir(parents=True, exist_ok=True)
     (spec_dir / 'spec.py').write_text(
-        'from agentorg.core.schema import Spec, Org\n'
-        f'spec = Spec(org=Org(name="Acme", slug="acme", package_name="acme"{extra}))\n',
+        'from agentorg.core.spec import Spec, Org\n'
+        f'spec = Spec(org=Org({org_kwargs}), runtime={_MINIMAL_RUNTIME!r})\n',
     )
 
 

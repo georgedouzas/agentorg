@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, create_model
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from agentorg.core.schema import Spec
+from agentorg.core.spec import Spec
 from agentorg.core.tools._engine import get_engine
 
 
@@ -112,7 +112,7 @@ def build_router(  # noqa: C901, PLR0915
     # ── Setup guide ─────────────────────────────────────────────────────────
     @router.get('/setup-guide')
     def setup_guide() -> dict[str, Any]:
-        return {'steps': [s.model_dump() for s in spec.setup.steps]}
+        return {'steps': [s.model_dump() for s in spec.runtime.setup]}
 
     # ── Documents / knowledge ───────────────────────────────────────────────
     @router.get('/documents')

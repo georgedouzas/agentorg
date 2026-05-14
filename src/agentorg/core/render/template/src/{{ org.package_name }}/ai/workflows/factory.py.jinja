@@ -6,7 +6,7 @@ a thin lookup that returns them in order.
 
 from agno.workflow import Workflow
 
-from agentorg.core.schema import Spec
+from agentorg.core.spec import Spec
 
 
 def build_workflows(spec: Spec) -> list[Workflow]:

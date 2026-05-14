@@ -39,8 +39,8 @@ services:
       - DB_USER=${DB_USER:-ai}
       - DB_PASS=${DB_PASS:-ai}
       - DB_DATABASE=${DB_DATABASE:-ai}
-{% for v in generated.env_vars.required %}      - {{ v.name }}=${{ '{' }}{{ v.name }}{{ '}' }}
-{% endfor %}{% for v in generated.env_vars.optional %}      - {{ v.name }}=${{ '{' }}{{ v.name }}:-{{ '}' }}
+{% for v in runtime.env_vars.required %}      - {{ v.name }}=${{ '{' }}{{ v.name }}{{ '}' }}
+{% endfor %}{% for v in runtime.env_vars.optional %}      - {{ v.name }}=${{ '{' }}{{ v.name }}:-{{ '}' }}
 {% endfor %}    depends_on:
       {{ org.slug }}-db:
         condition: service_healthy

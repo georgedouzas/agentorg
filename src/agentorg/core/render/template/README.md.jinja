@@ -42,7 +42,7 @@
 Prerequisites:
 
 - Docker Desktop installed
-{% for v in generated.env_vars.required %}- `{{ v.name }}` set in `.env`
+{% for v in runtime.env_vars.required %}- `{{ v.name }}` set in `.env`
 {% endfor %}
 
 ```sh
@@ -59,7 +59,7 @@ docker compose up -d --build
 - AgentOS UI (optional): connect `http://localhost:8000` at [os.agno.com](https://os.agno.com)
 
 ---
-{% if deployment.api == 'railway' and deployment.frontend == 'vercel' %}
+{% if runtime.infra.api == 'railway' and runtime.infra.frontend == 'vercel' %}
 
 ## Cloud Deployment (Railway + Vercel)
 
@@ -68,7 +68,7 @@ railway login && nox -s deploy   # API + DB
 vercel --prod                    # Frontend
 ```
 
-{% elif deployment.api == 'railway' %}
+{% elif runtime.infra.api == 'railway' %}
 
 ## Cloud Deployment (Railway)
 
@@ -83,7 +83,7 @@ railway login && nox -s deploy
 
 | Variable | Description |
 | --- | --- |
-{% for v in generated.env_vars.required -%}
+{% for v in runtime.env_vars.required -%}
 | `{{ v.name }}` | {{ v.description }} |
 {% endfor %}
 
@@ -92,7 +92,7 @@ railway login && nox -s deploy
 | Variable | When | Description |
 | --- | --- | --- |
 | `DB_HOST/PORT/USER/PASS/DATABASE` | Override | PostgreSQL connection (Docker defaults work out of the box) |
-{% for v in generated.env_vars.optional -%}
+{% for v in runtime.env_vars.optional -%}
 | `{{ v.name }}` | {{ v.required_label }} | {{ v.description }} |
 {% endfor %}
 

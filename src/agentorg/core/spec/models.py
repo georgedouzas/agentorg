@@ -14,6 +14,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from agentorg.core.spec._org import Org
+from agentorg.core.spec._runtime import Runtime
+
 
 class CharterParameter(BaseModel):
     """A user-tunable charter parameter (e.g. `min_test_coverage_pct: 80`)."""
@@ -123,63 +126,9 @@ class UI(BaseModel):
     chat_quick_prompts: dict[str, list[str]] = Field(default_factory=dict)
 
 
-class EnvVar(BaseModel):
-    """A declared environment variable the rendered org expects."""
-
-    name: str
-    description: str = ''
-    required_label: str = 'Dev'
-
-
-class EnvVars(BaseModel):
-    """Required + optional env vars the rendered org expects."""
-
-    required: list[EnvVar] = Field(default_factory=list)
-    optional: list[EnvVar] = Field(default_factory=list)
-
-
-class Org(BaseModel):
-    """Org metadata (name, slug, repository, author, license)."""
-
-    name: str
-    slug: str
-    package_name: str
-    domain: str = ''
-    description: str = ''
-    repository: str = ''
-    author_name: str = ''
-    author_email: str = ''
-    visibility: Literal['public', 'private'] = 'private'
-    license_year: int = 2026
-
-
-class Deployment(BaseModel):
-    """Cloud-deployment targets for the rendered org."""
-
-    api: Literal['railway', 'none'] = 'none'
-    frontend: Literal['vercel', 'none'] = 'none'
-    auth: Literal['clerk', 'none'] = 'none'
-
-
-class SetupStep(BaseModel):
-    """One item on the post-install setup checklist."""
-
-    id: str
-    title: str
-    vars: list[str] = Field(default_factory=list)
-    command: str | None = None
-    platform: str | None = None
-
-
-class Setup(BaseModel):
-    """Setup checklist shown after the user pip-installs the rendered org."""
-
-    steps: list[SetupStep] = Field(default_factory=list)
-
-
 def _default_agents() -> list[Any]:
     """Indirection to break a circular import: platform_agents imports back from here."""
-    from agentorg.core.schema.platform_agents import PLATFORM_AGENTS  # noqa: PLC0415
+    from agentorg.core.spec.platform_agents import PLATFORM_AGENTS  # noqa: PLC0415
 
     return list(PLATFORM_AGENTS)
 
@@ -197,16 +146,8 @@ class Spec(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    # platform / architecture
-    agentorg_version: str = '0.1.0'
-    agent_architecture: Literal['default'] = 'default'
-    workflow_architecture: Literal['pipeline', 'router', 'agentic'] = 'pipeline'
-    team_architecture: Literal['coordinate', 'route', 'collaborate', 'broadcast'] | None = None
-    infra: Literal['local', 'docker'] = 'local'
-
-    # org metadata
     org: Org
-    deployment: Deployment = Field(default_factory=Deployment)
+    runtime: Runtime
 
     # agno-native runtime objects (typed `Any` so Pydantic does not introspect agno's complex annotations)
     agents: list[Any] = Field(default_factory=_default_agents)
@@ -220,12 +161,10 @@ class Spec(BaseModel):
     agent_groups: list[GroupRef] = Field(default_factory=list)
     workflow_groups: list[GroupRef] = Field(default_factory=list)
     ui: UI | None = None
-    env_vars: EnvVars = Field(default_factory=EnvVars)
-    setup: Setup = Field(default_factory=Setup)
 
     @model_validator(mode='after')
     def _validate_platform_agents_present(self) -> 'Spec':
-        from agentorg.core.schema.platform_agents import PLATFORM_AGENT_IDS  # noqa: PLC0415
+        from agentorg.core.spec.platform_agents import PLATFORM_AGENT_IDS  # noqa: PLC0415
 
         present = {a.id for a in self.agents if a.id}
         missing = PLATFORM_AGENT_IDS - present

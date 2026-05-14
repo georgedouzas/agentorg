@@ -15,7 +15,7 @@ from org.ai.workflows.factory import build_workflows
 from org.app.routes import build_router
 from org.spec import spec
 
-os.environ.setdefault('AGENTORG_INFRA', spec.infra)
+os.environ.setdefault('AGENTORG_INFRA', 'docker' if spec.runtime.infra.database == 'postgres' else 'local')
 os.environ.setdefault('AGENTORG_ORG_SLUG', spec.org.slug)
 
 create_app_tables()

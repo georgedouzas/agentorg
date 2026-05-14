@@ -12,6 +12,7 @@ Output: a project directory with:
 
 import runpy
 import shutil
+from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ from agno.workflow import Step as AgnoStep
 from agno.workflow import Workflow as AgnoWorkflow
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from agentorg.core.schema import Spec
+from agentorg.core.spec import Spec
 
 
 def _agent_summary(agent: AgnoAgent) -> dict[str, Any]:
@@ -64,6 +65,7 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
     `model_dump`. Templates that referenced the old `generated.foo` shape see a backwards-compatible namespace.
     """
     base = spec.model_dump(mode='json', exclude={'agents', 'teams', 'workflows'})
+    base['year'] = datetime.now(tz=UTC).year
     base['generated'] = {
         'agents': [_agent_summary(a) for a in spec.agents],
         'teams': [_team_summary(t) for t in spec.teams],
@@ -74,7 +76,6 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
         'charter': base['charter'],
         'state': base['state'],
         'documents': base['documents'],
-        'env_vars': base['env_vars'],
     }
     return base
 
@@ -87,7 +88,6 @@ def render(spec_path: Path, output_dir: Path, template_dir: Path | None = None) 
         output_dir: Output directory (created/overwritten in place).
         template_dir: Override the template root (defaults to the agentorg-shipped template).
     """
-
     # Load specification
     spec = runpy.run_path(str(spec_path)).get('spec')
     if not isinstance(spec, Spec):

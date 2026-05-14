@@ -8,7 +8,7 @@ from agno.agent import Agent
 from agno.team import Team
 from agno.workflow import Step, Workflow
 
-from agentorg.core.schema import PLATFORM_AGENTS, Org, Spec
+from agentorg.core.spec import PLATFORM_AGENTS, Org, Spec
 from agentorg.core.tools.knowledge import list_knowledge, read_knowledge, write_knowledge
 
 _MODEL = 'google:gemini-2.0-flash'
@@ -92,20 +92,41 @@ research_pipeline = Workflow(
 
 
 spec = Spec(
-    infra='local',
-    workflow_architecture='pipeline',
-    team_architecture='coordinate',
     org=Org(
         name='Research Organisation',
         slug='org',
         package_name='org',
-        domain='applied research',
         description='Small research team that gathers sources and publishes structured analysis reports.',
         repository='https://github.com/example/org',
         author_name='Agentorg Authors',
         author_email='agentorg@example.com',
         visibility='private',
     ),
+    runtime={
+        'infra': {
+            'packaging': 'none',
+            'database': 'sqlite',
+            'vector_db': 'chromadb',
+            'api': 'none',
+            'frontend': 'none',
+            'auth': 'none',
+        },
+        'env_vars': {
+            'required': [{'name': 'GOOGLE_API_KEY', 'description': 'Gemini API key.', 'required_label': 'Prod'}],
+            'optional': [
+                {'name': 'RUNTIME_ENV', 'description': 'Set to `dev` for uvicorn auto-reload.', 'required_label': 'Dev'},
+            ],
+        },
+        'setup': [
+            {
+                'id': 'secrets',
+                'title': 'Set GOOGLE_API_KEY in .env',
+                'vars': ['GOOGLE_API_KEY'],
+                'command': None,
+                'platform': None,
+            },
+        ],
+    },
     agents=[*PLATFORM_AGENTS, researcher, analyst],
     teams=[research_team],
     workflows=[research_pipeline],
@@ -161,12 +182,5 @@ spec = Spec(
         },
         'featured_agents': ['analyst'],
         'agent_icons': {'researcher': '📚', 'analyst': '🧪'},
-    },
-    env_vars={
-        'required': [{'name': 'GOOGLE_API_KEY', 'description': 'Gemini API key.'}],
-        'optional': [{'name': 'RUNTIME_ENV', 'description': 'Set to `dev` for uvicorn auto-reload.'}],
-    },
-    setup={
-        'steps': [{'id': 'secrets', 'title': 'Set GOOGLE_API_KEY in .env', 'vars': ['GOOGLE_API_KEY']}],
     },
 )

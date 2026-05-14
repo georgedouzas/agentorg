@@ -5,7 +5,7 @@ The user constructs `agno.Team(...)` directly, so this factory is a thin lookup 
 
 from agno.team import Team
 
-from agentorg.core.schema import Spec
+from agentorg.core.spec import Spec
 
 
 def build_teams(spec: Spec) -> list[Team]:
