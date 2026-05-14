@@ -1,8 +1,11 @@
-"""Knowledge-tool round-trip tests — write -> read -> list against the local SQLite + Chroma store.
+"""Knowledge-tool round-trip tests — write -> read -> list -> delete against AgentField memory.
 
-The embedder runs whenever a knowledge unit is written, so these tests require
-`GOOGLE_API_KEY` to be set. With the env var missing the whole module skips.
+The knowledge tools resolve the running node via `Agent.get_current()` and store into its global-scope memory, which
+needs a control plane — so these tests take `needs_memory` (skipped when `AGENTFIELD_SERVER` is unset) and the `node`
+fixture (which patches `Agent.get_current()` to the rendered node).
 """
+
+import uuid
 
 import pytest
 
@@ -12,38 +15,33 @@ from agentorg.core.tools.knowledge import (
     read_knowledge,
     write_knowledge,
 )
-from agentorg.core.tools.tables import create_app_tables
+
+pytestmark = pytest.mark.usefixtures('needs_memory', 'node')
 
 
-@pytest.fixture(scope='module', autouse=True)
-def _setup(needs_google_api: None) -> None:  # noqa: PT004
-    """Embedder gate + ensure app tables exist (we don't import the app in this module)."""
-    create_app_tables()
-
-
-def test_write_then_read_round_trips() -> None:
+@pytest.mark.asyncio
+async def test_write_then_read_round_trips() -> None:
     """`write_knowledge` persists a unit that `read_knowledge` returns verbatim."""
-    write_knowledge(
-        type='report',
-        name='knowledge_roundtrip',
-        title='Knowledge Round-trip',
-        content='Hello from the test suite.',
-        metadata={'source': 'pytest'},
-    )
-    text = read_knowledge(type='report', name='knowledge_roundtrip')
+    name = f'roundtrip_{uuid.uuid4().hex[:8]}'
+    await write_knowledge(type='report', name=name, title='Round-trip', content='Hello from the test suite.')
+    text = await read_knowledge(type='report', name=name)
     assert 'Hello from the test suite.' in text
 
 
-def test_list_filters_by_type() -> None:
-    """`list_knowledge(type='report')` only returns rows of that type."""
-    write_knowledge(type='report', name='listed_one', title='Listed One', content='c1')
-    listing = list_knowledge(type='report')
-    assert 'listed_one' in listing
+@pytest.mark.asyncio
+async def test_list_filters_by_type() -> None:
+    """`list_knowledge(type='report')` surfaces a written report."""
+    name = f'listed_{uuid.uuid4().hex[:8]}'
+    await write_knowledge(type='report', name=name, title='Listed', content='c1')
+    listing = await list_knowledge(type='report')
+    assert name in listing
 
 
-def test_delete_removes_a_unit() -> None:
-    """`delete_knowledge` removes a previously-written unit; subsequent listing doesn't show it."""
-    write_knowledge(type='report', name='to_be_deleted', title='X', content='gone soon')
-    delete_knowledge(type='report', name='to_be_deleted')
-    listing = list_knowledge(type='report')
-    assert 'to_be_deleted' not in listing
+@pytest.mark.asyncio
+async def test_delete_removes_a_unit() -> None:
+    """`delete_knowledge` removes a unit; subsequent listing doesn't show it."""
+    name = f'gone_{uuid.uuid4().hex[:8]}'
+    await write_knowledge(type='report', name=name, title='X', content='gone soon')
+    await delete_knowledge(type='report', name=name)
+    listing = await list_knowledge(type='report')
+    assert name not in listing

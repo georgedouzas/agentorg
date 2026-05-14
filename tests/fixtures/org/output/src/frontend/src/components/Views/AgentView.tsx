@@ -128,9 +128,9 @@ export function AgentView({ selected, config, onPanelOpen }: AgentViewProps) {
           <div className={styles.reportList}>
             {reports.map(report => (
               <button
-                key={report.id}
+                key={report.name}
                 className={styles.reportRow}
-                onClick={() => onPanelOpen(report.title, `/api/agent-reports/${report.id}`)}
+                onClick={() => onPanelOpen(report.title, `/api/agent-reports/${encodeURIComponent(report.name)}`)}
               >
                 <div className={styles.reportLeft}>
                   <span className={styles.reportTitle}>{report.title}</span>

@@ -1,44 +1,49 @@
 """Shared test fixtures.
 
-Sets `AGENTORG_DATA_DIR` to an ephemeral location before any application import so the
-SQLite session DB and the Chroma vector store land under a temp dir and don't bleed
-across runs. Provides a session-scoped `client` (TestClient bound to the rendered app)
-and a `needs_google_api` fixture that skips embedder-dependent tests when the env var
-isn't configured.
+Knowledge and per-user state live in AgentField memory, which needs a running control plane. Tests that touch
+memory take the `needs_memory` fixture — it skips them unless `AGENTFIELD_SERVER` points at a control plane. The
+`client` fixture is an async httpx client over the rendered app; the `node` fixture makes `Agent.get_current()`
+resolve to the node so the knowledge/state tools can be exercised directly. Both are session-scoped — the AgentField
+memory client binds its connection to one event loop, so the whole suite shares it (see `pyproject.toml`).
 """
 
 import os
-import shutil
-import tempfile
-from collections.abc import Iterator
-from pathlib import Path
+from collections.abc import AsyncIterator, Iterator
 
 import pytest
-
-_DATA_DIR = Path(tempfile.mkdtemp(prefix='org-test-'))
-os.environ['AGENTORG_DATA_DIR'] = str(_DATA_DIR)
-
-
-@pytest.fixture(scope='session', autouse=True)
-def _clean_data_dir() -> Iterator[None]:
-    """Wipe the ephemeral data dir at session end."""
-    yield
-    shutil.rmtree(_DATA_DIR, ignore_errors=True)
+import pytest_asyncio
 
 
 @pytest.fixture(scope='session')
-def client() -> Iterator[object]:
-    """Return a TestClient bound to the rendered org's FastAPI app."""
-    from fastapi.testclient import TestClient  # noqa: PLC0415
+def needs_memory() -> None:
+    """Skip the test unless a control plane is configured (knowledge/state can't round-trip without one)."""
+    if not os.getenv('AGENTFIELD_SERVER'):
+        pytest.skip('AGENTFIELD_SERVER not set; knowledge/state need an AgentField control plane.')
+
+
+@pytest_asyncio.fixture(scope='session')
+async def client() -> AsyncIterator[object]:
+    """An async httpx client bound to the rendered node's FastAPI app."""
+    from httpx import ASGITransport, AsyncClient  # noqa: PLC0415
 
     from org.app.main import app  # noqa: PLC0415
 
-    with TestClient(app) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as c:
         yield c
 
 
 @pytest.fixture(scope='session')
-def needs_google_api() -> None:
-    """Skip the test if `GOOGLE_API_KEY` is not configured (embedder calls would fail)."""
-    if not os.getenv('GOOGLE_API_KEY'):
-        pytest.skip('GOOGLE_API_KEY not set; skipping embedder-dependent test.')
+def node() -> Iterator[object]:
+    """The rendered node, with `Agent.get_current()` resolving to it.
+
+    Knowledge/state tools resolve the running node via `Agent.get_current()`, which is only set inside a reasoner
+    execution. This fixture patches it so the tools can be exercised directly in tests.
+    """
+    from agentfield import Agent  # noqa: PLC0415
+
+    from org.app.main import app  # noqa: PLC0415
+
+    original = Agent.get_current
+    Agent.get_current = staticmethod(lambda: app)  # type: ignore[method-assign]
+    yield app
+    Agent.get_current = original  # type: ignore[method-assign]

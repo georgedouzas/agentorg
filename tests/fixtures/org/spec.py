@@ -13,24 +13,24 @@ from agentorg.core.tools.knowledge import list_knowledge, read_knowledge, write_
 _MODEL = 'google:gemini-2.0-flash'
 
 
-def write_research_doc(name: str, title: str, content: str, metadata: dict | None = None) -> str:
+async def write_research_doc(name: str, title: str, content: str, metadata: dict | None = None) -> str:
     """Save a research document (sources-cited, drafted by the researcher)."""
-    return write_knowledge(type='research', name=name, title=title, content=content, metadata=metadata)
+    return await write_knowledge(type='research', name=name, title=title, content=content, metadata=metadata)
 
 
-def read_research_doc(name: str) -> str:
+async def read_research_doc(name: str) -> str:
     """Read a research document by name."""
-    return read_knowledge(type='research', name=name)
+    return await read_knowledge(type='research', name=name)
 
 
-def list_research_docs(metadata_filter: dict | None = None) -> str:
+async def list_research_docs(metadata_filter: dict | None = None) -> str:
     """List all research documents."""
-    return list_knowledge(type='research', metadata_filter=metadata_filter)
+    return await list_knowledge(type='research', metadata_filter=metadata_filter)
 
 
-def write_agent_report(name: str, title: str, content: str, metadata: dict | None = None) -> str:
+async def write_agent_report(name: str, title: str, content: str, metadata: dict | None = None) -> str:
     """Save the analyst's final report."""
-    return write_knowledge(type='report', name=name, title=title, content=content, metadata=metadata)
+    return await write_knowledge(type='report', name=name, title=title, content=content, metadata=metadata)
 
 
 researcher = Agent(

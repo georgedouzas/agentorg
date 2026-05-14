@@ -113,7 +113,7 @@ export interface WorkflowItem { workflow_id?: string; id?: string; name?: string
 export interface SelectedAgent { id: string; name: string; type: 'agent' | 'workflow'; }
 
 // Reports
-export interface AgentReport { id: number; title: string; ticker?: string; created_at: string; }
+export interface AgentReport { name: string; title: string; ticker?: string; created_at: string; }
 export interface AgentReportGroup { agent_id: string; agent_name: string; reports: AgentReport[]; }
 
 // OHLCV for candlestick

@@ -1,21 +1,33 @@
-"""Generic knowledge CRUD tools — write/read/list/search/delete knowledge units.
+"""Knowledge CRUD tools backed by AgentField memory.
 
-A knowledge unit is anything an agent produces: text artifacts (research, memo, report) or structured data (charts,
-stats, tables). All units live in the `knowledge` table.
+A knowledge unit is anything an agent produces — text artifacts (research, memo, report) or structured data. Units live
+in the node's **global-scope** memory under `kn:{type}:{name}` keys. These are agent *tools*: they run inside a reasoner
+execution, so they resolve the running node via `Agent.get_current()`.
 """
 
 import json
-import shutil
-import tempfile
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import text
+from agentfield import Agent
 
-from agentorg.core.tools._engine import create_knowledge, get_engine
+_PREFIX = 'kn:'
 
 
-def write_knowledge(
+def _key(type_: str, name: str) -> str:
+    return f'{_PREFIX}{type_}:{name}'
+
+
+def _scope() -> Any:
+    """Global-scope memory client of the running node (knowledge tools run inside a reasoner)."""
+    node = Agent.get_current()
+    if node is None:
+        msg = 'Knowledge tools must run inside a reasoner execution.'
+        raise RuntimeError(msg)
+    return node.memory.global_scope
+
+
+async def write_knowledge(
     type: str,  # noqa: A002
     name: str,
     content: str | None = None,
@@ -27,126 +39,92 @@ def write_knowledge(
 
     Returns confirmation.
     """
-    md_json = json.dumps(metadata or {})
-    data_json = json.dumps(data) if data is not None else None
-
-    with get_engine().begin() as conn:
-        conn.execute(
-            text("""
-                INSERT INTO knowledge (type, name, title, content, data, metadata)
-                VALUES (:type, :name, :title, :content, :data, :metadata)
-                ON CONFLICT (type, name) DO UPDATE
-                    SET title      = excluded.title,
-                        content    = excluded.content,
-                        data       = excluded.data,
-                        metadata   = excluded.metadata,
-                        updated_at = CURRENT_TIMESTAMP
-            """),
-            {
-                'type': type,
-                'name': name,
-                'title': title,
-                'content': content,
-                'data': data_json,
-                'metadata': md_json,
-            },
-        )
-
-    if content:
-        team_knowledge = create_knowledge('Team Knowledge', 'team_knowledge')
-        tmp_dir = tempfile.mkdtemp()
-        try:
-            (Path(tmp_dir) / f'{name}.md').write_text(content, encoding='utf-8')
-            team_knowledge.insert(name=f'{type}-{name}', path=tmp_dir, skip_if_exists=False)
-        finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-
+    await _scope().set(
+        _key(type, name),
+        {
+            'type': type,
+            'name': name,
+            'title': title,
+            'content': content,
+            'data': data,
+            'metadata': metadata or {},
+            'updated_at': datetime.now(tz=UTC).isoformat(),
+        },
+    )
     return f"Saved {type} '{name}' to knowledge."
 
 
-def read_knowledge(type: str, name: str) -> str:  # noqa: A002
+async def read_knowledge(type: str, name: str) -> str:  # noqa: A002
     """Read a knowledge unit by type and name.
 
     Returns content (markdown) or stringified data.
     """
-    with get_engine().connect() as conn:
-        row = conn.execute(
-            text('SELECT content, data FROM knowledge WHERE type = :t AND name = :n'),
-            {'t': type, 'n': name},
-        ).first()
-    if row is None:
+    unit = await _scope().get(_key(type, name))
+    if unit is None:
         return f"No {type} knowledge found for '{name}'."
-    if row.content:
-        return row.content
-    if row.data is not None:
-        return row.data if isinstance(row.data, str) else json.dumps(row.data, indent=2)
+    if unit.get('content'):
+        return str(unit['content'])
+    if unit.get('data') is not None:
+        return json.dumps(unit['data'], indent=2)
     return ''
 
 
-def _match_metadata(stored: str | dict[str, Any] | None, filter_dict: dict[str, Any]) -> bool:
-    if stored is None:
-        return False
-    md = json.loads(stored) if isinstance(stored, str) else stored
-    return all(md.get(k) == v for k, v in filter_dict.items())
+async def _all_units(scope: Any) -> list[dict[str, Any]]:
+    keys = [k for k in await scope.list_keys() if k.startswith(_PREFIX)]
+    units = [await scope.get(k) for k in keys]
+    return [u for u in units if u is not None]
 
 
-def list_knowledge(type: str = '', metadata_filter: dict[str, Any] | None = None) -> str:  # noqa: A002
+def _matches_metadata(unit: dict[str, Any], metadata_filter: dict[str, Any]) -> bool:
+    md = unit.get('metadata') or {}
+    return all(md.get(k) == v for k, v in metadata_filter.items())
+
+
+async def list_knowledge(type: str = '', metadata_filter: dict[str, Any] | None = None) -> str:  # noqa: A002
     """List knowledge units, optionally filtered by type and/or metadata (subset match)."""
-    sql = 'SELECT type, name, title, metadata, updated_at FROM knowledge'
-    params: dict[str, Any] = {}
-    if type:
-        sql += ' WHERE type = :t'
-        params['t'] = type
-    sql += ' ORDER BY type, name'
-
-    with get_engine().connect() as conn:
-        rows = conn.execute(text(sql), params).fetchall()
-
-    if metadata_filter:
-        rows = [r for r in rows if _match_metadata(r.metadata, metadata_filter)]
-    if not rows:
+    scope = _scope()
+    units = [
+        u
+        for u in await _all_units(scope)
+        if (not type or u.get('type') == type) and (not metadata_filter or _matches_metadata(u, metadata_filter))
+    ]
+    if not units:
         return 'No knowledge units found.'
-
+    units.sort(key=lambda u: (u.get('type', ''), u.get('name', '')))
     lines: list[str] = []
     current = None
-    for row in rows:
-        if row.type != current:
-            current = row.type
-            lines.append(f'{current.title()}:')
-        title = row.title or row.name
-        meta = f' {row.metadata}' if row.metadata else ''
-        updated = row.updated_at if isinstance(row.updated_at, str) else row.updated_at.strftime('%Y-%m-%d')
-        lines.append(f'  - {row.name} — {title}{meta}  (updated {updated})')
+    for unit in units:
+        if unit.get('type') != current:
+            current = unit.get('type')
+            lines.append(f'{str(current).title()}:')
+        title = unit.get('title') or unit.get('name')
+        meta = f' {unit["metadata"]}' if unit.get('metadata') else ''
+        lines.append(f'  - {unit.get("name")} — {title}{meta}  (updated {unit.get("updated_at", "?")})')
     return '\n'.join(lines)
 
 
-def search_knowledge(query: str, types: list[str] | None = None) -> str:
+async def search_knowledge(query: str, types: list[str] | None = None) -> str:
     """Substring search across knowledge content (case-insensitive)."""
-    sql = (
-        'SELECT type, name, metadata, SUBSTR(content, 1, 400) AS excerpt'
-        ' FROM knowledge WHERE LOWER(content) LIKE LOWER(:q)'
-    )
-    params: dict[str, Any] = {'q': f'%{query}%'}
-    if types:
-        placeholders = ', '.join(f':t{i}' for i in range(len(types)))
-        sql += f' AND type IN ({placeholders})'
-        for i, t in enumerate(types):
-            params[f't{i}'] = t
-    sql += ' ORDER BY updated_at DESC LIMIT 10'
-    with get_engine().connect() as conn:
-        rows = conn.execute(text(sql), params).fetchall()
-    if not rows:
+    scope = _scope()
+    needle = query.lower()
+    hits: list[dict[str, Any]] = []
+    for unit in await _all_units(scope):
+        if types and unit.get('type') not in types:
+            continue
+        content = unit.get('content') or ''
+        if needle in content.lower():
+            hits.append(unit)
+    if not hits:
         return f"No knowledge units matching '{query}'."
-    return '\n\n'.join(f'**{r.type}/{r.name}**\n{r.excerpt}…' for r in rows)
+    hits.sort(key=lambda u: u.get('updated_at', ''), reverse=True)
+    return '\n\n'.join(f'**{u.get("type")}/{u.get("name")}**\n{(u.get("content") or "")[:400]}…' for u in hits[:10])
 
 
-def delete_knowledge(type: str, name: str) -> str:  # noqa: A002
+async def delete_knowledge(type: str, name: str) -> str:  # noqa: A002
     """Delete a knowledge unit."""
-    with get_engine().begin() as conn:
-        result = conn.execute(
-            text('DELETE FROM knowledge WHERE type = :t AND name = :n'),
-            {'t': type, 'n': name},
-        )
-    if result.rowcount == 0:
+    scope = _scope()
+    key = _key(type, name)
+    if await scope.get(key) is None:
         return f"No {type} knowledge found for '{name}'."
+    await scope.delete(key)
     return f"Deleted {type} '{name}'."

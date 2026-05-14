@@ -10,21 +10,13 @@ import os
 from agentfield import Agent
 from fastapi.middleware.cors import CORSMiddleware
 
-from agentorg.core.tools.tables import create_app_tables, truncate_user_data
-
 from org.ai.agents.factory import register_agents
 from org.ai.teams.factory import register_teams
 from org.ai.workflows.factory import register_workflows
 from org.app.routes import build_router
 from org.spec import spec
 
-os.environ.setdefault('AGENTORG_INFRA', 'docker' if spec.runtime.infra.database == 'postgres' else 'local')
 os.environ.setdefault('AGENTORG_ORG_SLUG', spec.org.slug)
-
-create_app_tables()
-
-if os.getenv('RESET_ON_STARTUP', '').strip() == '1':
-    truncate_user_data()
 
 _server = os.getenv('AGENTFIELD_SERVER')
 _has_server = _server is not None
@@ -58,7 +50,7 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-app.include_router(build_router(spec))
+app.include_router(build_router(app, spec))
 
 
 if __name__ == '__main__':

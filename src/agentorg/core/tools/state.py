@@ -1,52 +1,50 @@
-"""Per-user org-state CRUD tools — `org_state` table."""
+"""Per-user org-state tools backed by AgentField memory.
+
+Each user's state lives in **actor-scope** memory under the `org_state` key. These are agent *tools*: they run inside a
+reasoner execution, so they resolve the running node via `Agent.get_current()`.
+"""
 
 import json
 from typing import Any
 
-from sqlalchemy import text
+from agentfield import Agent
 
-from agentorg.core.tools._engine import get_engine
+_KEY = 'org_state'
 
 
-def get_state(user_id: str = 'default') -> str:
+def _actor(user_id: str) -> Any:
+    """Actor-scope memory client of the running node (state tools run inside a reasoner)."""
+    node = Agent.get_current()
+    if node is None:
+        msg = 'State tools must run inside a reasoner execution.'
+        raise RuntimeError(msg)
+    return node.memory.actor(user_id)
+
+
+async def get_state(user_id: str = 'default') -> str:
     """Read the org state for a user.
 
-    Returns JSON-encoded {parameters, data}.
+    Returns JSON-encoded {configured, parameters, data}.
     """
-    with get_engine().connect() as conn:
-        row = conn.execute(
-            text('SELECT parameters, data FROM org_state WHERE user_id = :uid'),
-            {'uid': user_id},
-        ).first()
-    if row is None:
+    state = await _actor(user_id).get(_KEY)
+    if state is None:
         return json.dumps({'configured': False, 'parameters': {}, 'data': {}})
-    params = json.loads(row.parameters) if isinstance(row.parameters, str) else (row.parameters or {})
-    data = json.loads(row.data) if isinstance(row.data, str) else (row.data or {})
-    return json.dumps({'configured': True, 'parameters': params, 'data': data}, indent=2)
+    return json.dumps({'configured': True, **state}, indent=2)
 
 
-def update_state(parameters: dict[str, Any] | None = None, user_id: str = 'default') -> str:
+async def update_state(parameters: dict[str, Any] | None = None, user_id: str = 'default') -> str:
     """Update the org state's parameters for a user.
 
     Returns confirmation.
     """
-    params_json = json.dumps(parameters or {})
-    with get_engine().begin() as conn:
-        conn.execute(
-            text("""
-                INSERT INTO org_state (user_id, parameters, data)
-                VALUES (:uid, :p, '{}')
-                ON CONFLICT (user_id) DO UPDATE
-                    SET parameters = excluded.parameters,
-                        updated_at = CURRENT_TIMESTAMP
-            """),
-            {'uid': user_id, 'p': params_json},
-        )
+    actor = _actor(user_id)
+    state = await actor.get(_KEY) or {'parameters': {}, 'data': {}}
+    state['parameters'] = parameters or {}
+    await actor.set(_KEY, state)
     return f"Updated state for user '{user_id}'."
 
 
-def reset_state(user_id: str = 'default') -> str:
-    """Delete the org state row for a user."""
-    with get_engine().begin() as conn:
-        conn.execute(text('DELETE FROM org_state WHERE user_id = :uid'), {'uid': user_id})
+async def reset_state(user_id: str = 'default') -> str:
+    """Delete the org state for a user."""
+    await _actor(user_id).delete(_KEY)
     return f"Reset state for user '{user_id}'."
