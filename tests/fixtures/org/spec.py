@@ -133,41 +133,51 @@ spec = Spec(
         teams=[research_team],
         workflows=[research_pipeline],
     ),
-    charter={
-        'parameters': [
-            {'name': 'domain_focus', 'type': 'string', 'default': 'applied research', 'label': 'Domain Focus'},
-            {'name': 'min_sources', 'type': 'int', 'default': 3, 'label': 'Min Sources per Research Doc'},
-        ],
-        'sections': [
-            {
-                'id': 'charter',
-                'title': 'Charter',
-                'body': (
-                    '## Mission\n'
-                    '- Focus area: {domain_focus}\n'
-                    '- Every research doc cites at least {min_sources} sources.\n'
-                    '- Reports are structured: Overview, Findings, Implications, Open Questions.'
-                ),
-            },
-            {
-                'id': 'process',
-                'title': 'Process',
-                'body': (
-                    '1. Researcher gathers material and writes research docs.\n'
-                    '2. Analyst synthesises research into a final report.\n'
-                    '3. Both auto-save their outputs.'
-                ),
-            },
+    knowledge={
+        'charter': {
+            'parameters': [
+                {
+                    'name': 'domain_focus',
+                    'type': 'string',
+                    'default': 'applied research',
+                    'label': 'Domain Focus',
+                    'format': None,
+                },
+                {
+                    'name': 'min_sources',
+                    'type': 'int',
+                    'default': 3,
+                    'label': 'Min Sources per Research Doc',
+                    'format': None,
+                },
+            ],
+            'sections': [
+                {
+                    'id': 'charter',
+                    'title': 'Charter',
+                    'body': (
+                        '## Mission\n'
+                        '- Focus area: {domain_focus}\n'
+                        '- Every research doc cites at least {min_sources} sources.\n'
+                        '- Reports are structured: Overview, Findings, Implications, Open Questions.'
+                    ),
+                },
+                {
+                    'id': 'process',
+                    'title': 'Process',
+                    'body': (
+                        '1. Researcher gathers material and writes research docs.\n'
+                        '2. Analyst synthesises research into a final report.\n'
+                        '3. Both auto-save their outputs.'
+                    ),
+                },
+            ],
+        },
+        'document_types': [
+            {'id': 'research', 'label': 'Research Docs', 'metadata_fields': []},
+            {'id': 'report', 'label': 'Analyst Reports', 'metadata_fields': []},
         ],
     },
-    documents={
-        'types': [
-            {'id': 'research', 'label': 'Research Docs'},
-            {'id': 'report', 'label': 'Analyst Reports'},
-        ],
-    },
-    agent_groups=[{'label': 'Research Team', 'ids': ['researcher', 'analyst']}],
-    workflow_groups=[{'label': 'Pipelines', 'ids': ['research-pipeline']}],
     ui={
         'app': {
             'name': 'Org',
@@ -183,7 +193,12 @@ spec = Spec(
             'documents': 'No knowledge yet — run the researcher first.',
             'learnings': 'No learnings accumulated yet.',
         },
+        'agent_groups': [{'label': 'Research Team', 'ids': ['researcher', 'analyst']}],
+        'workflow_groups': [{'label': 'Pipelines', 'ids': ['research-pipeline']}],
         'featured_agents': ['analyst'],
         'agent_icons': {'researcher': '📚', 'analyst': '🧪'},
+        'overview': {},
+        'agent_configs': {},
+        'chat_quick_prompts': {},
     },
 )

@@ -70,12 +70,10 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
         'agents': [_agent_summary(a) for a in spec.ai.agents],
         'teams': [_team_summary(t) for t in spec.ai.teams],
         'workflows': [_workflow_summary(w) for w in spec.ai.workflows],
-        'agent_groups': base['agent_groups'],
-        'workflow_groups': base['workflow_groups'],
+        'agent_groups': base['ui']['agent_groups'],
+        'workflow_groups': base['ui']['workflow_groups'],
         'ui': base['ui'],
-        'charter': base['charter'],
-        'state': base['state'],
-        'documents': base['documents'],
+        'knowledge': base['knowledge'],
     }
     return base
 

@@ -27,10 +27,10 @@ def _py_type(t: str) -> type:
 
 def _state_model(spec: Spec) -> type[BaseModel]:
     fields: dict[str, Any] = {}
-    for p in spec.charter.parameters:
+    for p in spec.knowledge.charter.parameters:
         py = _py_type(p.type)
         fields[p.name] = (py, Field(default=p.default))
-    return create_model(spec.state.model_name, **fields)  # type: ignore[call-overload]
+    return create_model('OrgConfig', **fields)  # type: ignore[call-overload]
 
 
 def _decode_json(maybe: Any) -> Any:
@@ -59,8 +59,8 @@ def build_router(  # noqa: C901, PLR0915
             'app_description': ui.app.description if ui else spec.org.description,
             'empty_state': ui.empty_state.model_dump() if ui else {},
             'knowledge_empty': ui.knowledge_empty.model_dump() if ui else {},
-            'agent_groups': [g.model_dump() for g in spec.agent_groups],
-            'workflow_groups': [g.model_dump() for g in spec.workflow_groups],
+            'agent_groups': [g.model_dump() for g in spec.ui.agent_groups],
+            'workflow_groups': [g.model_dump() for g in spec.ui.workflow_groups],
             'featured_agents': ui.featured_agents if ui else [],
             'agent_icons': ui.agent_icons if ui else {},
             'agent_configs': {k: v.model_dump() for k, v in (ui.agent_configs if ui else {}).items()},
