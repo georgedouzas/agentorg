@@ -12,5 +12,5 @@ from agentorg.core.tools.runtime import register_runnable
 
 
 def register_workflows(app: Any, spec: Spec) -> list[str]:
-    """Register every workflow in the spec as a reasoner; return the registered reasoner names."""
-    return [register_runnable(app, workflow) for workflow in spec.ai.workflows]
+    """Register every workflow in the spec as a reasoner, tagged `workflow` for control-plane policies."""
+    return [register_runnable(app, workflow, tags=['workflow']) for workflow in spec.ai.workflows]

@@ -7,8 +7,8 @@ string (agno-style agents), the rendered charter is prepended so the agent sees 
 
 from typing import Any
 
-from agentorg.core.spec import Spec
-from agentorg.core.tools.runtime import register_runnable
+from agentorg.core.spec import PLATFORM_AGENT_IDS, Spec
+from agentorg.core.tools.runtime import register_runnable, runnable_name
 
 
 def _prepend_charter(runnable: Any, charter_text: str) -> None:
@@ -24,9 +24,10 @@ def _prepend_charter(runnable: Any, charter_text: str) -> None:
 
 
 def register_agents(app: Any, spec: Spec, charter_text: str = '') -> list[str]:
-    """Register every agent in the spec as a reasoner; return the registered reasoner names."""
+    """Register every agent in the spec as a reasoner, tagged for control-plane policies."""
     names: list[str] = []
     for agent in spec.ai.agents:
         _prepend_charter(agent, charter_text)
-        names.append(register_runnable(app, agent))
+        tags = ['agent', 'platform'] if runnable_name(agent) in PLATFORM_AGENT_IDS else ['agent']
+        names.append(register_runnable(app, agent, tags=tags))
     return names

@@ -97,20 +97,22 @@ PLATFORM_AGENTS: tuple[Agent, ...] = (
         agent_id='security-engineer',
         name='Security Engineer',
         role=(
-            "Audits the org's static security posture: secrets, dep vulnerabilities, "
-            'tool permissions, prompt-injection coverage.'
+            "Audits the org's static security posture — hardcoded secrets and required env vars — and reviews the "
+            'AgentField governance surface: reasoner tags, control-plane policies, DID/VC identity, and the '
+            'execution-DAG audit trail.'
         ),
         tools=[se.scan_secrets, se.list_required_env_vars],
         in_scope=[
-            'Secret scanning across `tools/`',
+            'Secret scanning across the source tree',
             'Required vs optional env vars',
-            'Guardrails / prompt-injection posture',
-            'Tool permission review',
+            'Reviewing reasoner tags and control-plane access policies',
+            'Confirming DID/VC identity and the execution-DAG audit trail are in effect',
         ],
         workflow=[
-            'Identify the surface to audit (tools dir, env vars, agent configs).',
-            'Run the relevant scan tool.',
-            'Summarise findings; flag anything that looks like a hardcoded secret.',
+            'Identify the surface to audit (source tree, env vars, governance config).',
+            'Run the static scan tools for secrets and env vars.',
+            'Review the AgentField governance posture — tags, policies, identity, audit.',
+            'Summarise findings; flag hardcoded secrets and missing/over-broad policies.',
         ],
     ),
     _platform_agent(

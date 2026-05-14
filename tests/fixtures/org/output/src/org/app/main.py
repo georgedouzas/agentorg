@@ -27,6 +27,7 @@ app = Agent(
     node_id=spec.org.slug,
     version='1.0.0',
     description=spec.org.description,
+    tags=[spec.org.slug],
     agentfield_server=_server,
     api_key=os.getenv('AGENTFIELD_API_KEY'),
     auto_register=_has_server,

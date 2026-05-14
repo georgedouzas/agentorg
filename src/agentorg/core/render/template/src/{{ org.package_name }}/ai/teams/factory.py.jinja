@@ -11,5 +11,5 @@ from agentorg.core.tools.runtime import register_runnable
 
 
 def register_teams(app: Any, spec: Spec) -> list[str]:
-    """Register every team in the spec as a reasoner; return the registered reasoner names."""
-    return [register_runnable(app, team) for team in spec.ai.teams]
+    """Register every team in the spec as a reasoner, tagged `team` for control-plane policies."""
+    return [register_runnable(app, team, tags=['team']) for team in spec.ai.teams]

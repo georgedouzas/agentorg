@@ -4,6 +4,9 @@ A spec's agents / teams / workflows are "anything runnable" — either a plain a
 `.arun()` (which is what agno's `Agent` / `Team` / `Workflow` provide). `register_runnable` turns either shape into a
 reasoner on the AgentField node; what happens *inside* the runnable (agno, `app.harness`, `app.ai`, a mix) is the spec
 author's business.
+
+Reasoners are registered with `tags` so the control plane's tag-based policies can target them — governance is
+AgentField's job (tag policies, DID/VC, the execution-DAG audit), not agentorg's.
 """
 
 from typing import Any
@@ -15,17 +18,18 @@ def runnable_name(runnable: object) -> str:
     return str(name) if name else 'unnamed'
 
 
-def register_runnable(app: object, runnable: object) -> str:
+def register_runnable(app: object, runnable: object, tags: list[str] | None = None) -> str:
     """Register `runnable` as a reasoner on the AgentField `app`; return the reasoner name.
 
     A plain async callable is registered as-is (it already has a typed signature). An object exposing `.arun()` is
-    wrapped in a `message -> {"output": ...}` reasoner.
+    wrapped in a `message -> {"output": ...}` reasoner. `tags` are attached so control-plane policies can target it.
     """
     name = runnable_name(runnable)
     reasoner = getattr(app, 'reasoner')  # noqa: B009 — duck-typed AgentField node
+    tags = tags or []
 
     if callable(runnable) and not hasattr(runnable, 'arun'):
-        reasoner(name=name)(runnable)
+        reasoner(name=name, tags=tags)(runnable)
         return name
 
     arun = getattr(runnable, 'arun')  # noqa: B009 — agno-style runnable
@@ -35,5 +39,5 @@ def register_runnable(app: object, runnable: object) -> str:
         return {'output': getattr(result, 'content', None) or str(result)}
 
     _run.__name__ = name
-    reasoner(name=name)(_run)
+    reasoner(name=name, tags=tags)(_run)
     return name
