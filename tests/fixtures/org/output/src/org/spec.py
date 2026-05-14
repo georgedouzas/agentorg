@@ -121,9 +121,11 @@ spec = Spec(
             {
                 'id': 'secrets',
                 'title': 'Set GOOGLE_API_KEY in .env',
-                'vars': ['GOOGLE_API_KEY'],
-                'command': None,
-                'platform': None,
+                'description': (
+                    'Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey) '
+                    'and add it to your `.env`:\n\n```sh\nGOOGLE_API_KEY=your-key-here\n```'
+                ),
+                'variables': ['GOOGLE_API_KEY'],
             },
         ],
     },

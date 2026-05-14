@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { marked } from 'marked';
 import { ResetModal } from './ResetModal';
 import type { SetupStatus, SetupStep } from '../../hooks/useSetupStatus';
 import styles from './SettingsView.module.css';
@@ -50,21 +51,10 @@ function StepDetailModal({ step, onClose }: { step: SetupStep; onClose: () => vo
               </div>
             </div>
           )}
-          {step.command && (
-            <div className={styles.detailRow}>
-              <h3 className={styles.detailLabel}>Run this command</h3>
-              <pre className={styles.code}>{step.command}</pre>
-            </div>
-          )}
-          {step.manual_fallback && (
-            <div className={styles.detailRow}>
-              <h3 className={styles.detailLabel}>Manual steps</h3>
-              <p className={styles.fallback}>{step.manual_fallback}</p>
-            </div>
-          )}
-          {!step.command && !step.manual_fallback && (!step.missing_vars || step.missing_vars.length === 0) && (
-            <p className={styles.fallback}>No additional instructions for this step</p>
-          )}
+          <div className={styles.detailRow}>
+            <h3 className={styles.detailLabel}>Instructions</h3>
+            <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(step.description) as string }} />
+          </div>
         </div>
       </div>
     </div>,

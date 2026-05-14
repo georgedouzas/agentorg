@@ -4,10 +4,8 @@ import { apiFetch } from '../api';
 export interface SetupStep {
   id: string;
   title: string;
-  platform?: string;
-  command?: string;
-  manual_fallback?: string;
-  vars?: string[];
+  description: string;
+  variables?: string[];
   completed: boolean | null;
   missing_vars?: string[];
 }

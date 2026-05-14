@@ -46,13 +46,12 @@ class SetupStep(BaseModel):
 
     id: str
     title: str
-    vars: list[str]
-    command: str | None
-    platform: str | None
+    description: str
+    variables: list[str]
 
 
 class Runtime(BaseModel):
-    """How and where the org runs — infra stack, env vars, post-install steps."""
+    """How and where the org runs."""
 
     infra: Infra
     env_vars: EnvVars
