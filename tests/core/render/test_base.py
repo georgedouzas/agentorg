@@ -31,6 +31,7 @@ _MINIMAL_RUNTIME = {
         'packaging': 'none',
         'database': 'sqlite',
         'vector_db': 'chromadb',
+        'embedder': 'google:text-embedding-004',
         'api': 'none',
         'frontend': 'none',
         'auth': 'none',

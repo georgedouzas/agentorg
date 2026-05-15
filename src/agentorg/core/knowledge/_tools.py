@@ -1,4 +1,4 @@
-"""Knowledge CRUD tools backed by AgentField memory."""
+"""Agent-callable wrappers over the knowledge scope ops, resolving the running AgentField node."""
 
 import json
 from datetime import UTC, datetime
@@ -6,20 +6,23 @@ from typing import Any
 
 from agentfield import Agent
 
-_PREFIX = 'kn:'
+from agentorg.core.knowledge._base import embed, key, list_units, similarity_units
 
 
-def _key(type_: str, name: str) -> str:
-    return f'{_PREFIX}{type_}:{name}'
-
-
-def _scope() -> Any:
-    """Global-scope memory client of the running node (knowledge tools run inside a reasoner)."""
+def _node() -> Any:
     node = Agent.get_current()
     if node is None:
         msg = 'Knowledge tools must run inside a reasoner execution.'
         raise RuntimeError(msg)
-    return node.memory.global_scope
+    return node
+
+
+def _scope() -> Any:
+    return _node().memory.global_scope
+
+
+def _embedder() -> str | None:
+    return getattr(_node(), 'embedder_model', None)
 
 
 async def write_knowledge(
@@ -32,29 +35,33 @@ async def write_knowledge(
 ) -> str:
     """Write or update a knowledge unit.
 
-    Returns confirmation.
+    Persists the unit and (when content is present) stores an embedding alongside it so
+    `search_knowledge` can rank by semantic similarity.
     """
-    await _scope().set(
-        _key(type, name),
+    scope = _scope()
+    md = metadata or {}
+    await scope.set(
+        key(type, name),
         {
             'type': type,
             'name': name,
             'title': title,
             'content': content,
             'data': data,
-            'metadata': metadata or {},
+            'metadata': md,
             'updated_at': datetime.now(tz=UTC).isoformat(),
         },
     )
+    if content:
+        vec = await embed(f'{title or name}\n\n{content}', _embedder())
+        if vec is not None:
+            await scope.set_vector(key(type, name), vec, metadata={'type': type, 'name': name, **md})
     return f"Saved {type} '{name}' to knowledge."
 
 
 async def read_knowledge(type: str, name: str) -> str:  # noqa: A002
-    """Read a knowledge unit by type and name.
-
-    Returns content (markdown) or stringified data.
-    """
-    unit = await _scope().get(_key(type, name))
+    """Read a knowledge unit by type and name; returns content (markdown) or stringified data."""
+    unit = await _scope().get(key(type, name))
     if unit is None:
         return f"No {type} knowledge found for '{name}'."
     if unit.get('content'):
@@ -62,12 +69,6 @@ async def read_knowledge(type: str, name: str) -> str:  # noqa: A002
     if unit.get('data') is not None:
         return json.dumps(unit['data'], indent=2)
     return ''
-
-
-async def _all_units(scope: Any) -> list[dict[str, Any]]:
-    keys = [k for k in await scope.list_keys() if k.startswith(_PREFIX)]
-    units = [await scope.get(k) for k in keys]
-    return [u for u in units if u is not None]
 
 
 def _matches_metadata(unit: dict[str, Any], metadata_filter: dict[str, Any]) -> bool:
@@ -80,7 +81,7 @@ async def list_knowledge(type: str = '', metadata_filter: dict[str, Any] | None 
     scope = _scope()
     units = [
         u
-        for u in await _all_units(scope)
+        for u in await list_units(scope)
         if (not type or u.get('type') == type) and (not metadata_filter or _matches_metadata(u, metadata_filter))
     ]
     if not units:
@@ -98,28 +99,23 @@ async def list_knowledge(type: str = '', metadata_filter: dict[str, Any] | None 
     return '\n'.join(lines)
 
 
-async def search_knowledge(query: str, types: list[str] | None = None) -> str:
-    """Substring search across knowledge content (case-insensitive)."""
-    scope = _scope()
-    needle = query.lower()
-    hits: list[dict[str, Any]] = []
-    for unit in await _all_units(scope):
-        if types and unit.get('type') not in types:
-            continue
-        content = unit.get('content') or ''
-        if needle in content.lower():
-            hits.append(unit)
+async def search_knowledge(query: str, types: list[str] | None = None, top_k: int = 10) -> str:
+    """Search knowledge units ranked by embedding similarity (substring fallback)."""
+    hits = await similarity_units(_scope(), _embedder(), query, types, top_k)
     if not hits:
         return f"No knowledge units matching '{query}'."
-    hits.sort(key=lambda u: u.get('updated_at', ''), reverse=True)
-    return '\n\n'.join(f'**{u.get("type")}/{u.get("name")}**\n{(u.get("content") or "")[:400]}…' for u in hits[:10])
+    return '\n\n'.join(f'**{u.get("type")}/{u.get("name")}**\n{(u.get("content") or "")[:400]}…' for u in hits)
 
 
 async def delete_knowledge(type: str, name: str) -> str:  # noqa: A002
-    """Delete a knowledge unit."""
+    """Delete a knowledge unit and its embedding (if present)."""
     scope = _scope()
-    key = _key(type, name)
-    if await scope.get(key) is None:
+    k = key(type, name)
+    if await scope.get(k) is None:
         return f"No {type} knowledge found for '{name}'."
-    await scope.delete(key)
+    await scope.delete(k)
+    try:
+        await scope.delete_vector(k)
+    except Exception:  # noqa: BLE001 — vector may not exist if no embedder was configured at write time
+        pass
     return f"Deleted {type} '{name}'."

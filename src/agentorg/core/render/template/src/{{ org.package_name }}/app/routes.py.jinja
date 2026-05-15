@@ -1,14 +1,15 @@
 """FastAPI router for the rendered org's agentorg-specific endpoints."""
 
+import asyncio
+import contextlib
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, create_model
 
+from agentorg.core.knowledge import PREFIX as _KN_PREFIX, similarity_units
 from agentorg.core.spec import Spec
-
-_KN_PREFIX = 'kn:'
 
 
 class _Safe(dict):
@@ -76,6 +77,7 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             'overview': [b.model_dump() for b in ui.overview],
             'agent_configs': {k: v.model_dump() for k, v in ui.agent_configs.items()},
             'charter': {'parameters': [p.model_dump() for p in charter.parameters], 'sections': sections},
+            'types': [t.model_dump() for t in spec.knowledge.types],
         }
 
     # ── State ───────────────────────────────────────────────────────────────
@@ -106,19 +108,13 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
 
     # ── Knowledge ───────────────────────────────────────────────────────────
     @router.get('/knowledge/search')
-    async def search_knowledge(
+    async def kn_search(
         query: str = Query(..., min_length=1),
         types: list[str] = Query(default=[]),
+        top_k: int = Query(default=15, ge=1, le=100),
     ) -> list[dict[str, Any]]:
-        needle = query.lower()
-        hits = [
-            u
-            for u in await _all_units()
-            if (not types or u.get('type') in types)
-            and needle in f'{u.get("content") or ""} {u.get("name") or ""}'.lower()
-        ]
-        hits.sort(key=lambda u: u.get('updated_at', ''), reverse=True)
-        return [_document(u) for u in hits[:15]]
+        hits = await similarity_units(knowledge, getattr(app, 'embedder_model', None), query, list(types) or None, top_k)
+        return [_document(u) for u in hits]
 
     @router.get('/knowledge/{type}/{name}')
     async def get_unit(type: str, name: str) -> dict[str, Any]:  # noqa: A002
@@ -145,4 +141,53 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             units = units[:limit]
         return [_document(u) for u in units]
 
+    # ── Live knowledge events ───────────────────────────────────────────────
+    # One in-process queue per WebSocket; AgentField's `on_change` fans events out to all of them.
+    subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
+
+    async def _broadcast(event: Any) -> None:
+        key = getattr(event, 'key', '') or ''
+        msg = {
+            'action': getattr(event, 'action', None),
+            'key': key,
+            'type': _type_of(key),
+            'name': _name_of(key),
+            'timestamp': getattr(event, 'timestamp', None),
+        }
+        for q in list(subscribers):
+            with contextlib.suppress(asyncio.QueueFull):
+                q.put_nowait(msg)
+
+    # `on_change` opens a websocket to the control plane, so it needs a running event loop —
+    # register on FastAPI startup, not at import time.
+    @app.on_event('startup')
+    async def _wire_kn_events() -> None:
+        knowledge.on_change('kn:*')(_broadcast)
+
+    @router.websocket('/knowledge/events')
+    async def kn_events(ws: WebSocket) -> None:
+        await ws.accept()
+        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=256)
+        subscribers.add(q)
+        try:
+            while True:
+                msg = await q.get()
+                await ws.send_json(msg)
+        except WebSocketDisconnect:
+            pass
+        finally:
+            subscribers.discard(q)
+
     return router
+
+
+def _type_of(key: str) -> str | None:
+    parts = key.split(':', 2)
+    return parts[1] if len(parts) >= 3 and parts[0] == 'kn' else None  # noqa: PLR2004
+
+
+def _name_of(key: str) -> str | None:
+    parts = key.split(':', 2)
+    return parts[2] if len(parts) >= 3 and parts[0] == 'kn' else None  # noqa: PLR2004
+
+

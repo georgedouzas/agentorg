@@ -8,7 +8,7 @@ string (agno-style agents), the rendered charter is prepended so the agent sees 
 from typing import Any
 
 from agentorg.core.spec import PLATFORM_AGENT_IDS, Spec
-from agentorg.core.tools.runtime import register_runnable, runnable_name
+from agentorg.core.runtime import register_runnable, runnable_name
 
 
 def _prepend_charter(runnable: Any, charter_text: str) -> None:

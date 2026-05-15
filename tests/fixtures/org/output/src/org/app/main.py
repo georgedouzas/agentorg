@@ -36,6 +36,9 @@ app = Agent(
     dev_mode=not _has_server,
 )
 
+# Embedder declared in `spec.runtime.infra.embedder` — stashed on the node so the knowledge tools resolve it.
+app.embedder_model = spec.runtime.infra.embedder  # type: ignore[attr-defined]
+
 # The spec's agents/teams/workflows become reasoners on this node.
 _charter_text = '\n\n'.join(section.body for section in spec.knowledge.charter.sections)
 register_agents(app, spec, _charter_text)

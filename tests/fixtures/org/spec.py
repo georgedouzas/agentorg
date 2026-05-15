@@ -8,7 +8,7 @@ from agno.team import Team
 from agno.workflow import Step, Workflow
 
 from agentorg.core.spec import AI, PLATFORM_AGENTS, Org, Spec
-from agentorg.core.tools.knowledge import list_knowledge, read_knowledge, write_knowledge
+from agentorg.core.knowledge import list_knowledge, read_knowledge, write_knowledge
 
 _MODEL = 'google:gemini-2.0-flash'
 
@@ -106,6 +106,7 @@ spec = Spec(
             'packaging': 'none',
             'database': 'sqlite',
             'vector_db': 'chromadb',
+            'embedder': 'google:gemini-embedding-001',
             'api': 'none',
             'frontend': 'none',
             'auth': 'none',

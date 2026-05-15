@@ -8,7 +8,7 @@ or a plain callable that orchestrates step reasoners via `app.call` (with `app.p
 from typing import Any
 
 from agentorg.core.spec import Spec
-from agentorg.core.tools.runtime import register_runnable
+from agentorg.core.runtime import register_runnable
 
 
 def register_workflows(app: Any, spec: Spec) -> list[str]:

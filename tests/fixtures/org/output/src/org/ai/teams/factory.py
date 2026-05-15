@@ -7,7 +7,7 @@ a plain callable that fans out to member reasoners via `app.call`. `register_tea
 from typing import Any
 
 from agentorg.core.spec import Spec
-from agentorg.core.tools.runtime import register_runnable
+from agentorg.core.runtime import register_runnable
 
 
 def register_teams(app: Any, spec: Spec) -> list[str]:

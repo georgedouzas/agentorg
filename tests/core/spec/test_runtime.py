@@ -9,6 +9,7 @@ LOCAL_INFRA = {
     'packaging': 'none',
     'database': 'sqlite',
     'vector_db': 'chromadb',
+    'embedder': 'google:text-embedding-004',
     'api': 'none',
     'frontend': 'none',
     'auth': 'none',
@@ -17,6 +18,7 @@ DOCKER_INFRA = {
     'packaging': 'docker',
     'database': 'postgres',
     'vector_db': 'pgvector',
+    'embedder': 'openai:text-embedding-3-small',
     'api': 'none',
     'frontend': 'none',
     'auth': 'none',
@@ -25,6 +27,7 @@ CLOUD_INFRA = {
     'packaging': 'docker',
     'database': 'postgres',
     'vector_db': 'pgvector',
+    'embedder': 'openai:text-embedding-3-small',
     'api': 'railway',
     'frontend': 'vercel',
     'auth': 'clerk',
@@ -54,6 +57,12 @@ def test_railway_requires_docker() -> None:
     """`api='railway'` with `packaging='none'` is rejected — Railway deploys from a Dockerfile."""
     with pytest.raises(ValidationError, match='railway'):
         Infra(**{**DOCKER_INFRA, 'packaging': 'none', 'api': 'railway'})
+
+
+def test_embedder_must_be_provider_model() -> None:
+    """`embedder` must follow the `provider:model` shape so the runtime can hand it to litellm."""
+    with pytest.raises(ValidationError, match='embedder'):
+        Infra(**{**LOCAL_INFRA, 'embedder': 'text-embedding-004'})
 
 
 def test_infra_rejects_unknown_value() -> None:

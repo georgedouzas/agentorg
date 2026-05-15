@@ -11,6 +11,7 @@ class Infra(BaseModel):
     packaging: Literal['none', 'docker']
     database: Literal['sqlite', 'postgres']
     vector_db: Literal['chromadb', 'pgvector']
+    embedder: str
     api: Literal['none', 'railway']
     frontend: Literal['none', 'vercel']
     auth: Literal['none', 'clerk']
@@ -22,6 +23,9 @@ class Infra(BaseModel):
             raise ValueError(msg)
         if self.api == 'railway' and self.packaging != 'docker':
             msg = "api='railway' requires packaging='docker' — Railway deploys the API from a Dockerfile."
+            raise ValueError(msg)
+        if ':' not in self.embedder:
+            msg = "embedder must be 'provider:model' (e.g. 'google:text-embedding-004')."
             raise ValueError(msg)
         return self
 

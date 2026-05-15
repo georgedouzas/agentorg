@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from agentorg.core.tools.knowledge import (
+from agentorg.core.knowledge import (
     delete_knowledge,
     list_knowledge,
     read_knowledge,

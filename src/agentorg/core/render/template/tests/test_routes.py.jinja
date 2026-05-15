@@ -28,6 +28,12 @@ async def test_get_config_includes_charter(client) -> None:  # noqa: ANN001
     assert isinstance(body['charter'].get('sections'), list)
 
 
+async def test_get_config_includes_knowledge_types(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/config` surfaces the knowledge type catalogue from the spec."""
+    body = (await client.get('/api/v1/config')).json()
+    assert isinstance(body.get('types'), list)
+
+
 async def test_get_setup_returns_steps(client) -> None:  # noqa: ANN001
     """`GET /api/v1/setup` returns the spec's setup steps."""
     r = await client.get('/api/v1/setup')

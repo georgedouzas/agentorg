@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from agentorg.core.spec.platform_agents import PLATFORM_AGENT_IDS
+from agentorg.core.platform import PLATFORM_AGENT_IDS
 
 
 class AI(BaseModel):
