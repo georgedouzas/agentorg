@@ -9,7 +9,7 @@ APP = {'name': 'Org', 'icon': '🔬', 'description': 'A research org.'}
 EMPTY_STATE = {'icon': '🔬', 'title': 'Pick an agent', 'body': 'Try the pipeline.'}
 GROUP = {'label': 'Research Team', 'ids': ['researcher', 'analyst']}
 AGENT_CONFIG = {
-    'model': 'google:gemini-2.0-flash',
+    'model': 'google:gemini-2.5-flash',
     'description': 'Gathers sources.',
     'tools': ['search'],
     'features': [],
@@ -84,7 +84,7 @@ def test_ui_construction() -> None:
     assert ui.knowledge_empty == 'No knowledge yet.'
     assert ui.agent_groups[0].label == 'Research Team'
     assert ui.overview[0].title == 'Mission'
-    assert ui.agent_configs['researcher'].model == 'google:gemini-2.0-flash'
+    assert ui.agent_configs['researcher'].model == 'google:gemini-2.5-flash'
     assert ui.chat_quick_prompts['researcher'] == ['Summarise the topic']
 
 

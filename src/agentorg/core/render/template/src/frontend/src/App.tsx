@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import { useIdentity } from './hooks/useIdentity';
 import { useConfig } from './hooks/useConfig';
 import { useSetupStatus } from './hooks/useSetupStatus';
-import { rawFetch, apiFetch } from './api';
+import { apiFetch } from './api';
 import { LoginScreen } from './components/Login/LoginScreen';
 import { Header } from './components/Shell/Header';
 import { Sidebar } from './components/Shell/Sidebar';
@@ -12,11 +12,12 @@ import { Panel } from './components/Panel/Panel';
 import { OverviewView } from './components/Views/OverviewView';
 import { KnowledgeView } from './components/Views/KnowledgeView';
 import { SettingsView } from './components/Views/SettingsView';
+import { PlatformView } from './components/Views/PlatformView';
 import { ParameterSetupModal } from './components/Views/ParameterSetupModal';
 import type { AgentItem, WorkflowItem, SelectedAgent } from './types';
 import styles from './App.module.css';
 
-type Tab = 'overview' | 'knowledge' | 'settings';
+type Tab = 'overview' | 'knowledge' | 'settings' | 'platform';
 
 interface PanelState {
   open: boolean;
@@ -50,6 +51,16 @@ function SettingsIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function PlatformIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M9 21V9" />
     </svg>
   );
 }
@@ -92,18 +103,12 @@ export default function App() {
 
   useEffect(() => {
     if (!identity.loggedIn) return;
-    void rawFetch<{ agents: AgentItem[] } | AgentItem[]>('/agents')
-      .then(data => {
-        const list = Array.isArray(data) ? data : (data as { agents: AgentItem[] }).agents ?? [];
-        setAgents(list);
-      })
+    void apiFetch<AgentItem[]>('/api/v1/agents')
+      .then(data => setAgents(Array.isArray(data) ? data : []))
       .catch(() => setAgents([]));
 
-    void rawFetch<{ workflows: WorkflowItem[] } | WorkflowItem[]>('/workflows')
-      .then(data => {
-        const list = Array.isArray(data) ? data : (data as { workflows: WorkflowItem[] }).workflows ?? [];
-        setWorkflows(list);
-      })
+    void apiFetch<WorkflowItem[]>('/api/v1/workflows')
+      .then(data => setWorkflows(Array.isArray(data) ? data : []))
       .catch(() => setWorkflows([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identity.loggedIn, refreshKey]);
@@ -184,6 +189,12 @@ export default function App() {
             <OverviewIcon /> Overview
           </button>
           <button
+            className={`${styles.tabBtn} ${activeTab === 'platform' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('platform')}
+          >
+            <PlatformIcon /> Platform
+          </button>
+          <button
             className={`${styles.tabBtn} ${activeTab === 'knowledge' ? styles.tabBtnActive : ''}`}
             onClick={() => setActiveTab('knowledge')}
           >
@@ -213,6 +224,13 @@ export default function App() {
             <SettingsView
               orgName={config.app_name}
               setupStatus={setupStatus}
+            />
+          )}
+          {activeTab === 'platform' && (
+            <PlatformView
+              config={config}
+              agents={agents}
+              onSelect={setSelectedAgent}
             />
           )}
         </div>

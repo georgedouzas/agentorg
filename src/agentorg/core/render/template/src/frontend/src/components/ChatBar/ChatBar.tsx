@@ -97,36 +97,31 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
     abortRef.current = abortCtrl;
 
     try {
-      const isWorkflow = selected.type === 'workflow';
-      const sessionKey = isWorkflow ? `wf_session_${selected.id}` : `session_${selected.id}`;
-      const storedSession = sessionStorage.getItem(sessionKey) ?? undefined;
-
-      const params = new URLSearchParams({ message: text, stream: 'true', stream_events: 'true' });
-      if (storedSession) params.set('session_id', storedSession);
-      params.set('user_id', userId);
-
-      const endpoint = isWorkflow
-        ? `/workflows/${selected.id}/runs`
-        : `/agents/${selected.id}/runs`;
-
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      // AgentField exposes every spec runnable as `POST /reasoners/<name>` returning JSON `{output}`.
+      // No SSE today, so we add the assistant message after the response lands.
+      const res = await fetch(`${API_BASE}/reasoners/${encodeURIComponent(selected.id)}?user_id=${encodeURIComponent(userId)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString(),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
         signal: abortCtrl.signal,
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Add placeholder assistant message
-      const assistantId = nextId();
+      const payload = await res.json() as { output?: unknown };
+      const output = typeof payload.output === 'string'
+        ? payload.output
+        : JSON.stringify(payload.output ?? payload, null, 2);
+
       setMessages(prev => [...prev, {
-        id: assistantId,
+        id: nextId(),
         role: 'assistant',
-        content: '',
+        content: output,
         isMarkdown: true,
-        isStreaming: true,
+        isStreaming: false,
       }]);
+      // Skip the legacy SSE branch — it parses AgentOS events that AgentField doesn't emit.
+      return;
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();

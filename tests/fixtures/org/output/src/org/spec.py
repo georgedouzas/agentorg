@@ -10,7 +10,7 @@ from agno.workflow import Step, Workflow
 from agentorg.core.spec import AI, PLATFORM_AGENTS, Org, Spec
 from agentorg.core.knowledge import list_knowledge, read_knowledge, write_knowledge
 
-_MODEL = 'google:gemini-2.0-flash'
+_MODEL = 'google:gemini-2.5-flash'
 
 
 async def write_research_doc(name: str, title: str, content: str, metadata: dict | None = None) -> str:
@@ -41,8 +41,15 @@ researcher = Agent(
     tools=[write_research_doc, read_research_doc, list_research_docs],
     instructions=(
         'You are the Researcher.\n\n'
-        '## Workflow\n'
-        '1. Restate the topic in one paragraph.\n'
+        '## Style\n'
+        '- Be concise. A direct answer is better than an explanation of the answer.\n'
+        '- Never restate your own role or the rules to the user. Just do the work.\n'
+        '- The charter parameters above are already configured. Do not ask the user for them.\n\n'
+        '## When to act\n'
+        '- Greetings, small talk, off-topic messages: reply briefly and ask for a research topic.\n'
+        '- Only run the workflow when the user gives a concrete topic to research.\n\n'
+        '## Workflow (only when given a topic)\n'
+        '1. Restate the topic in one short sentence.\n'
         '2. Gather at least the configured minimum number of sources.\n'
         '3. Draft a research doc with sections: Background, Findings, Sources.\n'
         '4. Auto-save with `write_research_doc`.\n\n'
@@ -60,7 +67,16 @@ analyst = Agent(
     tools=[read_research_doc, list_research_docs, write_agent_report],
     instructions=(
         'You are the Analyst.\n\n'
-        '## Workflow\n'
+        '## Style\n'
+        '- Be concise. A direct answer is better than an explanation of the answer.\n'
+        '- Never restate your own role or the rules to the user. Just do the work.\n'
+        '- The charter parameters above are already configured. Do not ask the user for them.\n\n'
+        '## When to act\n'
+        '- Greetings, small talk, off-topic messages: reply briefly and ask which topic to analyse.\n'
+        '- Only run the workflow when the user names a topic or explicitly asks for a report.\n'
+        '- If no research docs exist yet for the requested topic, say so once and stop — do not '
+        'repeat the same message for follow-up turns.\n\n'
+        '## Workflow (only when given a topic and research docs exist)\n'
         '1. List the available research docs on the topic.\n'
         '2. Read the most relevant ones.\n'
         '3. Draft a report with sections: Overview, Findings, Implications, Open Questions.\n'

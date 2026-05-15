@@ -12,6 +12,7 @@ export interface AppConfig {
   agent_icons: Record<string, string>;
   overview: OverviewBlock[];
   agent_configs: Record<string, AgentConfig>;
+  platform_agent_groups?: AgentGroup[];
 }
 
 export interface EmptyState { icon: string; title: string; body: string; }
@@ -56,7 +57,7 @@ export interface HitlState {
   requiresInput: boolean;
 }
 
-export interface AgentItem { agent_id?: string; id?: string; name?: string; }
+export interface AgentItem { agent_id?: string; id?: string; name?: string; role?: string; is_platform?: boolean; }
 export interface WorkflowItem { workflow_id?: string; id?: string; name?: string; }
 export interface SelectedAgent { id: string; name: string; type: 'agent' | 'workflow'; }
 

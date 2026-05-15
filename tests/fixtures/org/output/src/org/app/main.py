@@ -40,7 +40,14 @@ app = Agent(
 app.embedder_model = spec.runtime.infra.embedder  # type: ignore[attr-defined]
 
 # The spec's agents/teams/workflows become reasoners on this node.
-_charter_text = '\n\n'.join(section.body for section in spec.knowledge.charter.sections)
+# Substitute charter parameter defaults into section bodies so agents see `Applied Research`
+# rather than the literal `{domain_focus}` placeholder.
+class _SafeDefaults(dict):
+    def __missing__(self, key: str) -> str:
+        return '{' + key + '}'
+
+_param_defaults = _SafeDefaults({p.name: p.default for p in spec.knowledge.charter.parameters})
+_charter_text = '\n\n'.join(s.body.format_map(_param_defaults) for s in spec.knowledge.charter.sections)
 register_agents(app, spec, _charter_text)
 register_teams(app, spec)
 register_workflows(app, spec)

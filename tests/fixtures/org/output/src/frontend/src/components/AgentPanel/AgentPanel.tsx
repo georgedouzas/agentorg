@@ -8,24 +8,13 @@ type PanelTab = 'chat' | 'config';
 
 // ── Description pane ─────────────────────────────────────────────────────────
 
-interface OutOfScopeItem { topic: string; refer_to: string; }
-interface OutputFormat { kind?: string; columns?: string[]; sections?: string[]; trailer?: string; }
-interface CountRule { default?: number | string; rules?: { phrase: string; count: number | string }[]; }
-interface SaveRule { tool?: string; name_pattern?: string; title_pattern?: string; note?: string; }
-
 interface AgentInfo {
-  agent_id: string;
+  id: string;
   name: string;
-  model_id: string;
-  role?: string;
-  in_scope?: string[];
-  out_of_scope?: OutOfScopeItem[];
-  workflow?: string[];
-  output_format?: OutputFormat;
-  count_rule?: CountRule;
-  save_rule?: SaveRule;
+  role: string;
+  model: string;
   tools: string[];
-  capabilities: Record<string, boolean>;
+  instructions: string;
 }
 
 function DescriptionPane({ agentId }: { agentId: string }) {
@@ -34,7 +23,7 @@ function DescriptionPane({ agentId }: { agentId: string }) {
 
   useEffect(() => {
     setLoading(true);
-    apiFetch<AgentInfo>(`/api/agents/${encodeURIComponent(agentId)}/info`)
+    apiFetch<AgentInfo>(`/api/v1/agents/${encodeURIComponent(agentId)}`)
       .then(d => setInfo(d))
       .catch(() => setInfo(null))
       .finally(() => setLoading(false));
@@ -43,92 +32,27 @@ function DescriptionPane({ agentId }: { agentId: string }) {
   if (loading) return <div className={styles.empty}>Loading…</div>;
   if (!info)   return <div className={styles.empty}>No information available for this agent.</div>;
 
-  const fmt = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  const toolsLabel = info.tools.map(t => fmt(t).toUpperCase()).join(', ');
-  const capsLabel = Object.keys(info.capabilities).map(c => c.toUpperCase()).join(', ');
+  const toolsLabel = info.tools.map(t => t.replace(/_/g, ' ').toUpperCase()).join(', ');
 
   return (
     <div className={styles.descCard}>
       {info.role && (
-        <Section title="Role"><p className={styles.descPara}>{info.role}</p></Section>
+        <div className={styles.descSection} style={{ borderTop: 'none', paddingTop: 0 }}>
+          <h3 className={styles.descHeader}>Role</h3>
+          <p className={styles.descPara}>{info.role}</p>
+        </div>
       )}
 
-      {info.in_scope && info.in_scope.length > 0 && (
-        <Section title="In scope">
-          <ul className={styles.descList}>
-            {info.in_scope.map((s, i) => <li key={i}>{s}</li>)}
-          </ul>
-        </Section>
-      )}
-
-      {info.out_of_scope && info.out_of_scope.length > 0 && (
-        <Section title="Out of scope · refer to">
-          <ul className={styles.descList}>
-            {info.out_of_scope.map((s, i) => (
-              <li key={i}>{s.topic} → <strong>{s.refer_to}</strong></li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
-      {info.workflow && info.workflow.length > 0 && (
-        <Section title="Workflow">
-          <ol className={styles.descList}>
-            {info.workflow.map((s, i) => <li key={i}>{s}</li>)}
-          </ol>
-        </Section>
-      )}
-
-      {info.output_format && (
-        <Section title="Output format">
-          <p className={styles.descPara}>
-            {info.output_format.kind === 'markdown_table' && info.output_format.columns && (
-              <>Markdown table: <code>{info.output_format.columns.join(' | ')}</code>.{' '}</>
-            )}
-            {info.output_format.sections && (
-              <>Sections (in order): {info.output_format.sections.join(', ')}.{' '}</>
-            )}
-            {info.output_format.trailer}
-          </p>
-        </Section>
-      )}
-
-      {info.count_rule && (
-        <Section title="How many results">
-          <ul className={styles.descList}>
-            {info.count_rule.rules?.map((r, i) => (
-              <li key={i}>{r.phrase} → <strong>{String(r.count)}</strong></li>
-            ))}
-            {info.count_rule.default !== undefined && (
-              <li>(otherwise) → <strong>{String(info.count_rule.default)}</strong></li>
-            )}
-          </ul>
-        </Section>
-      )}
-
-      {info.save_rule && (
-        <Section title="Auto-save">
-          <p className={styles.descPara}>
-            Calls <code>{info.save_rule.tool}</code> at the end of each run.
-            {info.save_rule.note && <> {info.save_rule.note}</>}
-          </p>
-        </Section>
+      {info.instructions && (
+        <div className={styles.descSection} style={{ borderTop: 'none', paddingTop: 0 }}>
+          <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(info.instructions) as string }} />
+        </div>
       )}
 
       <div className={styles.badgeStack}>
-        {info.model_id && <MetaBadge label="Model" value={info.model_id.toUpperCase()} />}
+        {info.model && <MetaBadge label="Model" value={info.model.toUpperCase()} />}
         {toolsLabel && <MetaBadge label="Tools" value={toolsLabel} />}
-        {capsLabel && <MetaBadge label="Capabilities" value={capsLabel} />}
       </div>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className={styles.descSection} style={{ borderTop: 'none', paddingTop: 0 }}>
-      <h3 className={styles.descHeader}>{title}</h3>
-      {children}
     </div>
   );
 }
@@ -186,23 +110,8 @@ function ChatPane({ selected, userId }: { selected: SelectedAgent; userId: strin
     setMessages([]);
     setHitlState(null);
     setInput('');
-    if (selected.type === 'agent') {
-      apiFetch<{ session_id: string | null; messages: { role: string; content: string }[] }>(
-        `/api/agents/${encodeURIComponent(selected.id)}/history`,
-      )
-        .then(d => {
-          if (d.session_id) localStorage.setItem(`session_${selected.id}`, d.session_id);
-          if (d.messages.length === 0) return;
-          const restored: ChatMessage[] = d.messages.map(m => ({
-            id: nextId(),
-            role: m.role as ChatMessage['role'],
-            content: m.content,
-            isMarkdown: m.role === 'assistant',
-          }));
-          setMessages(restored);
-        })
-        .catch(() => { /* ignore */ });
-    }
+    // Session history is an AgentOS concept; AgentField has no equivalent endpoint yet, so we
+    // start every selection with an empty chat. Per-agent in-memory cache above still survives.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected.id]);
 
@@ -241,26 +150,31 @@ function ChatPane({ selected, userId }: { selected: SelectedAgent; userId: strin
     abortRef.current = ctrl;
 
     try {
-      const isWorkflow = selected.type === 'workflow';
-      const sessionKey = isWorkflow ? `wf_session_${selected.id}` : `session_${selected.id}`;
-      const storedSession = localStorage.getItem(sessionKey) ?? undefined;
-
-      const params = new URLSearchParams({ message: text, stream: 'true', stream_events: 'true' });
-      if (storedSession) params.set('session_id', storedSession);
-      params.set('user_id', userId);
-
-      const endpoint = isWorkflow
-        ? `/workflows/${selected.id}/runs`
-        : `/agents/${selected.id}/runs`;
-
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      // AgentField exposes every spec runnable (agents + workflows) as `POST /reasoners/<name>`
+      // returning sync JSON `{output}`. No SSE today, so we add the assistant message after the
+      // response lands and short-circuit before the legacy AgentOS event loop.
+      const res = await fetch(`${API_BASE}/reasoners/${encodeURIComponent(selected.id)}?user_id=${encodeURIComponent(userId)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString(),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
         signal: ctrl.signal,
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const payload = await res.json() as { output?: unknown };
+      const output = typeof payload.output === 'string'
+        ? payload.output
+        : JSON.stringify(payload.output ?? payload, null, 2);
+
+      setMessages(prev => [...prev, {
+        id: nextId(),
+        role: 'assistant',
+        content: output,
+        isMarkdown: true,
+        isStreaming: false,
+      }]);
+      return;
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();

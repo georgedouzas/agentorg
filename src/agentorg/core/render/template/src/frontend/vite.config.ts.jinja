@@ -10,9 +10,10 @@ export default defineConfig({
   build: { outDir: '../../public', emptyOutDir: true },
   server: {
     proxy: {
-      '/agents':    apiHost,
-      '/workflows': apiHost,
-      '/api': apiHost,
+      // AgentField reasoner endpoints (chat goes here)
+      '/reasoners': { target: apiHost, changeOrigin: true },
+      // agentorg-specific routes + the knowledge-events WebSocket
+      '/api': { target: apiHost, changeOrigin: true, ws: true },
     }
   }
 })

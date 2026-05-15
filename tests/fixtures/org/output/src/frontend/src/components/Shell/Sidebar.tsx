@@ -20,18 +20,14 @@ function formatId(id: string): string {
 }
 
 export function Sidebar({ config, agents, workflows, selected, onSelect, blocked, onBlockedClick }: SidebarProps) {
+  // Platform agents live on the dedicated `Platform` tab — keep them out of the org sidebar entirely.
+  const orgAgents = agents.filter(a => !a.is_platform);
+
   const featuredIds = new Set(config.featured_agents.map(f => f.id));
   const groupedIds = new Set(config.agent_groups.flatMap(g => g.ids));
-  const agentMap = new Map(agents.map(a => [getAgentId(a), a]));
+  const agentMap = new Map(orgAgents.map(a => [getAgentId(a), a]));
 
-  // Default (always-on) agents are everything in the "Platform" group — usable even when setup is blocked.
-  const platformIds = new Set(
-    (config.agent_groups ?? [])
-      .filter(g => g.label === 'Platform')
-      .flatMap(g => g.ids),
-  );
-
-  const ungroupedAgents = agents.filter(a => {
+  const ungroupedAgents = orgAgents.filter(a => {
     const id = getAgentId(a);
     return !groupedIds.has(id) && !featuredIds.has(id);
   });
@@ -40,14 +36,12 @@ export function Sidebar({ config, agents, workflows, selected, onSelect, blocked
     const isSelected = selected?.id === id && selected?.type === type;
     const isFeatured = type === 'agent' && featuredIds.has(id);
     const icon = config.agent_icons[id] ?? (type === 'workflow' ? '⚡' : '🤖');
-    const isAlwaysOn = type === 'agent' && platformIds.has(id);
-    const isPlatform = isAlwaysOn;
-    const isDisabled = !!blocked && !isAlwaysOn;
+    const isDisabled = !!blocked;
 
     return (
       <button
         key={id}
-        className={`${styles.item} ${isSelected ? styles.itemActive : ''} ${isFeatured ? styles.itemFeatured : ''} ${isDisabled ? styles.itemDisabled : ''} ${isPlatform ? styles.itemPlatform : ''}`}
+        className={`${styles.item} ${isSelected ? styles.itemActive : ''} ${isFeatured ? styles.itemFeatured : ''} ${isDisabled ? styles.itemDisabled : ''}`}
         onClick={() => isDisabled ? onBlockedClick?.() : onSelect({ id, name, type })}
         title={isDisabled ? 'Complete setup first' : undefined}
       >

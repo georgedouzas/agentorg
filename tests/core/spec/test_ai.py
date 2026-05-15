@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from agentorg.core.spec import AI, PLATFORM_AGENTS
 
-_MODEL = 'google:gemini-2.0-flash'
+_MODEL = 'google:gemini-2.5-flash'
 
 
 def _custom_agent() -> Agent:

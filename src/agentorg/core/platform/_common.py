@@ -5,7 +5,7 @@ from typing import Any
 
 from agno.agent import Agent
 
-DEFAULT_MODEL = 'google:gemini-2.0-flash'
+DEFAULT_MODEL = 'google:gemini-2.5-flash'
 
 OTHER_AGENTS_SCOPE = (
     ('Python code or agent specs', 'Backend Engineer'),
