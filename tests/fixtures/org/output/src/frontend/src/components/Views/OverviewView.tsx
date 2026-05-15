@@ -11,12 +11,38 @@ interface OverviewViewProps {
   onPanelOpen: (title: string, endpoint: string) => void;
 }
 
-function CharterSection({ config }: { config: AppConfig }) {
+function ParameterList({ config, configured }: { config: AppConfig; configured: boolean }) {
+  const params = config.charter?.parameters ?? [];
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+    Object.fromEntries(params.map(p => [p.name, p.default])),
+  );
+  useEffect(() => {
+    if (!configured) return;
+    apiFetch<{ parameters: Record<string, unknown> }>('/api/v1/state')
+      .then(s => setValues((v: Record<string, unknown>) => ({ ...v, ...(s.parameters ?? {}) })))
+      .catch(() => {/* fall back to defaults */});
+  }, [configured]);
+  if (params.length === 0) return null;
+  return (
+    <dl className={styles.paramList}>
+      {params.map(p => (
+        <div key={p.name} className={styles.paramRow}>
+          <dt className={styles.paramLabel}>{p.label ?? p.name}</dt>
+          <dd className={styles.paramValue}>{String(values[p.name] ?? p.default)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function CharterSection({ config, configured }: { config: AppConfig; configured: boolean }) {
   const sections = config.charter?.sections ?? [];
-  if (sections.length === 0) return null;
+  const hasParams = (config.charter?.parameters ?? []).length > 0;
+  if (sections.length === 0 && !hasParams) return null;
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Charter</h2>
+      <ParameterList config={config} configured={configured} />
       {sections.map(s => (
         <div key={s.id} className={styles.group}>
           <h3 className={styles.groupLabel}>{s.title}</h3>
@@ -113,10 +139,10 @@ function SetupHealth() {
   );
 }
 
-export function OverviewView({ config, onPanelOpen }: OverviewViewProps) {
+export function OverviewView({ config, configured, onPanelOpen }: OverviewViewProps) {
   return (
     <div className={styles.view}>
-      <CharterSection config={config} />
+      <CharterSection config={config} configured={configured} />
       <CustomBlocks config={config} />
       <RecentActivity config={config} onPanelOpen={onPanelOpen} />
       <SetupHealth />

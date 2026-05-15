@@ -139,7 +139,7 @@ spec = Spec(
                 {
                     'name': 'domain_focus',
                     'type': 'string',
-                    'default': 'applied research',
+                    'default': 'Applied Research',
                     'label': 'Domain Focus',
                     'format': None,
                 },
@@ -147,7 +147,7 @@ spec = Spec(
                     'name': 'min_sources',
                     'type': 'int',
                     'default': 3,
-                    'label': 'Min Sources per Research Doc',
+                    'label': 'Minimum Sources',
                     'format': None,
                 },
             ],
