@@ -1,10 +1,10 @@
-"""Charter-prepend tests for the agents factory."""
+"""Tests for the charter prepend helper in the agents factory."""
 
 from org.ai.agents.factory import _prepend_charter
 
 
 class _FakeAgent:
-    """Minimal agno-style runnable — just an `instructions` string."""
+    """Minimal agno style runnable carrying just an `instructions` string."""
 
     def __init__(self, instructions: str) -> None:
         self.instructions = instructions
@@ -27,7 +27,7 @@ def test_prepend_charter_is_noop_without_text() -> None:
 
 
 def test_prepend_charter_is_noop_for_plain_callable() -> None:
-    """A plain callable agent has no `instructions` attribute — prepend is a safe no-op."""
+    """A plain callable agent has no `instructions` attribute and prepend is a safe no op."""
 
     async def plain_agent(message: str) -> dict[str, str]:
         return {'output': message}

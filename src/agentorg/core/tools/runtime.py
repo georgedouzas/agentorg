@@ -1,13 +1,4 @@
-"""Adapt spec runnables into AgentField reasoners.
-
-A spec's agents / teams / workflows are "anything runnable" — either a plain async callable, or an object exposing
-`.arun()` (which is what agno's `Agent` / `Team` / `Workflow` provide). `register_runnable` turns either shape into a
-reasoner on the AgentField node; what happens *inside* the runnable (agno, `app.harness`, `app.ai`, a mix) is the spec
-author's business.
-
-Reasoners are registered with `tags` so the control plane's tag-based policies can target them — governance is
-AgentField's job (tag policies, DID/VC, the execution-DAG audit), not agentorg's.
-"""
+"""Adapt spec runnables into AgentField reasoners."""
 
 from typing import Any
 

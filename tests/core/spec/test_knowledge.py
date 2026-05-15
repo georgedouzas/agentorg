@@ -1,4 +1,4 @@
-"""Tests for `agentorg.core.spec._knowledge` — Charter, DocumentType, Knowledge."""
+"""Tests for `agentorg.core.spec._knowledge`."""
 
 import pytest
 from pydantic import ValidationError

@@ -1,4 +1,4 @@
-"""Factory wiring tests — the spec's agents/teams/workflows register as reasoners without error."""
+"""Factory wiring tests that confirm the spec's agents, teams, and workflows register as reasoners."""
 
 from agentfield import Agent
 

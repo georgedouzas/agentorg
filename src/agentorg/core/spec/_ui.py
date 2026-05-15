@@ -1,8 +1,4 @@
-"""UI — everything the React dashboard needs to render the org.
-
-App metadata, empty-state copy, sidebar groupings, agent icons, and per-agent display config. The renderer feeds this
-into the frontend; nothing here affects agent behaviour.
-"""
+"""Everything the React dashboard needs to render the org."""
 
 from typing import Any
 

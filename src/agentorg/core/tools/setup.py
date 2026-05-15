@@ -1,4 +1,4 @@
-"""Setup-status tool — reports which spec setup steps are done and which are pending."""
+"""Setup status tool that reports which spec setup steps are done and which are pending."""
 
 import os
 from typing import Any

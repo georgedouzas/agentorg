@@ -1,4 +1,4 @@
-"""Frontend-engineer tools — introspect UI configuration."""
+"""Frontend Engineer tools that introspect UI configuration."""
 
 import json
 from typing import Any

@@ -1,4 +1,4 @@
-"""Tests for `agentorg.core.spec._runtime` — Infra, EnvVar, EnvVars, SetupStep, Runtime."""
+"""Tests for `agentorg.core.spec._runtime`."""
 
 import pytest
 from pydantic import ValidationError

@@ -1,4 +1,4 @@
-"""The infrastructure stack, environment variables, and post-install setup."""
+"""The infrastructure stack, environment variables, and the setup checklist."""
 
 from typing import Literal
 

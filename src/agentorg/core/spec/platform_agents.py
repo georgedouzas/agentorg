@@ -1,9 +1,4 @@
-"""The six platform agents — pre-built `agno.Agent` instances shipped with every org.
-
-Identity (role / in-scope / out-of-scope / workflow) is folded into the agent's `instructions` string at import time.
-Users get the agents for free via `agents=[*PLATFORM_AGENTS, my_agent, ...]` in `spec.py`. The Spec validator refuses to
-render if any of the six IDs are missing.
-"""
+"""The six pre-built `agno.Agent` platform agents shipped with every org."""
 
 from collections.abc import Callable
 from typing import Any

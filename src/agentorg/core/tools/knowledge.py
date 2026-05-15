@@ -1,9 +1,4 @@
-"""Knowledge CRUD tools backed by AgentField memory.
-
-A knowledge unit is anything an agent produces — text artifacts (research, memo, report) or structured data. Units live
-in the node's **global-scope** memory under `kn:{type}:{name}` keys. These are agent *tools*: they run inside a reasoner
-execution, so they resolve the running node via `Agent.get_current()`.
-"""
+"""Knowledge CRUD tools backed by AgentField memory."""
 
 import json
 from datetime import UTC, datetime

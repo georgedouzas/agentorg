@@ -1,4 +1,4 @@
-"""Platform-engineer tools — introspect infra, env vars, and service health."""
+"""Platform Engineer tools that introspect infra, env vars, and service health."""
 
 import os
 import socket

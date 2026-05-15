@@ -1,9 +1,4 @@
-"""Knowledge-tool round-trip tests — write -> read -> list -> delete against AgentField memory.
-
-The knowledge tools resolve the running node via `Agent.get_current()` and store into its global-scope memory, which
-needs a control plane — so these tests take `needs_memory` (skipped when `AGENTFIELD_SERVER` is unset) and the `node`
-fixture (which patches `Agent.get_current()` to the rendered node).
-"""
+"""Round-trip tests for the knowledge tools against AgentField memory."""
 
 import uuid
 

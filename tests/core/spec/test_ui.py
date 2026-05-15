@@ -1,4 +1,4 @@
-"""Tests for `agentorg.core.spec._ui` — UI and its sub-models."""
+"""Tests for `agentorg.core.spec._ui`."""
 
 import pytest
 from pydantic import ValidationError

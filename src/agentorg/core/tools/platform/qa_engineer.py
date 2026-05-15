@@ -1,4 +1,4 @@
-"""QA-engineer tools — run tests and validate the spec."""
+"""QA Engineer tools that run tests and validate the spec."""
 
 import subprocess
 from pathlib import Path

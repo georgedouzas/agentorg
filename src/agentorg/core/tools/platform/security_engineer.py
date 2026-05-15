@@ -1,4 +1,4 @@
-"""Security-engineer tools — secret scanning + required-env-var inventory."""
+"""Security Engineer tools for secret scanning and required env var inventory."""
 
 import os
 import re

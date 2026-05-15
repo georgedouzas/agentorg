@@ -1,8 +1,4 @@
-"""Per-user org-state tools backed by AgentField memory.
-
-Each user's state lives in **actor-scope** memory under the `org_state` key. These are agent *tools*: they run inside a
-reasoner execution, so they resolve the running node via `Agent.get_current()`.
-"""
+"""Tools for managing each user's org state, backed by AgentField memory."""
 
 import json
 from typing import Any

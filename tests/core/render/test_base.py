@@ -1,17 +1,4 @@
-"""Tests for `agentorg.core.render`.
-
-Three layers, from fastest/most-focused to slowest/most-realistic:
-
-1. Path-rendering units — synthetic template trees in `tmp_path` exercising the renderer's
-   handling of `.jinja` suffixes, conditional path segments, variable substitution, and
-   the spec-file copy step.
-
-2. Fixture byte-identity — render `tests/fixtures/<id>/spec.py` and assert every produced
-   file matches the committed `output/` snapshot byte-for-byte.
-
-3. Rendered-org functional — sync the rendered org's deps via `uv` and run *its* pytest
-   suite. Secrets come from `tests/fixtures/.env`.
-"""
+"""Tests for `agentorg.core.render._base`."""
 
 import os
 import shutil
@@ -22,7 +9,7 @@ import pytest
 
 from agentorg.core import render
 
-FIXTURES_DIR = Path(__file__).parent.parent / 'fixtures'
+FIXTURES_DIR = Path(__file__).parent.parent.parent / 'fixtures'
 FIXTURES = ['org']
 ORG_OUTPUT = FIXTURES_DIR / 'org' / 'output'
 CENTRAL_ENV = FIXTURES_DIR / '.env'
@@ -235,7 +222,7 @@ def synced_org(tmp_path_factory: pytest.TempPathFactory) -> Path:
         pytest.skip('uv not on PATH; cannot exercise the rendered org.')
     work = tmp_path_factory.mktemp('rendered-org')
     render(FIXTURES_DIR / 'org' / 'spec.py', work)
-    agentorg_root = Path(__file__).parents[2]
+    agentorg_root = Path(__file__).parents[3]
     pyproject = work / 'pyproject.toml'
     pyproject.write_text(
         pyproject.read_text() + f'\n[tool.uv.sources]\nagentorg = {{ path = "{agentorg_root}", editable = true }}\n',

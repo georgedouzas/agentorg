@@ -1,8 +1,4 @@
-"""Knowledge — the org's charter plus the catalogue of document types it produces.
-
-The charter is itself a piece of knowledge: prose sections that get baked into agent prompts, and tunable parameters
-that become the org's per-user state. `document_types` is the catalogue of structured artifacts agents read and write.
-"""
+"""The org's charter plus the catalogue of document types it produces."""
 
 from typing import Any, Literal
 

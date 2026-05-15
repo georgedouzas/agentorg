@@ -1,11 +1,4 @@
-"""Shared test fixtures.
-
-Knowledge and per-user state live in AgentField memory, which needs a running control plane. Tests that touch
-memory take the `needs_memory` fixture — it skips them unless `AGENTFIELD_SERVER` points at a control plane. The
-`client` fixture is an async httpx client over the rendered app; the `node` fixture makes `Agent.get_current()`
-resolve to the node so the knowledge/state tools can be exercised directly. Both are session-scoped — the AgentField
-memory client binds its connection to one event loop, so the whole suite shares it (see `pyproject.toml`).
-"""
+"""Shared test fixtures for the rendered org's pytest suite."""
 
 import os
 from collections.abc import AsyncIterator, Iterator

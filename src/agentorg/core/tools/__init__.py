@@ -1,1 +1,1 @@
-"""Built-in tools shipped with agentorg, used by both the platform agents and the user's custom wrappers."""
+"""Tools shipped with agentorg and used by both the platform agents and the user's custom wrappers."""

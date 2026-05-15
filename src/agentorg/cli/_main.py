@@ -1,4 +1,4 @@
-"""User-facing CLI."""
+"""The agentorg command group and subcommand wiring."""
 
 import click
 

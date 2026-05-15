@@ -1,8 +1,4 @@
-"""The top-level `Spec` model — the single Python value a user constructs in `spec.py`.
-
-`Spec` is five domain models: `org`, `runtime`, `ai`, `knowledge`, `ui`. Each lives in its own `_*.py` module. `org` /
-`runtime` / `knowledge` / `ui` accept plain dict literals (Pydantic coerces them); `ai` holds agno-native objects.
-"""
+"""The top-level `Spec` model that a user constructs in `spec.py`."""
 
 from pydantic import BaseModel, ConfigDict
 

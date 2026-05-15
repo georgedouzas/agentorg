@@ -1,4 +1,4 @@
-"""Backend-engineer tools — introspect agent specs and run tests."""
+"""Backend Engineer tools that introspect agent specs and run tests."""
 
 import json
 import subprocess

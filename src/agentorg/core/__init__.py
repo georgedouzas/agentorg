@@ -1,4 +1,4 @@
-"""Core rendering engine — turns a config directory + agentorg.json into a generated org."""
+"""Core agentorg machinery for spec models, rendering, and runtime tools."""
 
 from agentorg.core.render import render
 

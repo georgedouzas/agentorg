@@ -1,9 +1,4 @@
-"""AI — the agno-native agents, teams, and workflows the org runs.
-
-The three lists hold real `agno.Agent` / `agno.Team` / `agno.Workflow` objects, typed `list[Any]` because agno's classes
-are dataclasses with annotations Pydantic cannot introspect. The validator enforces the one real invariant: every
-platform agent must be present.
-"""
+"""The agents, teams, and workflows the org runs."""
 
 from typing import Any
 

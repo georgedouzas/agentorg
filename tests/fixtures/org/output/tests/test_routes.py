@@ -1,9 +1,4 @@
-"""HTTP route tests — exercise the agentorg-specific endpoints in `app.routes`.
-
-`/config`, `/setup-guide`, and `/learnings` touch no memory and run unconditionally. The knowledge/state endpoints
-need a control plane, so those tests take `needs_memory` (skipped when `AGENTFIELD_SERVER` is unset). Tests are
-async — they share the session event loop the AgentField memory client is bound to.
-"""
+"""HTTP route tests for the rendered org's agentorg-specific endpoints."""
 
 import pytest
 
