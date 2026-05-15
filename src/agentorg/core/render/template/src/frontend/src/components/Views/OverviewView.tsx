@@ -52,7 +52,7 @@ function formatDate(iso?: string): string {
   } catch { return ''; }
 }
 
-function RecentActivity({ onPanelOpen }: { onPanelOpen: (title: string, endpoint: string) => void }) {
+function RecentActivity({ config, onPanelOpen }: { config: AppConfig; onPanelOpen: (title: string, endpoint: string) => void }) {
   const [items, setItems] = useState<KnowledgeItem[] | null>(null);
   useEffect(() => {
     apiFetch<KnowledgeItem[]>('/api/v1/knowledge?limit=5')
@@ -66,7 +66,7 @@ function RecentActivity({ onPanelOpen }: { onPanelOpen: (title: string, endpoint
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Recent Activity</h2>
       {items.length === 0 ? (
-        <div className={styles.muted}>No knowledge yet.</div>
+        <div className={styles.muted}>{config.knowledge_empty}</div>
       ) : (
         <ul className={styles.itemList}>
           {items.map(it => (
@@ -97,7 +97,7 @@ function SetupHealth() {
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Setup Health</h2>
       <div className={styles.muted}>
-        {completed}/{status.steps.length} steps complete
+        {completed}/{status.steps.length} steps complete.
       </div>
       {blocked.length > 0 && (
         <ul className={styles.itemList}>
@@ -118,7 +118,7 @@ export function OverviewView({ config, onPanelOpen }: OverviewViewProps) {
     <div className={styles.view}>
       <CharterSection config={config} />
       <CustomBlocks config={config} />
-      <RecentActivity onPanelOpen={onPanelOpen} />
+      <RecentActivity config={config} onPanelOpen={onPanelOpen} />
       <SetupHealth />
     </div>
   );
