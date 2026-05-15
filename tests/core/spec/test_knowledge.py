@@ -7,17 +7,17 @@ from agentorg.core.spec import (
     Charter,
     CharterParameter,
     CharterSection,
-    DocumentType,
-    DocumentTypeMetadataField,
     Knowledge,
+    KnowledgeType,
+    KnowledgeTypeMetadataField,
 )
 
 PARAMETER = {'name': 'min_sources', 'type': 'int', 'default': 3, 'label': 'Min Sources', 'format': None}
 SECTION = {'id': 'charter', 'title': 'Charter', 'body': '## Mission\n- Do good work.'}
 METADATA_FIELD = {'name': 'author', 'type': 'string'}
-DOCUMENT_TYPE = {'id': 'report', 'label': 'Reports', 'metadata_fields': [METADATA_FIELD]}
+KNOWLEDGE_TYPE = {'id': 'report', 'label': 'Reports', 'metadata_fields': [METADATA_FIELD]}
 CHARTER = {'parameters': [PARAMETER], 'sections': [SECTION]}
-KNOWLEDGE = {'charter': CHARTER, 'document_types': [DOCUMENT_TYPE]}
+KNOWLEDGE = {'charter': CHARTER, 'types': [KNOWLEDGE_TYPE]}
 
 
 # ── CharterParameter ─────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ def test_charter_parameter_rejects_unknown_type() -> None:
 
 
 def test_charter_section_fields() -> None:
-    """`CharterSection` is id + title + markdown body."""
+    """`CharterSection` is id plus title plus markdown body."""
     section = CharterSection(**SECTION)
     assert section.id == 'charter'
     assert section.body.startswith('## Mission')
@@ -69,41 +69,41 @@ def test_charter_fields_required(missing: str) -> None:
         Charter(**{k: v for k, v in CHARTER.items() if k != missing})
 
 
-# ── DocumentType ─────────────────────────────────────────────────────────────
+# ── KnowledgeType ────────────────────────────────────────────────────────────
 
 
-def test_document_type_fields() -> None:
-    """`DocumentType` is id + label + metadata field schema."""
-    doc_type = DocumentType(**DOCUMENT_TYPE)
-    assert doc_type.id == 'report'
-    assert doc_type.metadata_fields[0].name == 'author'
+def test_knowledge_type_fields() -> None:
+    """`KnowledgeType` is id plus label plus metadata field schema."""
+    knowledge_type = KnowledgeType(**KNOWLEDGE_TYPE)
+    assert knowledge_type.id == 'report'
+    assert knowledge_type.metadata_fields[0].name == 'author'
 
 
-def test_document_type_metadata_field_rejects_unknown_type() -> None:
+def test_knowledge_type_metadata_field_rejects_unknown_type() -> None:
     """A metadata field's `type` is a closed `Literal`."""
     with pytest.raises(ValidationError):
-        DocumentTypeMetadataField(name='count', type='list')
+        KnowledgeTypeMetadataField(name='count', type='list')
 
 
-@pytest.mark.parametrize('missing', list(DOCUMENT_TYPE))
-def test_document_type_missing_field_raises(missing: str) -> None:
-    """Every `DocumentType` field is required."""
+@pytest.mark.parametrize('missing', list(KNOWLEDGE_TYPE))
+def test_knowledge_type_missing_field_raises(missing: str) -> None:
+    """Every `KnowledgeType` field is required."""
     with pytest.raises(ValidationError):
-        DocumentType(**{k: v for k, v in DOCUMENT_TYPE.items() if k != missing})
+        KnowledgeType(**{k: v for k, v in KNOWLEDGE_TYPE.items() if k != missing})
 
 
 # ── Knowledge ────────────────────────────────────────────────────────────────
 
 
 def test_knowledge_construction() -> None:
-    """`Knowledge` wraps a charter and the document-type catalogue, coercing dicts."""
+    """`Knowledge` wraps a charter and the knowledge-type catalogue, coercing dicts."""
     knowledge = Knowledge.model_validate(KNOWLEDGE)
     assert knowledge.charter.parameters[0].name == 'min_sources'
-    assert knowledge.document_types[0].id == 'report'
+    assert knowledge.types[0].id == 'report'
 
 
-@pytest.mark.parametrize('missing', ['charter', 'document_types'])
+@pytest.mark.parametrize('missing', ['charter', 'types'])
 def test_knowledge_fields_required(missing: str) -> None:
-    """`charter` and `document_types` are both required on `Knowledge`."""
+    """`charter` and `types` are both required on `Knowledge`."""
     with pytest.raises(ValidationError):
         Knowledge.model_validate({k: v for k, v in KNOWLEDGE.items() if k != missing})

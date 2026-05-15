@@ -71,7 +71,7 @@ export default function App() {
 
   useEffect(() => {
     if (!identity.loggedIn) return;
-    apiFetch<{ configured: boolean }>('/api/state')
+    apiFetch<{ configured: boolean }>('/api/v1/state')
       .then(d => setConfigured(d.configured))
       .catch(() => setConfigured(false));
   }, [identity.loggedIn, identity.userId]);
@@ -243,7 +243,7 @@ export default function App() {
 
       {configured === false && (
         <ParameterSetupModal
-          parameters={config.state_parameters ?? []}
+          parameters={config.charter?.parameters ?? []}
           onConfigured={() => setConfigured(true)}
         />
       )}

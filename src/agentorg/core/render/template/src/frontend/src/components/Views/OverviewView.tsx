@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
-import { StatsGrid } from '../Widgets/StatsGrid';
-import { EntityGrid } from '../Widgets/EntityGrid';
-import { BarTable } from '../Widgets/BarTable';
-import { Feed } from '../Widgets/Feed';
-import { ChartWidget } from '../Widgets/ChartWidget';
-import { ChartArea } from '../Visualization/ChartArea';
+import { marked } from 'marked';
 import { apiFetch } from '../../api';
-import type { AppConfig, WidgetConfig, WidgetType } from '../../types';
+import type { AppConfig, KnowledgeItem } from '../../types';
+import { useSetupStatus } from '../../hooks/useSetupStatus';
 import styles from './OverviewView.module.css';
 
 interface OverviewViewProps {
@@ -15,107 +11,115 @@ interface OverviewViewProps {
   onPanelOpen: (title: string, endpoint: string) => void;
 }
 
-interface FeedRow {
-  type: string;
-  name: string;
-  title: string | null;
-  display: { widget?: WidgetType; featured?: boolean; cols?: number; order?: number; empty?: string };
-  metadata: Record<string, unknown>;
-  last_computed: string | null;
+function CharterSection({ config }: { config: AppConfig }) {
+  const sections = config.charter?.sections ?? [];
+  if (sections.length === 0) return null;
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>Charter</h2>
+      {sections.map(s => (
+        <div key={s.id} className={styles.group}>
+          <h3 className={styles.groupLabel}>{s.title}</h3>
+          <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(s.body) as string }} />
+        </div>
+      ))}
+    </section>
+  );
 }
 
-export function OverviewView({ config, configured, onPanelOpen }: OverviewViewProps) {
-  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
-  const [entityCounts, setEntityCounts] = useState<Record<string, number>>({});
-  const [feeds, setFeeds] = useState<FeedRow[]>([]);
+function CustomBlocks({ config }: { config: AppConfig }) {
+  if (config.overview.length === 0) return null;
+  return (
+    <>
+      {config.overview.map(block => (
+        <section key={block.title} className={styles.section}>
+          <h2 className={styles.sectionTitle}>{block.title}</h2>
+          <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(block.body) as string }} />
+        </section>
+      ))}
+    </>
+  );
+}
 
+function formatDate(iso?: string): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear() % 100).padStart(2, '0');
+    return `${dd}/${mm}/${yy}`;
+  } catch { return ''; }
+}
+
+function RecentActivity({ onPanelOpen }: { onPanelOpen: (title: string, endpoint: string) => void }) {
+  const [items, setItems] = useState<KnowledgeItem[] | null>(null);
   useEffect(() => {
-    if (!configured) return;
-    apiFetch<FeedRow[]>('/api/feeds')
-      .then(setFeeds)
-      .catch(() => setFeeds([]));
-  }, [configured]);
+    apiFetch<KnowledgeItem[]>('/api/v1/knowledge?limit=5')
+      .then(d => setItems(Array.isArray(d) ? d : []))
+      .catch(() => setItems([]));
+  }, []);
 
-  function handleEntitySelect(id: string) {
-    setSelectedEntityId(prev => prev === id ? null : id);
-  }
-
-  function renderFeed(feed: FeedRow) {
-    const widget: WidgetConfig = {
-      type: (feed.display.widget ?? 'stats-grid') as WidgetType,
-      title: feed.title ?? feed.name,
-      endpoint: `/api/knowledge/${feed.type}/${feed.name}/data`,
-      id: feed.name,
-      cols: feed.display.cols,
-      empty: feed.display.empty,
-    };
-    switch (widget.type) {
-      case 'stats-grid':
-        return (
-          <section key={feed.name} className={styles.section}>
-            <h2 className={styles.sectionTitle}>{widget.title}</h2>
-            <StatsGrid config={widget} />
-          </section>
-        );
-      case 'entity-grid':
-        return (
-          <section key={feed.name} className={styles.section}>
-            <h2 className={styles.sectionTitle}>{widget.title}</h2>
-            <EntityGrid
-              config={widget}
-              onEntitySelect={handleEntitySelect}
-              selectedEntityId={selectedEntityId ?? undefined}
-              onItemsChange={n => setEntityCounts(prev => ({ ...prev, [feed.name]: n }))}
-            />
-          </section>
-        );
-      case 'bar-table':
-        return (
-          <section key={feed.name} className={styles.section}>
-            <h2 className={styles.sectionTitle}>{widget.title}</h2>
-            <BarTable
-              config={widget}
-              onAction={endpoint => onPanelOpen(widget.title, endpoint)}
-            />
-          </section>
-        );
-      case 'feed':
-        return (
-          <section key={feed.name} className={styles.section}>
-            <h2 className={styles.sectionTitle}>{widget.title}</h2>
-            <Feed config={widget} />
-          </section>
-        );
-      case 'candlestick':
-      case 'line':
-      case 'area':
-        return (
-          <section key={feed.name} className={styles.section}>
-            <h2 className={styles.sectionTitle}>{widget.title}</h2>
-            <ChartWidget config={widget} chartType={widget.type as 'candlestick' | 'line' | 'area'} />
-          </section>
-        );
-      default:
-        return null;
-    }
-  }
-
-  if (configured !== true) {
-    return <div className={styles.view} />;
-  }
+  if (items === null) return null;
 
   return (
-    <div className={styles.view}>
-      {feeds.map(renderFeed)}
-      {config.visualizations.length > 0 && (
-        <section className={styles.section}>
-          <ChartArea
-            configs={config.visualizations}
-            selectedEntityId={selectedEntityId}
-            linkedItemCounts={entityCounts}
-          />
-        </section>
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>Recent Activity</h2>
+      {items.length === 0 ? (
+        <div className={styles.muted}>No knowledge yet.</div>
+      ) : (
+        <ul className={styles.itemList}>
+          {items.map(it => (
+            <li key={`${it.type}/${it.name}`} className={styles.item}>
+              <button
+                type="button"
+                className={styles.itemBtn}
+                onClick={() => onPanelOpen(it.title, `/api/v1/knowledge/${encodeURIComponent(it.type)}/${encodeURIComponent(it.name)}`)}
+              >
+                <span className={styles.itemName}>{it.title}</span>
+                <span className={styles.itemMeta}>{formatDate(it.created_at)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
+    </section>
+  );
+}
+
+function SetupHealth() {
+  const status = useSetupStatus();
+  if (!status || !status.steps || status.steps.length === 0) return null;
+  const completed = status.steps.filter(s => s.completed === true).length;
+  const blocked = status.steps.filter(s => s.completed === false);
+
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>Setup Health</h2>
+      <div className={styles.muted}>
+        {completed}/{status.steps.length} steps complete
+      </div>
+      {blocked.length > 0 && (
+        <ul className={styles.itemList}>
+          {blocked.map(s => (
+            <li key={s.id} className={styles.item}>
+              <span className={styles.itemIcon} aria-hidden>⚠</span>
+              <span className={styles.itemName}>{s.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function OverviewView({ config, onPanelOpen }: OverviewViewProps) {
+  return (
+    <div className={styles.view}>
+      <CharterSection config={config} />
+      <CustomBlocks config={config} />
+      <RecentActivity onPanelOpen={onPanelOpen} />
+      <SetupHealth />
     </div>
   );
 }

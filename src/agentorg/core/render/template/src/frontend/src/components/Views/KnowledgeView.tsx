@@ -12,13 +12,6 @@ interface KnowledgeItem {
   created_at?: string;
 }
 
-interface Learning {
-  id: number;
-  content: string;
-  meta_data: Record<string, unknown>;
-  created_at: string;
-}
-
 function formatDate(iso?: string): string {
   if (!iso) return '';
   try {
@@ -43,8 +36,6 @@ function stripFirstHeading(content: string): string {
   return content.replace(/^#\s+.+?\s*$/m, '').trimStart();
 }
 
-/** Description block of a document — everything between the H1 and the first H2.
- * Returned as raw markdown for the caller to render. */
 function extractDescription(content: string): string {
   const after = stripFirstHeading(content);
   return (after.split(/\n##\s+/)[0] ?? '').trim();
@@ -58,25 +49,6 @@ interface FilterBarProps {
   onAgent: (v: string) => void;
   searchPlaceholder: string;
   agentIcons: Record<string, string>;
-}
-
-function DocumentIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-    </svg>
-  );
-}
-
-function BulbIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M9 18h6" />
-      <path d="M10 22h4" />
-      <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3v1h6v-1c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z" />
-    </svg>
-  );
 }
 
 function SearchIcon() {
@@ -200,176 +172,80 @@ function DetailModal({ title, agent, date, content, onClose }: DetailModalProps)
 }
 
 export function KnowledgeView({ config }: { config: AppConfig }) {
-  const [subTab, setSubTab] = useState<'documents' | 'learnings'>('documents');
-
-  const [docs, setDocs] = useState<KnowledgeItem[]>([]);
-  const [docsLoading, setDocsLoading] = useState(true);
-  const [docsError, setDocsError] = useState<string | null>(null);
-  const [docsFilter, setDocsFilter] = useState('');
-  const [docsAgent, setDocsAgent] = useState('');
-  const [openDoc, setOpenDoc] = useState<KnowledgeItem | null>(null);
-
-  const [learnings, setLearnings] = useState<Learning[]>([]);
-  const [learningsLoading, setLearningsLoading] = useState(false);
-  const [learningsFilter, setLearningsFilter] = useState('');
-  const [learningsAgent, setLearningsAgent] = useState('');
-  const [openLearning, setOpenLearning] = useState<Learning | null>(null);
+  const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+  const [agent, setAgent] = useState('');
+  const [open, setOpen] = useState<KnowledgeItem | null>(null);
 
   useEffect(() => {
-    setDocsLoading(true);
-    setDocsError(null);
-    apiFetch<KnowledgeItem[]>('/api/knowledge')
-      .then(data => setDocs(Array.isArray(data) ? data : []))
-      .catch(e => setDocsError((e as Error).message))
-      .finally(() => setDocsLoading(false));
+    setLoading(true);
+    setError(null);
+    apiFetch<KnowledgeItem[]>('/api/v1/knowledge')
+      .then(data => setItems(Array.isArray(data) ? data : []))
+      .catch(e => setError((e as Error).message))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (subTab === 'learnings' && learnings.length === 0) {
-      setLearningsLoading(true);
-      apiFetch<Learning[]>('/api/learnings')
-        .then(data => setLearnings(Array.isArray(data) ? data : []))
-        .catch(() => setLearnings([]))
-        .finally(() => setLearningsLoading(false));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab]);
-
-  // Lock body scroll when a modal is open
-  useEffect(() => {
-    const open = openDoc || openLearning;
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
-  }, [openDoc, openLearning]);
+  }, [open]);
 
-
-  const dq = docsFilter.trim().toLowerCase();
-  const visibleDocs = docs.filter(r => {
-    const agent = (r.metadata?.agent_id as string | undefined) ?? '';
-    if (docsAgent && agent !== docsAgent) return false;
-    if (dq && !(r.name.toLowerCase().includes(dq) || r.content.toLowerCase().includes(dq))) return false;
-    return true;
-  });
-
-  const lq = learningsFilter.trim().toLowerCase();
-  const visibleLearnings = learnings.filter(l => {
-    const agent = (l.meta_data?.agent_id as string | undefined) ?? '';
-    if (learningsAgent && agent !== learningsAgent) return false;
-    if (lq && !l.content.toLowerCase().includes(lq)) return false;
+  const q = filter.trim().toLowerCase();
+  const visible = items.filter(r => {
+    const a = (r.metadata?.agent_id as string | undefined) ?? '';
+    if (agent && a !== agent) return false;
+    if (q && !(r.name.toLowerCase().includes(q) || r.content.toLowerCase().includes(q))) return false;
     return true;
   });
 
   return (
     <div className={styles.view}>
-      <div className={styles.subTabs}>
-        <div className={styles.searchWrap}>
-          <span className={styles.inputIcon}>
-            {subTab === 'documents' ? <DocumentIcon /> : <BulbIcon />}
-          </span>
-          <select
-            className={styles.agentSelect}
-            value={subTab}
-            onChange={e => setSubTab(e.target.value as 'documents' | 'learnings')}
-          >
-            <option value="documents">Documents</option>
-            <option value="learnings">Learnings</option>
-          </select>
-        </div>
+      <FilterBar
+        searchValue={filter}
+        onSearch={setFilter}
+        agentGroups={config.agent_groups ?? []}
+        selectedAgent={agent}
+        onAgent={setAgent}
+        searchPlaceholder="Filter by content…"
+        agentIcons={config.agent_icons}
+      />
+
+      {error && <div className={styles.error}>{error}</div>}
+      {loading && <div className={styles.empty}>Loading…</div>}
+
+      {!loading && !error && items.length === 0 && (
+        <div className={styles.empty} dangerouslySetInnerHTML={{ __html: marked.parseInline(config.knowledge_empty) as string }} />
+      )}
+
+      {!loading && items.length > 0 && visible.length === 0 && (
+        <div className={styles.empty}>No knowledge matches these filters</div>
+      )}
+
+      <div className={styles.thumbGrid}>
+        {visible.map(r => (
+          <Thumbnail
+            key={`${r.type}/${r.name}`}
+            title={extractTitle(r.content ?? '', r.name)}
+            description={extractDescription(r.content ?? '')}
+            agent={(r.metadata?.agent_id as string | undefined)}
+            date={formatDate(r.created_at)}
+            onOpen={() => setOpen(r)}
+          />
+        ))}
       </div>
 
-      {subTab === 'documents' && (
-        <>
-          <FilterBar
-            searchValue={docsFilter}
-            onSearch={setDocsFilter}
-            agentGroups={config.agent_groups ?? []}
-            selectedAgent={docsAgent}
-            onAgent={setDocsAgent}
-            searchPlaceholder="Filter by content…"
-            agentIcons={config.agent_icons}
-          />
-
-          {docsError && <div className={styles.error}>{docsError}</div>}
-          {docsLoading && <div className={styles.empty}>Loading…</div>}
-
-          {!docsLoading && !docsError && docs.length === 0 && (
-            <div className={styles.empty} dangerouslySetInnerHTML={{ __html: marked.parseInline(config.knowledge_empty.documents) as string }} />
-          )}
-
-          {!docsLoading && docs.length > 0 && visibleDocs.length === 0 && (
-            <div className={styles.empty}>No documents match these filters</div>
-          )}
-
-          <div className={styles.thumbGrid}>
-            {visibleDocs.map(r => (
-              <Thumbnail
-                key={`${r.type}/${r.name}`}
-                title={extractTitle(r.content ?? '', r.name)}
-                description={extractDescription(r.content ?? '')}
-                agent={(r.metadata?.agent_id as string | undefined)}
-                date={formatDate(r.created_at)}
-                onOpen={() => setOpenDoc(r)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {subTab === 'learnings' && (
-        <>
-          <FilterBar
-            searchValue={learningsFilter}
-            onSearch={setLearningsFilter}
-            agentGroups={config.agent_groups ?? []}
-            selectedAgent={learningsAgent}
-            onAgent={setLearningsAgent}
-            searchPlaceholder="Filter by content…"
-            agentIcons={config.agent_icons}
-          />
-
-          {learningsLoading && <div className={styles.empty}>Loading…</div>}
-
-          {!learningsLoading && learnings.length === 0 && (
-            <div className={styles.empty} dangerouslySetInnerHTML={{ __html: marked.parseInline(config.knowledge_empty.learnings) as string }} />
-          )}
-
-          {!learningsLoading && learnings.length > 0 && visibleLearnings.length === 0 && (
-            <div className={styles.empty}>No learnings match these filters</div>
-          )}
-
-          <div className={styles.thumbGrid}>
-            {visibleLearnings.map(l => (
-              <Thumbnail
-                key={l.id}
-                title={extractTitle(l.content ?? '', (l.meta_data?.title as string | undefined) ?? `Learning #${l.id}`)}
-                description={extractDescription(l.content ?? '')}
-                agent={(l.meta_data?.agent_id as string | undefined)}
-                date={formatDate(l.created_at)}
-                onOpen={() => setOpenLearning(l)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {openDoc && (
+      {open && (
         <DetailModal
-          title={extractTitle(openDoc.content ?? '', openDoc.name)}
-          agent={openDoc.metadata?.agent_id as string | undefined}
-          date={formatDate(openDoc.created_at)}
-          content={openDoc.content ?? ''}
-          onClose={() => setOpenDoc(null)}
-        />
-      )}
-      {openLearning && (
-        <DetailModal
-          title={extractTitle(openLearning.content ?? '', (openLearning.meta_data?.title as string | undefined) ?? `Learning #${openLearning.id}`)}
-          agent={openLearning.meta_data?.agent_id as string | undefined}
-          date={formatDate(openLearning.created_at)}
-          content={openLearning.content ?? ''}
-          onClose={() => setOpenLearning(null)}
+          title={extractTitle(open.content ?? '', open.name)}
+          agent={open.metadata?.agent_id as string | undefined}
+          date={formatDate(open.created_at)}
+          content={open.content ?? ''}
+          onClose={() => setOpen(null)}
         />
       )}
     </div>

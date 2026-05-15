@@ -11,17 +11,13 @@ const DEFAULT_CONFIG: AppConfig = {
     title: "Pick an agent or workflow",
     body: "Try the research pipeline or chat directly with the analyst.",
   },
-  knowledge_empty: {
-    documents: "No knowledge yet — run the researcher first.",
-    learnings: "No learnings accumulated yet.",
-  },
-  document_types: [{"id": "research", "label": "Research Docs", "metadata_fields": []}, {"id": "report", "label": "Analyst Reports", "metadata_fields": []}],
-  state_parameters: [{"default": "applied research", "format": null, "label": "Domain Focus", "name": "domain_focus", "type": "string"}, {"default": 3, "format": null, "label": "Min Sources per Research Doc", "name": "min_sources", "type": "int"}],
+  knowledge_empty: "No knowledge yet, run the researcher first.",
+  types: [{"id": "research", "label": "Research Docs", "metadata_fields": []}, {"id": "report", "label": "Analyst Reports", "metadata_fields": []}],
+  charter: {"parameters": [{"default": "applied research", "format": null, "label": "Domain Focus", "name": "domain_focus", "type": "string"}, {"default": 3, "format": null, "label": "Min Sources per Research Doc", "name": "min_sources", "type": "int"}], "sections": [{"body": "- Focus area: {domain_focus}\n- Every research doc cites at least {min_sources} sources.\n- Reports are structured around Overview, Findings, Implications, and Open Questions.", "id": "mission", "title": "Mission"}, {"body": "1. Researcher gathers material and writes research docs.\n2. Analyst synthesises research into a final report.\n3. Both auto-save their outputs.", "id": "process", "title": "Process"}]},
   agent_groups: [],
   featured_agents: [],
   agent_icons: {},
   overview: [],
-  visualizations: [],
   agent_configs: {},
 };
 
@@ -30,7 +26,7 @@ export function useConfig() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<AppConfig>('/api/config')
+    apiFetch<AppConfig>('/api/v1/config')
       .then(data => setConfig({ ...DEFAULT_CONFIG, ...data }))
       .catch(() => {/* use defaults */})
       .finally(() => setLoading(false));

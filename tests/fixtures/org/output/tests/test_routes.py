@@ -4,8 +4,8 @@ import pytest
 
 
 async def test_get_config_returns_app_metadata(client) -> None:  # noqa: ANN001
-    """`GET /api/config` returns the app name/icon/description block."""
-    r = await client.get('/api/config')
+    """`GET /api/v1/config` returns the app name, icon, and description block."""
+    r = await client.get('/api/v1/config')
     assert r.status_code == 200
     body = r.json()
     assert 'app_name' in body
@@ -14,83 +14,69 @@ async def test_get_config_returns_app_metadata(client) -> None:  # noqa: ANN001
 
 
 async def test_get_config_includes_sidebar_groups(client) -> None:  # noqa: ANN001
-    """`GET /api/config` surfaces the UI's agent/workflow groups."""
-    body = (await client.get('/api/config')).json()
+    """`GET /api/v1/config` surfaces the UI's agent and workflow groups."""
+    body = (await client.get('/api/v1/config')).json()
     assert isinstance(body.get('agent_groups'), list)
     assert isinstance(body.get('workflow_groups'), list)
 
 
-async def test_get_setup_guide_returns_steps(client) -> None:  # noqa: ANN001
-    """`GET /api/setup-guide` returns the spec's setup steps."""
-    r = await client.get('/api/setup-guide')
+async def test_get_config_includes_charter(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/config` surfaces the charter from the spec."""
+    body = (await client.get('/api/v1/config')).json()
+    assert 'charter' in body
+    assert isinstance(body['charter'].get('parameters'), list)
+    assert isinstance(body['charter'].get('sections'), list)
+
+
+async def test_get_setup_returns_steps(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/setup` returns the spec's setup steps."""
+    r = await client.get('/api/v1/setup')
     assert r.status_code == 200
     assert isinstance(r.json().get('steps'), list)
 
 
-async def test_get_learnings_returns_list(client) -> None:  # noqa: ANN001
-    """`GET /api/learnings` returns a list (empty — learnings aren't tracked in this pass)."""
-    r = await client.get('/api/learnings')
-    assert r.status_code == 200
-    assert isinstance(r.json(), list)
-
-
 @pytest.mark.usefixtures('needs_memory')
 async def test_get_state_returns_defaults_for_fresh_user(client) -> None:  # noqa: ANN001
-    """`GET /api/state` returns `configured: False` for a never-set-up user."""
-    r = await client.get('/api/state?user_id=fresh_user')
+    """`GET /api/v1/state` returns `configured: False` for a never-set-up user."""
+    r = await client.get('/api/v1/state?user_id=fresh_user')
     assert r.status_code == 200
     assert r.json().get('configured') is False
 
 
 @pytest.mark.usefixtures('needs_memory')
-async def test_post_reset_succeeds(client) -> None:  # noqa: ANN001
-    """`POST /api/reset` is idempotent — works even when nothing exists."""
-    r = await client.post('/api/reset?user_id=temp_user')
+async def test_post_state_reset_succeeds(client) -> None:  # noqa: ANN001
+    """`POST /api/v1/state/reset` is idempotent (works even when nothing exists)."""
+    r = await client.post('/api/v1/state/reset?user_id=temp_user')
     assert r.status_code == 200
     assert r.json().get('status') == 'reset'
 
 
 @pytest.mark.usefixtures('needs_memory')
-async def test_get_documents_returns_list(client) -> None:  # noqa: ANN001
-    """`GET /api/documents` returns a list."""
-    r = await client.get('/api/documents')
+async def test_get_knowledge_returns_list(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/knowledge` returns a list."""
+    r = await client.get('/api/v1/knowledge')
     assert r.status_code == 200
     assert isinstance(r.json(), list)
 
 
 @pytest.mark.usefixtures('needs_memory')
-async def test_get_knowledge_is_alias_for_documents(client) -> None:  # noqa: ANN001
-    """`GET /api/knowledge` returns the same shape as `/api/documents`."""
-    r = await client.get('/api/knowledge')
-    assert r.status_code == 200
-    assert isinstance(r.json(), list)
-
-
-@pytest.mark.usefixtures('needs_memory')
-async def test_get_document_returns_404_for_unknown(client) -> None:  # noqa: ANN001
-    """An unknown document produces a 404."""
-    r = await client.get('/api/document/policy/does-not-exist')
+async def test_get_knowledge_unit_returns_404_for_unknown(client) -> None:  # noqa: ANN001
+    """An unknown knowledge unit produces a 404."""
+    r = await client.get('/api/v1/knowledge/policy/does-not-exist')
     assert r.status_code == 404
 
 
 @pytest.mark.usefixtures('needs_memory')
-async def test_get_documents_search_returns_list(client) -> None:  # noqa: ANN001
-    """`GET /api/documents/search` returns a (possibly empty) list."""
-    r = await client.get('/api/documents/search?query=anything')
+async def test_get_knowledge_search_returns_list(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/knowledge/search` returns a (possibly empty) list."""
+    r = await client.get('/api/v1/knowledge/search?query=anything')
     assert r.status_code == 200
     assert isinstance(r.json(), list)
 
 
 @pytest.mark.usefixtures('needs_memory')
-async def test_get_agent_reports_returns_grouped_list(client) -> None:  # noqa: ANN001
-    """`GET /api/agent-reports` returns `{agents: [...]}` (initially empty)."""
-    r = await client.get('/api/agent-reports')
+async def test_get_knowledge_filters_by_agent_id(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/knowledge?agent_id=...` returns a list scoped to that agent."""
+    r = await client.get('/api/v1/knowledge?agent_id=does-not-exist')
     assert r.status_code == 200
-    assert isinstance(r.json().get('agents'), list)
-
-
-@pytest.mark.usefixtures('needs_memory')
-async def test_get_agent_report_returns_404_for_unknown(client) -> None:  # noqa: ANN001
-    """An unknown report name produces a 404."""
-    r = await client.get('/api/agent-reports/does-not-exist')
-    assert r.status_code == 404
+    assert r.json() == []

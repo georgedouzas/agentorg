@@ -22,7 +22,7 @@ export function useSetupStatus(refreshKey: number = 0): SetupStatus | null {
   const [data, setData] = useState<SetupStatus | null>(null);
 
   useEffect(() => {
-    apiFetch<SetupStatus>('/api/setup-guide').then(setData).catch(() => null);
+    apiFetch<SetupStatus>('/api/v1/setup').then(setData).catch(() => null);
   }, [refreshKey]);
 
   return data;

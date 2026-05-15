@@ -1,4 +1,4 @@
-"""The org's charter plus the catalogue of document types it produces."""
+"""The org's charter plus the catalogue of knowledge types it produces."""
 
 from typing import Any, Literal
 
@@ -24,29 +24,29 @@ class CharterSection(BaseModel):
 
 
 class Charter(BaseModel):
-    """The org's charter — tunable parameters and prose sections."""
+    """The org's charter with tunable parameters and prose sections."""
 
     parameters: list[CharterParameter]
     sections: list[CharterSection]
 
 
-class DocumentTypeMetadataField(BaseModel):
-    """A metadata field on a knowledge-document type."""
+class KnowledgeTypeMetadataField(BaseModel):
+    """A metadata field on a knowledge type."""
 
     name: str
     type: Literal['string', 'int', 'float', 'bool']
 
 
-class DocumentType(BaseModel):
-    """A typed family of knowledge documents (e.g. 'report', 'research')."""
+class KnowledgeType(BaseModel):
+    """A typed family of knowledge units (e.g. 'report', 'research')."""
 
     id: str
     label: str
-    metadata_fields: list[DocumentTypeMetadataField]
+    metadata_fields: list[KnowledgeTypeMetadataField]
 
 
 class Knowledge(BaseModel):
-    """The charter and the catalogue of document types the org's agents work with."""
+    """The charter and the catalogue of knowledge types the org's agents work with."""
 
     charter: Charter
-    document_types: list[DocumentType]
+    types: list[KnowledgeType]

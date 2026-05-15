@@ -3,11 +3,10 @@
 import pytest
 from pydantic import ValidationError
 
-from agentorg.core.spec import UI, AgentConfigUI, AppUI, EmptyState, GroupRef, KnowledgeEmpty
+from agentorg.core.spec import UI, AgentConfigUI, AppUI, EmptyState, GroupRef, OverviewBlock
 
 APP = {'name': 'Org', 'icon': '🔬', 'description': 'A research org.'}
 EMPTY_STATE = {'icon': '🔬', 'title': 'Pick an agent', 'body': 'Try the pipeline.'}
-KNOWLEDGE_EMPTY = {'documents': 'No documents yet.', 'learnings': 'No learnings yet.'}
 GROUP = {'label': 'Research Team', 'ids': ['researcher', 'analyst']}
 AGENT_CONFIG = {
     'model': 'google:gemini-2.0-flash',
@@ -15,15 +14,16 @@ AGENT_CONFIG = {
     'tools': ['search'],
     'features': [],
 }
+OVERVIEW_BLOCK = {'title': 'Mission', 'body': 'We **publish** structured analysis.'}
 UI_FIELDS = {
     'app': APP,
     'empty_state': EMPTY_STATE,
-    'knowledge_empty': KNOWLEDGE_EMPTY,
+    'knowledge_empty': 'No knowledge yet.',
     'agent_groups': [GROUP],
     'workflow_groups': [],
     'featured_agents': ['analyst'],
     'agent_icons': {'researcher': '📚'},
-    'overview': {},
+    'overview': [OVERVIEW_BLOCK],
     'agent_configs': {'researcher': AGENT_CONFIG},
     'chat_quick_prompts': {'researcher': ['Summarise the topic']},
 }
@@ -33,7 +33,7 @@ UI_FIELDS = {
 
 
 def test_app_ui_fields() -> None:
-    """`AppUI` is name + icon + description."""
+    """`AppUI` is name plus icon plus description."""
     assert AppUI(**APP).name == 'Org'
 
 
@@ -51,9 +51,21 @@ def test_agent_config_ui_fields() -> None:
     assert config.features == []
 
 
+def test_overview_block_fields() -> None:
+    """`OverviewBlock` is a markdown card with a title and body."""
+    block = OverviewBlock(**OVERVIEW_BLOCK)
+    assert block.title == 'Mission'
+    assert '**publish**' in block.body
+
+
 @pytest.mark.parametrize(
     ('model', 'sample'),
-    [(AppUI, APP), (EmptyState, EMPTY_STATE), (KnowledgeEmpty, KNOWLEDGE_EMPTY), (GroupRef, GROUP)],
+    [
+        (AppUI, APP),
+        (EmptyState, EMPTY_STATE),
+        (GroupRef, GROUP),
+        (OverviewBlock, OVERVIEW_BLOCK),
+    ],
 )
 def test_sub_model_fields_required(model: type, sample: dict[str, object]) -> None:
     """Every field on the UI sub-models is required."""
@@ -66,16 +78,24 @@ def test_sub_model_fields_required(model: type, sample: dict[str, object]) -> No
 
 
 def test_ui_construction() -> None:
-    """`UI` coerces nested dicts into AppUI / EmptyState / GroupRef / AgentConfigUI."""
+    """`UI` coerces nested dicts into AppUI, EmptyState, GroupRef, OverviewBlock, AgentConfigUI."""
     ui = UI.model_validate(UI_FIELDS)
     assert ui.app.name == 'Org'
+    assert ui.knowledge_empty == 'No knowledge yet.'
     assert ui.agent_groups[0].label == 'Research Team'
+    assert ui.overview[0].title == 'Mission'
     assert ui.agent_configs['researcher'].model == 'google:gemini-2.0-flash'
     assert ui.chat_quick_prompts['researcher'] == ['Summarise the topic']
 
 
+def test_ui_accepts_empty_overview() -> None:
+    """An empty `overview` list is the common case, the default panels still render."""
+    ui = UI.model_validate({**UI_FIELDS, 'overview': []})
+    assert ui.overview == []
+
+
 @pytest.mark.parametrize('missing', list(UI_FIELDS))
 def test_ui_fields_required(missing: str) -> None:
-    """Every `UI` field is required — empty collections are allowed, omission is not."""
+    """Every `UI` field is required, empty collections are allowed, omission is not."""
     with pytest.raises(ValidationError):
         UI.model_validate({k: v for k, v in UI_FIELDS.items() if k != missing})

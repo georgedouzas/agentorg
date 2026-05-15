@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiPost } from '../../api';
-import type { StateParameter } from '../../types';
+import type { CharterParameter } from '../../types';
 import styles from './ResetModal.module.css';
 
 interface ParameterSetupModalProps {
-  parameters: StateParameter[];
+  parameters: CharterParameter[];
   onConfigured: () => void;
 }
 
@@ -30,14 +30,14 @@ export function ParameterSetupModal({ parameters, onConfigured }: ParameterSetup
     setValues(prev => ({ ...prev, [name]: Number.isNaN(v) ? raw : v }));
   }
 
-  function resetOne(p: StateParameter) {
+  function resetOne(p: CharterParameter) {
     setValues(prev => ({ ...prev, [p.name]: p.default }));
   }
 
   async function submit() {
     setSubmitting(true);
     try {
-      await apiPost('/api/setup', values);
+      await apiPost('/api/v1/state', values);
       onConfigured();
     } catch (e) {
       window.alert('Setup failed: ' + (e as Error).message);
@@ -56,7 +56,7 @@ export function ParameterSetupModal({ parameters, onConfigured }: ParameterSetup
         </p>
         <div className={styles.paramList}>
           {(() => {
-            const groups = new Map<string, StateParameter[]>();
+            const groups = new Map<string, CharterParameter[]>();
             for (const p of parameters) {
               const g = p.group ?? '';
               if (!groups.has(g)) groups.set(g, []);

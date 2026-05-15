@@ -109,7 +109,7 @@ export function SettingsView({ orgName, setupStatus }: SettingsViewProps) {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Reset</h2>
         <p className={styles.muted}>
-          Wipe all documents, learnings, agent history, and parameters.
+          Wipe all knowledge, agent history, and parameters.
         </p>
         <button className={styles.dangerBtn} onClick={() => setResetOpen(true)}>
           Reset organisation

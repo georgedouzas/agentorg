@@ -11,17 +11,13 @@ const DEFAULT_CONFIG: AppConfig = {
     title: {{ generated.ui.empty_state.title | tojson }},
     body: {{ generated.ui.empty_state.body | tojson }},
   },
-  knowledge_empty: {
-    documents: {{ generated.ui.knowledge_empty.documents | tojson }},
-    learnings: {{ generated.ui.knowledge_empty.learnings | tojson }},
-  },
-  document_types: {{ generated.knowledge.document_types | tojson }},
-  state_parameters: {{ generated.knowledge.charter.parameters | tojson }},
+  knowledge_empty: {{ generated.ui.knowledge_empty | tojson }},
+  types: {{ generated.knowledge.types | tojson }},
+  charter: {{ generated.knowledge.charter | tojson }},
   agent_groups: [],
   featured_agents: [],
   agent_icons: {},
   overview: [],
-  visualizations: [],
   agent_configs: {},
 };
 
@@ -30,7 +26,7 @@ export function useConfig() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<AppConfig>('/api/config')
+    apiFetch<AppConfig>('/api/v1/config')
       .then(data => setConfig({ ...DEFAULT_CONFIG, ...data }))
       .catch(() => {/* use defaults */})
       .finally(() => setLoading(false));

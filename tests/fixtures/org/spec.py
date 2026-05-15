@@ -153,13 +153,12 @@ spec = Spec(
             ],
             'sections': [
                 {
-                    'id': 'charter',
-                    'title': 'Charter',
+                    'id': 'mission',
+                    'title': 'Mission',
                     'body': (
-                        '## Mission\n'
                         '- Focus area: {domain_focus}\n'
                         '- Every research doc cites at least {min_sources} sources.\n'
-                        '- Reports are structured: Overview, Findings, Implications, Open Questions.'
+                        '- Reports are structured around Overview, Findings, Implications, and Open Questions.'
                     ),
                 },
                 {
@@ -173,7 +172,7 @@ spec = Spec(
                 },
             ],
         },
-        'document_types': [
+        'types': [
             {'id': 'research', 'label': 'Research Docs', 'metadata_fields': []},
             {'id': 'report', 'label': 'Analyst Reports', 'metadata_fields': []},
         ],
@@ -189,15 +188,21 @@ spec = Spec(
             'title': 'Pick an agent or workflow',
             'body': 'Try the research pipeline or chat directly with the analyst.',
         },
-        'knowledge_empty': {
-            'documents': 'No knowledge yet — run the researcher first.',
-            'learnings': 'No learnings accumulated yet.',
-        },
+        'knowledge_empty': 'No knowledge yet, run the researcher first.',
         'agent_groups': [{'label': 'Research Team', 'ids': ['researcher', 'analyst']}],
         'workflow_groups': [{'label': 'Pipelines', 'ids': ['research-pipeline']}],
         'featured_agents': ['analyst'],
         'agent_icons': {'researcher': '📚', 'analyst': '🧪'},
-        'overview': {},
+        'overview': [
+            {
+                'title': 'How this org works',
+                'body': (
+                    'The **Researcher** gathers sources on a topic and writes a research doc. '
+                    'The **Analyst** then reads the docs and publishes a structured analysis '
+                    'report with implications and open questions.'
+                ),
+            },
+        ],
         'agent_configs': {},
         'chat_quick_prompts': {},
     },

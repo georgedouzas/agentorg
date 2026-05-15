@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../../api';
-import type { AppConfig, SelectedAgent, AgentReport, AgentConfig } from '../../types';
+import type { AppConfig, SelectedAgent, KnowledgeItem, AgentConfig } from '../../types';
 import styles from './AgentView.module.css';
 
 interface AgentViewProps {
@@ -57,7 +57,7 @@ function AgentConfigCard({ agentConfig }: { agentConfig: AgentConfig }) {
 }
 
 export function AgentView({ selected, config, onPanelOpen }: AgentViewProps) {
-  const [reports, setReports] = useState<AgentReport[]>([]);
+  const [reports, setReports] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,11 +74,10 @@ export function AgentView({ selected, config, onPanelOpen }: AgentViewProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<{ agents: { agent_id: string; reports: AgentReport[] }[] }>(
-        `/api/agent-reports?agent_id=${encodeURIComponent(selected.id)}`
+      const data = await apiFetch<KnowledgeItem[]>(
+        `/api/v1/knowledge?type=report&agent_id=${encodeURIComponent(selected.id)}`
       );
-      const list = data.agents?.[0]?.reports ?? [];
-      setReports(list);
+      setReports(Array.isArray(data) ? data : []);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -130,13 +129,10 @@ export function AgentView({ selected, config, onPanelOpen }: AgentViewProps) {
               <button
                 key={report.name}
                 className={styles.reportRow}
-                onClick={() => onPanelOpen(report.title, `/api/agent-reports/${encodeURIComponent(report.name)}`)}
+                onClick={() => onPanelOpen(report.title, `/api/v1/knowledge/${encodeURIComponent(report.type)}/${encodeURIComponent(report.name)}`)}
               >
                 <div className={styles.reportLeft}>
                   <span className={styles.reportTitle}>{report.title}</span>
-                  {report.ticker && (
-                    <span className={styles.reportTicker}>{report.ticker}</span>
-                  )}
                 </div>
                 <span className={styles.reportDate}>{formatDate(report.created_at)}</span>
               </button>

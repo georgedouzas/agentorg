@@ -38,16 +38,16 @@ _MINIMAL_RUNTIME = {
     'env_vars': {'required': [], 'optional': []},
     'setup': [],
 }
-_MINIMAL_KNOWLEDGE = {'charter': {'parameters': [], 'sections': []}, 'document_types': []}
+_MINIMAL_KNOWLEDGE = {'charter': {'parameters': [], 'sections': []}, 'types': []}
 _MINIMAL_UI = {
     'app': {'name': 'Acme', 'icon': '🤖', 'description': ''},
     'empty_state': {'icon': '🤖', 'title': 'Pick an agent', 'body': ''},
-    'knowledge_empty': {'documents': '', 'learnings': ''},
+    'knowledge_empty': '',
     'agent_groups': [],
     'workflow_groups': [],
     'featured_agents': [],
     'agent_icons': {},
-    'overview': {},
+    'overview': [],
     'agent_configs': {},
     'chat_quick_prompts': {},
 }

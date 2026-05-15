@@ -21,7 +21,7 @@ export function ResetModal({ orgName, onClose }: ResetModalProps) {
   async function submit() {
     setSubmitting(true);
     try {
-      await apiPost('/api/reset', {});
+      await apiPost('/api/v1/state/reset', {});
       window.location.reload();
     } catch (e) {
       window.alert('Reset failed: ' + (e as Error).message);
@@ -39,8 +39,8 @@ export function ResetModal({ orgName, onClose }: ResetModalProps) {
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close">×</button>
         </div>
         <p className={styles.sub}>
-          This deletes all documents, learnings, agent history, and resets parameters
-          to defaults. To confirm, type the organisation name: <strong>{orgName}</strong>
+          This deletes all knowledge and agent history, then resets parameters
+          to defaults. To confirm, type the organisation name <strong>{orgName}</strong>
         </p>
         <input
           className={styles.confirmInput}
