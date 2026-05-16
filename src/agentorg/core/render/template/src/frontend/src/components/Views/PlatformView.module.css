@@ -31,8 +31,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
-  /* Equalize all card heights within a row so they stay uniform regardless of role length. */
-  grid-auto-rows: 1fr;
 }
 
 .card {
@@ -41,12 +39,11 @@
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  min-height: 140px;
+  height: 200px;
   padding: 20px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  height: 100%;
   box-sizing: border-box;
 }
 
@@ -74,6 +71,11 @@
   color: var(--muted);
   line-height: 1.45;
   min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .empty {

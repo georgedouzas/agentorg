@@ -9,9 +9,8 @@ agent: Agent = platform_agent(
     agent_id='security-engineer',
     name='Security Engineer',
     role=(
-        "Audits the org's static security posture — hardcoded secrets and required env vars — and reviews the "
-        'AgentField governance surface: reasoner tags, control-plane policies, DID/VC identity, and the '
-        'execution-DAG audit trail.'
+        "Audits the org's security posture: hardcoded secrets, required env vars, reasoner tags, "
+        'control-plane policies, and DID/VC identity.'
     ),
     tools=[scan_secrets, list_required_env_vars],
     in_scope=[
