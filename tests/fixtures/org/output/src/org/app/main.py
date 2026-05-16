@@ -10,6 +10,8 @@ import os
 from agentfield import Agent
 from fastapi.middleware.cors import CORSMiddleware
 
+from agentorg.core.skills import register as register_skills
+
 from org.ai.agents.factory import register_agents
 from org.ai.teams.factory import register_teams
 from org.ai.workflows.factory import register_workflows
@@ -38,6 +40,11 @@ app = Agent(
 
 # Embedder declared in `spec.runtime.infra.embedder` — stashed on the node so the knowledge tools resolve it.
 app.embedder_model = spec.runtime.infra.embedder  # type: ignore[attr-defined]
+
+# agentorg's domain functions (knowledge, state, setup, platform engineer tools) are exposed as
+# AgentField skills so the control plane can policy-gate them, cross-org callers can discover them
+# via `GET /skills`, and the MCP shim can re-publish them to other agent frameworks.
+register_skills(app)
 
 # The spec's agents/teams/workflows become reasoners on this node.
 # Substitute charter parameter defaults into section bodies so agents see `Applied Research`
