@@ -12,7 +12,7 @@ interface OverviewViewProps {
 }
 
 function ParameterList({ config, configured }: { config: AppConfig; configured: boolean }) {
-  const params = config.charter?.parameters ?? [];
+  const params = config.principles?.parameters ?? [];
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(params.map(p => [p.name, p.default])),
   );
@@ -35,13 +35,13 @@ function ParameterList({ config, configured }: { config: AppConfig; configured: 
   );
 }
 
-function CharterSection({ config, configured }: { config: AppConfig; configured: boolean }) {
-  const sections = config.charter?.sections ?? [];
-  const hasParams = (config.charter?.parameters ?? []).length > 0;
+function PrinciplesSection({ config, configured }: { config: AppConfig; configured: boolean }) {
+  const sections = config.principles?.sections ?? [];
+  const hasParams = (config.principles?.parameters ?? []).length > 0;
   if (sections.length === 0 && !hasParams) return null;
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>Charter</h2>
+      <h2 className={styles.sectionTitle}>Principles</h2>
       <ParameterList config={config} configured={configured} />
       {sections.map(s => (
         <div key={s.id} className={styles.group}>
@@ -142,7 +142,7 @@ function SetupHealth() {
 export function OverviewView({ config, configured, onPanelOpen }: OverviewViewProps) {
   return (
     <div className={styles.view}>
-      <CharterSection config={config} configured={configured} />
+      <PrinciplesSection config={config} configured={configured} />
       <CustomBlocks config={config} />
       <RecentActivity config={config} onPanelOpen={onPanelOpen} />
       <SetupHealth />

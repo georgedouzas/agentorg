@@ -20,12 +20,12 @@ async def test_get_config_includes_sidebar_groups(client) -> None:  # noqa: ANN0
     assert isinstance(body.get('workflow_groups'), list)
 
 
-async def test_get_config_includes_charter(client) -> None:  # noqa: ANN001
-    """`GET /api/v1/config` surfaces the charter from the spec."""
+async def test_get_config_includes_principles(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/config` surfaces the principles from the spec."""
     body = (await client.get('/api/v1/config')).json()
-    assert 'charter' in body
-    assert isinstance(body['charter'].get('parameters'), list)
-    assert isinstance(body['charter'].get('sections'), list)
+    assert 'principles' in body
+    assert isinstance(body['principles'].get('parameters'), list)
+    assert isinstance(body['principles'].get('sections'), list)
 
 
 async def test_get_config_includes_knowledge_types(client) -> None:  # noqa: ANN001

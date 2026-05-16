@@ -60,7 +60,7 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
     """Convert the Pydantic Spec to a plain dict for Jinja consumption.
 
     Agents / teams / workflows are agno-native (not Pydantic) so we summarise them by hand for templates that need `{id,
-    name, steps, ...}`. The rest (org, ui, charter, env vars, setup, groups, documents) round-trips through
+    name, steps, ...}`. The rest (org, ui, principles, env vars, setup, groups, documents) round-trips through
     `model_dump`. Templates that referenced the old `generated.foo` shape see a backwards-compatible namespace.
     """
     base = spec.model_dump(mode='json', exclude={'ai'})

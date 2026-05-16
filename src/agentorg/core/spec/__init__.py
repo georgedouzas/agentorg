@@ -2,12 +2,12 @@
 
 from agentorg.core.spec._ai import AI
 from agentorg.core.spec._knowledge import (
-    Charter,
-    CharterParameter,
-    CharterSection,
     Knowledge,
     KnowledgeType,
     KnowledgeTypeMetadataField,
+    PrincipleParameter,
+    PrincipleSection,
+    Principles,
 )
 from agentorg.core.spec._org import Org
 from agentorg.core.spec._runtime import EnvVar, EnvVars, Infra, Runtime, SetupStep
@@ -22,9 +22,6 @@ __all__ = [
     'UI',
     'AgentConfigUI',
     'AppUI',
-    'Charter',
-    'CharterParameter',
-    'CharterSection',
     'EmptyState',
     'EnvVar',
     'EnvVars',
@@ -35,6 +32,9 @@ __all__ = [
     'KnowledgeTypeMetadataField',
     'Org',
     'OverviewBlock',
+    'PrincipleParameter',
+    'PrincipleSection',
+    'Principles',
     'Runtime',
     'SetupStep',
     'Spec',

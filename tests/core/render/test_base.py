@@ -39,7 +39,7 @@ _MINIMAL_RUNTIME = {
     'env_vars': {'required': [], 'optional': []},
     'setup': [],
 }
-_MINIMAL_KNOWLEDGE = {'charter': {'parameters': [], 'sections': []}, 'types': []}
+_MINIMAL_KNOWLEDGE = {'principles': {'parameters': [], 'sections': []}, 'types': []}
 _MINIMAL_UI = {
     'app': {'name': 'Acme', 'icon': '🤖', 'description': ''},
     'empty_state': {'icon': '🤖', 'title': 'Pick an agent', 'body': ''},

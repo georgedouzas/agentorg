@@ -261,7 +261,7 @@ export default function App() {
 
       {configured === false && (
         <ParameterSetupModal
-          parameters={config.charter?.parameters ?? []}
+          parameters={config.principles?.parameters ?? []}
           onConfigured={() => setConfigured(true)}
         />
       )}

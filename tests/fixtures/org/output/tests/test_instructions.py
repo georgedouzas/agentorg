@@ -1,35 +1,36 @@
-"""Tests for the charter prepend helper in the agents factory."""
+"""Tests for the principles-append helper in the agents factory."""
 
-from org.ai.agents.factory import _prepend_charter
+from org.ai.agents.factory import _append_principles
 
 
 class _FakeAgent:
-    """Minimal agno style runnable carrying just an `instructions` string."""
+    """Minimal agno-style runnable carrying just an `instructions` string."""
 
     def __init__(self, instructions: str) -> None:
         self.instructions = instructions
 
 
-def test_prepend_charter_adds_committee_rules_block() -> None:
-    """A non-empty charter is prepended under a `## Committee Rules` heading, original instructions kept."""
+def test_append_principles_adds_principles_block() -> None:
+    """A non-empty principles is appended under a `## Principles` heading, original instructions kept."""
     agent = _FakeAgent('Do the work.')
-    _prepend_charter(agent, 'Always be excellent.')
-    assert agent.instructions.startswith('## Committee Rules')
-    assert 'Always be excellent.' in agent.instructions
+    _append_principles(agent, 'Always be excellent.')
     assert 'Do the work.' in agent.instructions
+    assert '## Principles' in agent.instructions
+    assert 'Always be excellent.' in agent.instructions
+    assert agent.instructions.rstrip().endswith('Always be excellent.')
 
 
-def test_prepend_charter_is_noop_without_text() -> None:
-    """An empty charter leaves the runnable's instructions untouched."""
+def test_append_principles_is_noop_without_text() -> None:
+    """An empty principles leaves the runnable's instructions untouched."""
     agent = _FakeAgent('Do the work.')
-    _prepend_charter(agent, '')
+    _append_principles(agent, '')
     assert agent.instructions == 'Do the work.'
 
 
-def test_prepend_charter_is_noop_for_plain_callable() -> None:
-    """A plain callable agent has no `instructions` attribute and prepend is a safe no op."""
+def test_append_principles_is_noop_for_plain_callable() -> None:
+    """A plain callable agent has no `instructions` attribute and append is a safe no-op."""
 
     async def plain_agent(message: str) -> dict[str, str]:
         return {'output': message}
 
-    _prepend_charter(plain_agent, 'Always be excellent.')  # must not raise
+    _append_principles(plain_agent, 'Always be excellent.')  # must not raise

@@ -36,13 +36,6 @@ function DescriptionPane({ agentId }: { agentId: string }) {
 
   return (
     <div className={styles.descCard}>
-      {info.role && (
-        <div className={styles.descSection} style={{ borderTop: 'none', paddingTop: 0 }}>
-          <h3 className={styles.descHeader}>Role</h3>
-          <p className={styles.descPara}>{info.role}</p>
-        </div>
-      )}
-
       {info.instructions && (
         <div className={styles.descSection} style={{ borderTop: 'none', paddingTop: 0 }}>
           <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(info.instructions) as string }} />
@@ -150,13 +143,21 @@ function ChatPane({ selected, userId }: { selected: SelectedAgent; userId: strin
     abortRef.current = ctrl;
 
     try {
+      // Stable session id per (user, agent) so agno's memory threads turns of the same chat.
+      const sessionKey = `session_${userId}_${selected.id}`;
+      let sessionId = localStorage.getItem(sessionKey);
+      if (!sessionId) {
+        sessionId = `${selected.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        localStorage.setItem(sessionKey, sessionId);
+      }
+
       // AgentField exposes every spec runnable (agents + workflows) as `POST /reasoners/<name>`
       // returning sync JSON `{output}`. No SSE today, so we add the assistant message after the
       // response lands and short-circuit before the legacy AgentOS event loop.
       const res = await fetch(`${API_BASE}/reasoners/${encodeURIComponent(selected.id)}?user_id=${encodeURIComponent(userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, session_id: sessionId, user_id: userId }),
         signal: ctrl.signal,
       });
 

@@ -5,9 +5,13 @@ from typing import Any
 
 from agno.agent import Agent
 
+from agentorg.core.instructions import compose
+
 DEFAULT_MODEL = 'google:gemini-2.5-flash'
 
-OTHER_AGENTS_SCOPE = (
+# Tuples of (topic, refer_to). Every platform agent declines requests outside its scope and
+# refers the caller to the named peer; custom org agents typically add their own entries too.
+OTHER_AGENTS_SCOPE: tuple[tuple[str, str], ...] = (
     ('Python code or agent specs', 'Backend Engineer'),
     ('UI configuration', 'Frontend Engineer'),
     ('Secret scanning / dep audit', 'Security Engineer'),
@@ -17,17 +21,18 @@ OTHER_AGENTS_SCOPE = (
 )
 
 
-def compose_instructions(name: str, role: str, in_scope: list[str], workflow: list[str]) -> str:
-    """Bake the agent's identity into a single instructions string."""
-    parts = [f'You are the {name}.', '', '## Role', '', role, '']
-    if in_scope:
-        parts += ['## In scope', *(f'- {item}' for item in in_scope), '']
-    parts += ['## Out of scope — decline and refer']
-    parts += [f'- {topic} → **{referee}**' for topic, referee in OTHER_AGENTS_SCOPE]
-    parts += ['', 'If asked anything outside your scope, decline firmly and point to the right person.', '']
-    if workflow:
-        parts += ['## Workflow', *(f'{i + 1}. {step}' for i, step in enumerate(workflow)), '']
-    return '\n'.join(parts)
+# Standard "When to act" bullets every platform agent inherits.
+PLATFORM_WHEN_TO_ACT: tuple[str, ...] = (
+    'Greetings or unclear messages: reply briefly and ask for a concrete request.',
+    'Requests outside your scope (see below): decline and refer to the named peer.',
+    'Concrete in-scope requests: run the workflow.',
+)
+
+# Standard "Style" bullets every platform agent inherits.
+PLATFORM_STYLE: tuple[str, ...] = (
+    'Be concise. A direct answer beats an explanation of the answer.',
+    'Do not restate your own role or these rules back to the user.',
+)
 
 
 def platform_agent(
@@ -37,13 +42,22 @@ def platform_agent(
     tools: list[Callable[..., Any]],
     in_scope: list[str],
     workflow: list[str],
+    when_to_act: list[str] | None = None,
+    style: list[str] | None = None,
 ) -> Agent:
-    """Build a platform agent with the shared model + composed instructions."""
+    """Build a platform agent with the shared model and the standard six-section template."""
     return Agent(
         id=agent_id,
         name=name,
         role=role,
         model=DEFAULT_MODEL,
         tools=list(tools),
-        instructions=compose_instructions(name, role, in_scope, workflow),
+        instructions=compose(
+            role=role,
+            when_to_act=when_to_act or PLATFORM_WHEN_TO_ACT,
+            style=style or PLATFORM_STYLE,
+            in_scope=in_scope,
+            out_of_scope=OTHER_AGENTS_SCOPE,
+            workflow=workflow,
+        ),
     )

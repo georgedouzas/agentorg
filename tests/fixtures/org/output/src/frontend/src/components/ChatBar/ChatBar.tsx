@@ -97,12 +97,21 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
     abortRef.current = abortCtrl;
 
     try {
+      // Persist a stable session id per (user, agent) so agno's memory can scope chat history
+      // for this conversation; a refresh of the same tab continues the same session.
+      const sessionKey = `session_${userId}_${selected.id}`;
+      let sessionId = sessionStorage.getItem(sessionKey);
+      if (!sessionId) {
+        sessionId = `${selected.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        sessionStorage.setItem(sessionKey, sessionId);
+      }
+
       // AgentField exposes every spec runnable as `POST /reasoners/<name>` returning JSON `{output}`.
       // No SSE today, so we add the assistant message after the response lands.
       const res = await fetch(`${API_BASE}/reasoners/${encodeURIComponent(selected.id)}?user_id=${encodeURIComponent(userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, session_id: sessionId, user_id: userId }),
         signal: abortCtrl.signal,
       });
 

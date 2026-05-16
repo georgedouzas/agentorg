@@ -5,7 +5,7 @@ export interface AppConfig {
   empty_state: EmptyState;
   knowledge_empty: string;
   types: KnowledgeType[];
-  charter: Charter;
+  principles: Principles;
   agent_groups: AgentGroup[];
   workflow_groups?: AgentGroup[];
   featured_agents: FeaturedAgent[];
@@ -17,15 +17,15 @@ export interface AppConfig {
 
 export interface EmptyState { icon: string; title: string; body: string; }
 export interface KnowledgeType { id: string; label: string; metadata_fields?: { name: string; type: string }[]; }
-export interface CharterParameter {
+export interface PrincipleParameter {
   name: string;
   type: string;
   default: number | string | boolean;
   label?: string;
   format?: string | null;
 }
-export interface CharterSection { id: string; title: string; body: string; }
-export interface Charter { parameters: CharterParameter[]; sections: CharterSection[]; }
+export interface PrincipleSection { id: string; title: string; body: string; }
+export interface Principles { parameters: PrincipleParameter[]; sections: PrincipleSection[]; }
 
 export interface AgentGroup { label: string; ids: string[]; }
 export interface FeaturedAgent { id: string; label?: string; accent?: string; }

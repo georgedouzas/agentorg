@@ -4,28 +4,28 @@ import pytest
 from pydantic import ValidationError
 
 from agentorg.core.spec import (
-    Charter,
-    CharterParameter,
-    CharterSection,
     Knowledge,
     KnowledgeType,
     KnowledgeTypeMetadataField,
+    PrincipleParameter,
+    PrincipleSection,
+    Principles,
 )
 
 PARAMETER = {'name': 'min_sources', 'type': 'int', 'default': 3, 'label': 'Min Sources', 'format': None}
-SECTION = {'id': 'charter', 'title': 'Charter', 'body': '## Mission\n- Do good work.'}
+SECTION = {'id': 'mission', 'title': 'Mission', 'body': '- Do good work.'}
 METADATA_FIELD = {'name': 'author', 'type': 'string'}
 KNOWLEDGE_TYPE = {'id': 'report', 'label': 'Reports', 'metadata_fields': [METADATA_FIELD]}
-CHARTER = {'parameters': [PARAMETER], 'sections': [SECTION]}
-KNOWLEDGE = {'charter': CHARTER, 'types': [KNOWLEDGE_TYPE]}
+PRINCIPLES = {'parameters': [PARAMETER], 'sections': [SECTION]}
+KNOWLEDGE = {'principles': PRINCIPLES, 'types': [KNOWLEDGE_TYPE]}
 
 
-# ── CharterParameter ─────────────────────────────────────────────────────────
+# ── PrincipleParameter ───────────────────────────────────────────────────────
 
 
-def test_charter_parameter_fields() -> None:
-    """`CharterParameter` carries name, type, default, label, and an optional format."""
-    param = CharterParameter(**PARAMETER)
+def test_principle_parameter_fields() -> None:
+    """`PrincipleParameter` carries name, type, default, label, and an optional format."""
+    param = PrincipleParameter(**PARAMETER)
     assert param.name == 'min_sources'
     assert param.type == 'int'
     assert param.default == PARAMETER['default']
@@ -33,40 +33,40 @@ def test_charter_parameter_fields() -> None:
 
 
 @pytest.mark.parametrize('missing', list(PARAMETER))
-def test_charter_parameter_missing_field_raises(missing: str) -> None:
-    """Every `CharterParameter` field is required (`format` may be None but must be passed)."""
+def test_principle_parameter_missing_field_raises(missing: str) -> None:
+    """Every `PrincipleParameter` field is required (`format` may be None but must be passed)."""
     with pytest.raises(ValidationError):
-        CharterParameter(**{k: v for k, v in PARAMETER.items() if k != missing})
+        PrincipleParameter(**{k: v for k, v in PARAMETER.items() if k != missing})
 
 
-def test_charter_parameter_rejects_unknown_type() -> None:
+def test_principle_parameter_rejects_unknown_type() -> None:
     """`type` is a closed `Literal`."""
     with pytest.raises(ValidationError):
-        CharterParameter(**{**PARAMETER, 'type': 'datetime'})
+        PrincipleParameter(**{**PARAMETER, 'type': 'datetime'})
 
 
-# ── CharterSection / Charter ─────────────────────────────────────────────────
+# ── PrincipleSection / Principles ────────────────────────────────────────────
 
 
-def test_charter_section_fields() -> None:
-    """`CharterSection` is id plus title plus markdown body."""
-    section = CharterSection(**SECTION)
-    assert section.id == 'charter'
-    assert section.body.startswith('## Mission')
+def test_principle_section_fields() -> None:
+    """`PrincipleSection` is id plus title plus markdown body."""
+    section = PrincipleSection(**SECTION)
+    assert section.id == 'mission'
+    assert section.body.startswith('- Do good work.')
 
 
-def test_charter_holds_parameters_and_sections() -> None:
-    """`Charter` coerces dict parameters and sections into their models."""
-    charter = Charter(**CHARTER)
-    assert charter.parameters[0].name == 'min_sources'
-    assert charter.sections[0].id == 'charter'
+def test_principles_holds_parameters_and_sections() -> None:
+    """`Principles` coerces dict parameters and sections into their models."""
+    principles = Principles(**PRINCIPLES)
+    assert principles.parameters[0].name == 'min_sources'
+    assert principles.sections[0].id == 'mission'
 
 
 @pytest.mark.parametrize('missing', ['parameters', 'sections'])
-def test_charter_fields_required(missing: str) -> None:
+def test_principles_fields_required(missing: str) -> None:
     """`parameters` and `sections` are required keys (empty lists allowed, omission is not)."""
     with pytest.raises(ValidationError):
-        Charter(**{k: v for k, v in CHARTER.items() if k != missing})
+        Principles(**{k: v for k, v in PRINCIPLES.items() if k != missing})
 
 
 # ── KnowledgeType ────────────────────────────────────────────────────────────
@@ -96,14 +96,14 @@ def test_knowledge_type_missing_field_raises(missing: str) -> None:
 
 
 def test_knowledge_construction() -> None:
-    """`Knowledge` wraps a charter and the knowledge-type catalogue, coercing dicts."""
+    """`Knowledge` wraps the principles and the knowledge-type catalogue, coercing dicts."""
     knowledge = Knowledge.model_validate(KNOWLEDGE)
-    assert knowledge.charter.parameters[0].name == 'min_sources'
+    assert knowledge.principles.parameters[0].name == 'min_sources'
     assert knowledge.types[0].id == 'report'
 
 
-@pytest.mark.parametrize('missing', ['charter', 'types'])
+@pytest.mark.parametrize('missing', ['principles', 'types'])
 def test_knowledge_fields_required(missing: str) -> None:
-    """`charter` and `types` are both required on `Knowledge`."""
+    """`principles` and `types` are both required on `Knowledge`."""
     with pytest.raises(ValidationError):
         Knowledge.model_validate({k: v for k, v in KNOWLEDGE.items() if k != missing})

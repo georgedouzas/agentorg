@@ -14,7 +14,7 @@ from agentorg.core.spec import Spec
 
 
 class _Safe(dict):
-    """`dict` that returns `{key}` for missing keys so charter bodies survive incomplete state."""
+    """`dict` that returns `{key}` for missing keys so principle bodies survive incomplete state."""
 
     def __missing__(self, key: str) -> str:
         return '{' + key + '}'
@@ -26,7 +26,7 @@ def _py_type(t: str) -> type:
 
 def _state_model(spec: Spec) -> type[BaseModel]:
     fields: dict[str, Any] = {}
-    for p in spec.knowledge.charter.parameters:
+    for p in spec.knowledge.principles.parameters:
         py = _py_type(p.type)
         fields[p.name] = (py, Field(default=p.default))
     return create_model('OrgConfig', **fields)  # type: ignore[call-overload]
@@ -95,11 +95,11 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     @router.get('/config')
     def ui_config() -> dict[str, Any]:
         ui = spec.ui
-        charter = spec.knowledge.charter
-        defaults = {p.name: p.default for p in charter.parameters}
+        principles = spec.knowledge.principles
+        defaults = {p.name: p.default for p in principles.parameters}
         sections = [
             {'id': s.id, 'title': s.title, 'body': s.body.format_map(_Safe(defaults))}
-            for s in charter.sections
+            for s in principles.sections
         ]
         return {
             'app_name': ui.app.name,
@@ -113,7 +113,7 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             'agent_icons': {**PLATFORM_AGENT_ICONS, **ui.agent_icons},
             'overview': [b.model_dump() for b in ui.overview],
             'agent_configs': {k: v.model_dump() for k, v in ui.agent_configs.items()},
-            'charter': {'parameters': [p.model_dump() for p in charter.parameters], 'sections': sections},
+            'principles': {'parameters': [p.model_dump() for p in principles.parameters], 'sections': sections},
             'types': [t.model_dump() for t in spec.knowledge.types],
             'platform_agent_groups': [{'label': g['label'], 'ids': list(g['ids'])} for g in PLATFORM_AGENT_GROUPS],
         }
