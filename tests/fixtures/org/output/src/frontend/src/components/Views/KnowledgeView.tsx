@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { marked } from 'marked';
 import { apiFetch, API_BASE, getUserId } from '../../api';
-import type { AppConfig, KnowledgeType, AgentGroup } from '../../types';
+import type { AppConfig, KnowledgeType } from '../../types';
 import styles from './KnowledgeView.module.css';
 
 interface KnowledgeItem {
@@ -63,16 +63,18 @@ function PeopleIcon() {
   );
 }
 
+interface AuthorOption { id: string; name: string }
+
 interface FilterBarProps {
   searchValue: string;
   onSearch: (v: string) => void;
-  agentGroups: AgentGroup[];
+  authors: AuthorOption[];
   selectedAgent: string;
   onAgent: (v: string) => void;
   agentIcons: Record<string, string>;
 }
 
-function FilterBar({ searchValue, onSearch, agentGroups, selectedAgent, onAgent, agentIcons }: FilterBarProps) {
+function FilterBar({ searchValue, onSearch, authors, selectedAgent, onAgent, agentIcons }: FilterBarProps) {
   return (
     <div className={styles.filterBar}>
       <div className={styles.searchWrap}>
@@ -93,14 +95,10 @@ function FilterBar({ searchValue, onSearch, agentGroups, selectedAgent, onAgent,
           onChange={e => onAgent(e.target.value)}
         >
           <option value="">All agents</option>
-          {agentGroups.map(group => (
-            <optgroup key={group.label} label={group.label}>
-              {group.ids.map(a => {
-                const icon = agentIcons[a] ?? '🤖';
-                return <option key={a} value={a}>{icon}  {formatAgentId(a)}</option>;
-              })}
-            </optgroup>
-          ))}
+          {authors.map(a => {
+            const icon = agentIcons[a.id] ?? '🤖';
+            return <option key={a.id} value={a.id}>{icon}  {a.name}</option>;
+          })}
         </select>
       </div>
     </div>
@@ -116,8 +114,15 @@ function MetaBadge({ label, value }: { label: string; value: string }) {
   );
 }
 
+function authorLabel(unit: KnowledgeItem): string | undefined {
+  const name = unit.metadata?.agent_name as string | undefined;
+  if (name) return name.toUpperCase();
+  const id = unit.metadata?.agent_id as string | undefined;
+  return id ? formatAgentId(id).toUpperCase() : undefined;
+}
+
 function Thumbnail({ unit, onOpen }: { unit: KnowledgeItem; onOpen: () => void }) {
-  const agent = unit.metadata?.agent_id as string | undefined;
+  const author = authorLabel(unit);
   const date = formatDate(unit.created_at);
   return (
     <button className={styles.thumb} onClick={onOpen} type="button">
@@ -129,7 +134,7 @@ function Thumbnail({ unit, onOpen }: { unit: KnowledgeItem; onOpen: () => void }
         />
       )}
       <div className={styles.thumbMeta}>
-        {agent && <MetaBadge label="Agent" value={formatAgentId(agent).toUpperCase()} />}
+        {author && <MetaBadge label="Agent" value={author} />}
         {date && <MetaBadge label="Date" value={date} />}
       </div>
     </button>
@@ -139,7 +144,7 @@ function Thumbnail({ unit, onOpen }: { unit: KnowledgeItem; onOpen: () => void }
 interface DetailModalProps { unit: KnowledgeItem; onClose: () => void }
 
 function DetailModal({ unit, onClose }: DetailModalProps) {
-  const agent = unit.metadata?.agent_id as string | undefined;
+  const author = authorLabel(unit);
   const date = formatDate(unit.created_at);
   return (
     <div className={styles.modalBackdrop} onClick={onClose}>
@@ -150,7 +155,7 @@ function DetailModal({ unit, onClose }: DetailModalProps) {
         </div>
         <div className={`md ${styles.modalBody}`} dangerouslySetInnerHTML={{ __html: marked.parse(stripFirstHeading(unit.content ?? '')) as string }} />
         <div className={styles.modalFooter}>
-          {agent && <MetaBadge label="Agent" value={formatAgentId(agent).toUpperCase()} />}
+          {author && <MetaBadge label="Agent" value={author} />}
           {date && <MetaBadge label="Date" value={date} />}
         </div>
       </div>
@@ -244,6 +249,19 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
       : base;
   }, [searchHits, items, agent]);
 
+  // Author dropdown is built from agents that actually wrote units, so the filter never offers
+  // a name that would yield zero results.
+  const authors = useMemo<AuthorOption[]>(() => {
+    const seen = new Map<string, string>();
+    for (const u of items) {
+      const id = u.metadata?.agent_id as string | undefined;
+      if (!id) continue;
+      const name = (u.metadata?.agent_name as string | undefined) ?? formatAgentId(id);
+      if (!seen.has(id)) seen.set(id, name);
+    }
+    return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [items]);
+
   const byType = useMemo(() => {
     const m = new Map<string, KnowledgeItem[]>();
     for (const t of types) m.set(t.id, []);
@@ -259,7 +277,7 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
       <FilterBar
         searchValue={filter}
         onSearch={setFilter}
-        agentGroups={config.agent_groups ?? []}
+        authors={authors}
         selectedAgent={agent}
         onAgent={setAgent}
         agentIcons={config.agent_icons}

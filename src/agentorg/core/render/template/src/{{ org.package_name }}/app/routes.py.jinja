@@ -2,14 +2,18 @@
 
 import asyncio
 import contextlib
+import json
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from agentfield import Agent as _AfAgent
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, create_model
+from sse_starlette.sse import EventSourceResponse
 
 from agentorg.core.knowledge import PREFIX as _KN_PREFIX, similarity_units
 from agentorg.core.platform import PLATFORM_AGENT_GROUPS, PLATFORM_AGENT_ICONS, PLATFORM_AGENT_IDS
+from agentorg.core.runtime import FRAMEWORK_TOOL_NAMES, set_calling_agent
 from agentorg.core.spec import Spec
 
 
@@ -85,6 +89,11 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     # any execution context, so capture the interface once at build time and reuse it.
     memory = app.memory
     knowledge = memory.global_scope
+
+    # Index every spec runnable by id so the streaming endpoint can look it up cheaply.
+    runnables: dict[str, Any] = {}
+    for runnable in (*spec.ai.agents, *spec.ai.teams, *spec.ai.workflows):
+        runnables[_agent_id(runnable)] = runnable
 
     async def _all_units() -> list[dict[str, Any]]:
         keys = [k for k in await knowledge.list_keys() if k.startswith(_KN_PREFIX)]
@@ -184,6 +193,56 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     @router.get('/workflows')
     def list_workflows() -> list[dict[str, Any]]:
         return [{'id': _agent_id(w), 'name': getattr(w, 'name', None) or _agent_id(w)} for w in spec.ai.workflows]
+
+    # ── Streaming chat (SSE over agno's stream_events) ──────────────────────
+    @router.post('/reasoners/{name}/stream')
+    async def stream_reasoner(name: str, request: Request, user_id: str = Query(default='default')) -> EventSourceResponse:
+        runnable = runnables.get(name)
+        if runnable is None:
+            raise HTTPException(status_code=404, detail=f'reasoner {name!r} not found')
+        body = await request.json()
+        message = body.get('message', '')
+        session_id = body.get('session_id')
+        actor_id = body.get('user_id', user_id)
+
+        async def event_gen() -> Any:
+            # Bind `Agent.get_current()` to our node so any tool the agno agent invokes
+            # (write_knowledge, read_knowledge, …) resolves the right memory scope. We patch
+            # the classmethod itself (not the contextvar) because agno may iterate the stream
+            # in a task whose context doesn't see the contextvar update.
+            original_get_current = _AfAgent.get_current
+            _AfAgent.get_current = staticmethod(lambda: app)  # type: ignore[method-assign]
+            # Stash the running agent's identity so `write_knowledge` and friends can stamp
+            # `metadata.agent_id` + `metadata.agent_name` on every unit they produce.
+            set_calling_agent(runnable)
+            try:
+                arun = getattr(runnable, 'arun', None)
+                if arun is None:
+                    yield {'event': 'RunCompleted', 'data': json.dumps({'content': str(runnable)})}
+                    return
+                stream = arun(message, stream=True, stream_events=True, session_id=session_id, user_id=actor_id)
+                async for ev in stream:
+                    kind = getattr(ev, 'event', type(ev).__name__)
+                    payload: dict[str, Any] = {'event': kind, 'content': getattr(ev, 'content', None) or ''}
+                    if kind in ('ToolCallStarted', 'ToolCallCompleted', 'ToolCallError'):
+                        tool = getattr(ev, 'tool', None)
+                        tool_name = (
+                            getattr(tool, 'tool_name', None)
+                            or getattr(tool, 'name', None)
+                            or (tool.__class__.__name__ if tool else None)
+                        )
+                        # Hide agno's framework tools (memory / culture / learning / history)
+                        # from the chat UI — they run silently in the background.
+                        if tool_name in FRAMEWORK_TOOL_NAMES:
+                            continue
+                        payload['tool_name'] = tool_name
+                    yield {'event': kind, 'data': json.dumps(payload)}
+            except Exception as exc:  # noqa: BLE001 — surface to the client
+                yield {'event': 'RunError', 'data': json.dumps({'error': str(exc)})}
+            finally:
+                _AfAgent.get_current = original_get_current  # type: ignore[method-assign]
+
+        return EventSourceResponse(event_gen())
 
     # ── Knowledge ───────────────────────────────────────────────────────────
     @router.get('/knowledge/search')

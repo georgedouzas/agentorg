@@ -7,6 +7,7 @@ from typing import Any
 from agentfield import Agent
 
 from agentorg.core.knowledge._base import embed, key, list_units, similarity_units
+from agentorg.core.runtime import get_calling_agent
 
 
 def _node() -> Any:
@@ -39,7 +40,11 @@ async def write_knowledge(
     `search_knowledge` can rank by semantic similarity.
     """
     scope = _scope()
-    md = metadata or {}
+    md = dict(metadata or {})
+    caller = get_calling_agent()
+    if caller:
+        md.setdefault('agent_id', caller['id'])
+        md.setdefault('agent_name', caller['name'])
     await scope.set(
         key(type, name),
         {

@@ -32,6 +32,7 @@ PLATFORM_WHEN_TO_ACT: tuple[str, ...] = (
 PLATFORM_STYLE: tuple[str, ...] = (
     'Be concise. A direct answer beats an explanation of the answer.',
     'Do not restate your own role or these rules back to the user.',
+    'Do not narrate tool calls, retries, or tool failures in your reply — the UI shows them as badges.',
 )
 
 
@@ -46,6 +47,7 @@ def platform_agent(
     style: list[str] | None = None,
 ) -> Agent:
     """Build a platform agent with the shared model and the standard six-section template."""
+    tool_names = [getattr(t, '__name__', None) or getattr(t, 'name', None) or repr(t) for t in tools]
     return Agent(
         id=agent_id,
         name=name,
@@ -59,5 +61,6 @@ def platform_agent(
             in_scope=in_scope,
             out_of_scope=OTHER_AGENTS_SCOPE,
             workflow=workflow,
+            tools=tool_names,
         ),
     )

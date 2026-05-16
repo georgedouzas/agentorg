@@ -106,9 +106,9 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
         sessionStorage.setItem(sessionKey, sessionId);
       }
 
-      // AgentField exposes every spec runnable as `POST /reasoners/<name>` returning JSON `{output}`.
-      // No SSE today, so we add the assistant message after the response lands.
-      const res = await fetch(`${API_BASE}/reasoners/${encodeURIComponent(selected.id)}?user_id=${encodeURIComponent(userId)}`, {
+      // Stream agno events from the org's reasoner via SSE: tokens land into the assistant
+      // bubble live, <thinking>...</thinking> traces are hidden on the fly.
+      const res = await fetch(`${API_BASE}/api/v1/reasoners/${encodeURIComponent(selected.id)}/stream?user_id=${encodeURIComponent(userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: sessionId, user_id: userId }),
@@ -117,127 +117,49 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const payload = await res.json() as { output?: unknown };
-      const output = typeof payload.output === 'string'
-        ? payload.output
-        : JSON.stringify(payload.output ?? payload, null, 2);
-
+      const assistantId = nextId();
       setMessages(prev => [...prev, {
-        id: nextId(),
+        id: assistantId,
         role: 'assistant',
-        content: output,
+        content: '',
         isMarkdown: true,
-        isStreaming: false,
+        isStreaming: true,
       }]);
-      // Skip the legacy SSE branch — it parses AgentOS events that AgentField doesn't emit.
-      return;
 
+      let raw = '';
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buf = '';
+      const stripThinking = (s: string) => {
+        let out = s.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+        const idx = out.search(/<thinking>/i);
+        return (idx >= 0 ? out.slice(0, idx) : out).trimStart();
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop()!;
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          let ev: Record<string, unknown>;
-          try { ev = JSON.parse(line.slice(6)) as Record<string, unknown>; } catch { continue; }
-
-          const evType = ev['event'] as string | undefined;
-
-          if (evType === 'RunStarted') {
-            const sid = ev['session_id'] as string | undefined;
-            if (sid) sessionStorage.setItem(`session_${selected.id}`, sid);
-          } else if (evType === 'RunContent' || evType === 'MessageDeltaContent') {
-            const delta = (ev['content'] as string | undefined) ?? (ev['delta'] as string | undefined) ?? '';
-            updateLastAssistant(m => ({ ...m, content: m.content + delta }));
-          } else if (evType === 'ToolCallStarted') {
-            const toolName = (ev['tool_name'] as string | undefined) ?? 'tool';
-            const toolId = nextId();
-            setMessages(prev => [...prev, {
-              id: toolId,
-              role: 'tool',
-              content: `Calling ${toolName}…`,
-            }]);
-          } else if (evType === 'ToolCallCompleted') {
-            const toolName = (ev['tool_name'] as string | undefined) ?? 'tool';
-            setMessages(prev => {
-              const idx = [...prev].reverse().findIndex(m => m.role === 'tool');
-              if (idx === -1) return prev;
-              const realIdx = prev.length - 1 - idx;
-              const updated = [...prev];
-              updated[realIdx] = { ...updated[realIdx]!, role: 'tool-done', content: `${toolName} done` };
-              return updated;
-            });
-          } else if (evType === 'RunError') {
-            const errMsg = (ev['error'] as string | undefined) ?? 'An error occurred';
-            updateLastAssistant(m => ({ ...m, content: errMsg, isStreaming: false }));
-          } else if (evType === 'WorkflowStarted') {
-            const sid = ev['session_id'] as string | undefined;
-            const rid = ev['run_id'] as string | undefined;
-            if (sid) sessionStorage.setItem(`wf_session_${selected.id}`, sid);
-            if (rid) sessionStorage.setItem(`wf_run_${selected.id}`, rid);
-          } else if (evType === 'StepStarted') {
-            const stepName = (ev['step_name'] as string | undefined) ?? 'Step';
-            const stepId = nextId();
-            setMessages(prev => [...prev, {
-              id: stepId,
-              role: 'step',
-              content: `${stepName}…`,
-            }]);
-          } else if (evType === 'StepCompleted') {
-            setMessages(prev => {
-              const idx = [...prev].reverse().findIndex(m => m.role === 'step');
-              if (idx === -1) return prev;
-              const realIdx = prev.length - 1 - idx;
-              const updated = [...prev];
-              updated[realIdx] = { ...updated[realIdx]!, role: 'step-done' };
-              return updated;
-            });
-          } else if (evType === 'ParallelExecutionStarted') {
-            const stepId = nextId();
-            setMessages(prev => [...prev, {
-              id: stepId,
-              role: 'step',
-              content: 'Running parallel steps…',
-            }]);
-          } else if (evType === 'ParallelExecutionCompleted') {
-            setMessages(prev => {
-              const idx = [...prev].reverse().findIndex(m => m.role === 'step');
-              if (idx === -1) return prev;
-              const realIdx = prev.length - 1 - idx;
-              const updated = [...prev];
-              updated[realIdx] = { ...updated[realIdx]!, role: 'step-done' };
-              return updated;
-            });
-          } else if (evType === 'StepPaused' || evType === 'StepOutputReview') {
-            const wfSessionId = sessionStorage.getItem(`wf_session_${selected.id}`) ?? '';
-            const wfRunId = sessionStorage.getItem(`wf_run_${selected.id}`) ?? '';
-            const message = (ev['message'] as string | undefined) ?? 'Awaiting approval';
-            setHitlState({
-              workflowId: selected.id,
-              runId: wfRunId,
-              sessionId: wfSessionId,
-              message,
-              requiresInput: evType === 'StepOutputReview',
-            });
-          } else if (
-            evType === 'WorkflowCompleted' ||
-            evType === 'WorkflowError' ||
-            evType === 'WorkflowCancelled' ||
-            evType === 'RunCompleted'
-          ) {
-            // finalize
+        // sse-starlette uses CRLF line endings; normalise to LF before splitting.
+        buf += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+        const blocks = buf.split('\n\n');
+        buf = blocks.pop() ?? '';
+        for (const block of blocks) {
+          const dataLine = block.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+          let ev: { event?: string; content?: string; error?: string };
+          try { ev = JSON.parse(dataLine.slice(6)) as typeof ev; } catch { continue; }
+          if (ev.event === 'RunContent' && ev.content) {
+            raw += ev.content;
+            const display = stripThinking(raw);
+            updateLastAssistant(m => ({ ...m, content: display }));
+          } else if (ev.event === 'RunCompleted' && ev.content) {
+            raw = ev.content;
+            updateLastAssistant(m => ({ ...m, content: stripThinking(raw), isStreaming: false }));
+          } else if (ev.event === 'RunError') {
+            updateLastAssistant(m => ({ ...m, content: ev.error || 'An error occurred', isStreaming: false }));
           }
         }
       }
-
-      // Finalize streaming
       updateLastAssistant(m => ({ ...m, isStreaming: false }));
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {

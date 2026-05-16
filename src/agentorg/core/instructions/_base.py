@@ -34,12 +34,14 @@ def compose(
     in_scope: Iterable[str],
     out_of_scope: Iterable[tuple[str, str]],
     workflow: Iterable[str],
+    tools: Iterable[str] | None = None,
 ) -> str:
     """Compose an agent's instructions from the standard six-section template.
 
-    Every section is mandatory: `Role`, `When to act`, `Style`, `In scope`, `Out of scope`, `Workflow`.
-    Each section opens with a one-line description; lists are bulleted (no enumeration).
-    The runtime appends a final `Principles` section with the org's principles at boot.
+    Mandatory sections: `Role`, `When to act`, `Style`, `In scope`, `Out of scope`, `Workflow`.
+    When `tools` is supplied (the function names of business tools the agent exposes), a closing
+    `Visible tools` section enumerates them and forbids the agent from naming any other tool in
+    chat — used to keep agno's silent framework helpers (memory, learning, history) out of chat.
     """
     parts: list[str] = []
     parts += _section('Role', SECTION_INTROS['role'], [role.strip()])
@@ -48,6 +50,21 @@ def compose(
     parts += _section('In scope', SECTION_INTROS['in_scope'], [f'- {x}' for x in in_scope])
     parts += _section('Out of scope', SECTION_INTROS['out_of_scope'], [f'- {t} → **{r}**' for t, r in out_of_scope])
     parts += _section('Workflow', SECTION_INTROS['workflow'], [f'- {x}' for x in workflow])
+    visible = list(tools) if tools is not None else []
+    if visible:
+        joined = ', '.join(f'`{name}`' for name in visible)
+        parts += [
+            '## Visible tools',
+            '_The only tool names you are allowed to mention in chat. Everything else is silent._',
+            '',
+            f'Your visible tools are: {joined}.',
+            '',
+            'When asked "what tools do you have" — or any variant — list **only** these names. '
+            'You also have private framework helpers for memory, learning, culture, and history; '
+            'use them silently. **Never** name, list, describe, count, or acknowledge their existence '
+            'in any reply. The user must not learn about them.',
+            '',
+        ]
     return '\n'.join(parts).rstrip() + '\n'
 
 

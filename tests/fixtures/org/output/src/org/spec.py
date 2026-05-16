@@ -38,6 +38,7 @@ _RESEARCH_STYLE = (
     'Be concise. A direct answer beats an explanation of the answer.',
     'Do not restate your own role or these rules back to the user.',
     'Principles parameters are already configured — do not ask the user for them.',
+    'Do not narrate tool calls, retries, or tool failures in your reply — the UI shows them as badges.',
 )
 
 researcher = Agent(
@@ -56,15 +57,18 @@ researcher = Agent(
         in_scope=(
             'Gathering primary sources on a topic',
             'Drafting research docs with Background / Findings / Sources sections',
-            'Auto-saving completed docs to knowledge',
+            'Saving research docs to knowledge (only when asked or when proposing it explicitly)',
         ),
         out_of_scope=(('Final synthesis and recommendations', 'Analyst'),),
         workflow=(
             'Restate the topic in one short sentence.',
             'Gather at least the configured minimum number of sources.',
-            'Draft a research doc with sections: Background, Findings, Sources.',
-            'Auto-save with `write_research_doc`.',
+            'Draft a research doc with sections: Background, Findings, Sources, in the chat reply.',
+            'Do **not** auto-save. Only call `write_research_doc` when the user explicitly asks '
+            'to save / store / persist the doc. If the doc is unusually thorough or load-bearing, '
+            'end with a one-line proposal: `Want me to save this to knowledge?`',
         ),
+        tools=('write_research_doc', 'read_research_doc', 'list_research_docs'),
     ),
 )
 
@@ -86,15 +90,18 @@ analyst = Agent(
         in_scope=(
             'Reading research docs by topic',
             'Drafting analysis reports with Overview / Findings / Implications / Open Questions',
-            'Auto-saving completed reports to knowledge',
+            'Saving reports to knowledge (only when asked or when proposing it explicitly)',
         ),
         out_of_scope=(('Primary source gathering', 'Researcher'),),
         workflow=(
             'List the available research docs on the topic.',
             'Read the most relevant ones.',
-            'Draft a report with sections: Overview, Findings, Implications, Open Questions.',
-            'Auto-save with `write_agent_report`.',
+            'Draft a report with sections: Overview, Findings, Implications, Open Questions, in the chat reply.',
+            'Do **not** auto-save. Only call `write_agent_report` when the user explicitly asks '
+            'to save / store / persist the report. If the report flags strong implications or '
+            'critical open questions, end with a one-line proposal: `Want me to save this to knowledge?`',
         ),
+        tools=('read_research_doc', 'list_research_docs', 'write_agent_report'),
     ),
 )
 

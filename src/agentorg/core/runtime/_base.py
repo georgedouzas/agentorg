@@ -1,7 +1,25 @@
 """Adapt spec runnables into AgentField reasoners."""
 
 import re
+from contextvars import ContextVar
 from typing import Any
+
+# Identity of the agent (or workflow / team) currently driving a reasoner run. Tools called inside
+# `arun` read this to stamp `metadata.agent_id` and `metadata.agent_name` on whatever they produce
+# (e.g. write_knowledge auto-tags every doc with the agent that authored it).
+CALLING_AGENT: ContextVar[dict[str, str] | None] = ContextVar('agentorg_calling_agent', default=None)
+
+
+def set_calling_agent(runnable: object) -> None:
+    """Stash the running runnable's identity for the current async context."""
+    aid = runnable_name(runnable)
+    name = getattr(runnable, 'name', None) or aid
+    CALLING_AGENT.set({'id': aid, 'name': name})
+
+
+def get_calling_agent() -> dict[str, str] | None:
+    """Return `{id, name}` of the agent driving the current run, or None if called outside one."""
+    return CALLING_AGENT.get()
 
 # Strip reasoning traces (Gemini-style `<thinking>...</thinking>` blocks) before showing the answer
 # to the user; the model still benefits from chain-of-thought, the chat UI stays clean.
@@ -12,12 +30,13 @@ def _clean_output(text: str) -> str:
     return _THINKING_PATTERN.sub('', text).strip()
 
 # Defaults applied to every agno-style agent that doesn't already configure these capabilities itself.
-# Designed so a freshly-registered agent supports rolling chat history per session, per-user memories
-# that accumulate across sessions, a chain-of-thought reasoning pass, agentic memory/culture so the
-# agent can curate its own learnings, resilience on transient model failures, and richer event
-# capture for the control plane.
+# The agentic flags below DO add framework tools (`update_user_memory`,
+# `create_or_update_cultural_knowledge`, `save_learning`, `log_decision`, …) to the agent's
+# palette. We keep them ON so the agent can self-curate memory + learning + culture in the
+# background, and we hide their invocations from the chat UI via `FRAMEWORK_TOOL_NAMES` so only
+# spec-declared business tools surface as badges.
 AGNO_DEFAULTS: dict[str, Any] = {
-    # Rolling chat history
+    # Rolling chat history (passive injection + on-demand tools)
     'add_history_to_context': True,
     'num_history_runs': 10,
     'read_chat_history': True,
@@ -52,17 +71,41 @@ AGNO_DEFAULTS: dict[str, Any] = {
 }
 
 
+# Tools agno adds to the agent's palette for its internal bookkeeping (memory, culture, learning,
+# history). They MUST be available to the LLM so it can curate state silently — but they're hidden
+# from the chat UI (no tool badges) and the agent is instructed not to list them in chat replies,
+# so the user only sees spec-declared "business" tools.
+FRAMEWORK_TOOL_NAMES: frozenset[str] = frozenset({
+    # Memory & culture
+    'update_user_memory',
+    'search_user_memories',
+    'create_or_update_cultural_knowledge',
+    'search_cultural_knowledge',
+    # Chat / tool-call history
+    'get_chat_history',
+    'search_chat_history',
+    'get_tool_call_history',
+    'search_session_history',
+    # Learning machine: learned_knowledge + decision_log stores
+    'save_learning',
+    'search_learnings',
+    'log_decision',
+    'search_decisions',
+    'record_outcome',
+})
+
+
 def _build_learning_machine(db: Any) -> Any:
     """Build an agno `LearningMachine` with all default learning stores enabled."""
     from agno.learn.machine import LearningMachine  # noqa: PLC0415 — defer heavy import
     return LearningMachine(
         db=db,
-        user_profile=True,    # accumulate what the agent learns about each user
-        user_memory=True,     # explicit user memories
-        session_context=True, # rolling context across sessions
-        entity_memory=True,   # remember named entities the agent reasons about
-        learned_knowledge=True,  # general learnings extracted from runs
-        decision_log=True,    # log of decisions for later reflection
+        user_profile=True,
+        user_memory=True,
+        session_context=True,
+        entity_memory=True,
+        learned_knowledge=True,
+        decision_log=True,
     )
 
 
@@ -100,8 +143,9 @@ def _ensure_agno_defaults(runnable: object) -> None:
     for attr, value in AGNO_DEFAULTS.items():
         if hasattr(runnable, attr) and getattr(runnable, attr) in (None, False, 0):
             setattr(runnable, attr, value)
-    # Attach a learning machine wired to the same db so cross-session learnings, decision logs,
-    # and entity memory persist alongside chat history.
+    # Learning machine: wire decision-log + learned-knowledge + entity memory to the same db so
+    # cross-session learning works in the background. The LLM-callable tools it adds are filtered
+    # from the chat UI via FRAMEWORK_TOOL_NAMES.
     if hasattr(runnable, 'learning') and getattr(runnable, 'learning', None) is None:
         try:
             runnable.learning = _build_learning_machine(runnable.db)
@@ -133,6 +177,7 @@ def register_runnable(app: object, runnable: object, tags: list[str] | None = No
     arun = getattr(runnable, 'arun')  # noqa: B009 — agno-style runnable
 
     async def _run(message: str, session_id: str | None = None, user_id: str = 'default') -> dict[str, Any]:
+        set_calling_agent(runnable)
         result = await arun(message, session_id=session_id, user_id=user_id)
         raw = getattr(result, 'content', None) or str(result)
         return {'output': _clean_output(raw)}
