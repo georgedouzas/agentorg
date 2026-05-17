@@ -45,11 +45,12 @@ AGNO_DEFAULTS: dict[str, Any] = {
     'enable_user_memories': True,
     'add_memories_to_context': True,
     'update_memory_on_run': True,
-    # Agentic memory + culture: the agent owns and updates its own learnings + shared org culture
+    # Agentic memory: the agent owns and updates its own learnings.
+    # (Cultural-knowledge flags `enable_agentic_culture` / `update_cultural_knowledge` /
+    # `add_culture_to_context` are deliberately OFF: agno's `update_culture_task` awaits the
+    # sync `InMemoryDb.upsert_cultural_knowledge`, so writes silently fail; the feature also
+    # overlaps with `spec.knowledge.principles` and costs an extra LLM call per invocation.)
     'enable_agentic_memory': True,
-    'enable_agentic_culture': True,
-    'update_cultural_knowledge': True,
-    'add_culture_to_context': True,
     # Periodic session summaries to keep long sessions affordable
     'enable_session_summaries': True,
     'add_session_summary_to_context': True,
