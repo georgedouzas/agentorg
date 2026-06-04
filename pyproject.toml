@@ -134,6 +134,7 @@ python_files = ["test_*.py"]
 addopts = "--cov"
 testpaths = ["tests"]
 norecursedirs = ["tests/fixtures"]
+markers = ["network: test clones from public git remotes; deselect with -m 'not network'"]
 
 [tool.coverage.run]
 branch = true
