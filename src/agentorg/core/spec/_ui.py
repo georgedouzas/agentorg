@@ -1,4 +1,4 @@
-"""Everything the React dashboard needs to render the org."""
+"""Everything the UI dashboard needs to render the org."""
 
 from pydantic import BaseModel
 
@@ -17,8 +17,6 @@ class EmptyState(BaseModel):
     icon: str
     title: str
     body: str
-
-
 
 
 class AgentConfigUI(BaseModel):
@@ -45,7 +43,7 @@ class OverviewBlock(BaseModel):
 
 
 class UI(BaseModel):
-    """All UI customisation, consumed by the React frontend."""
+    """All UI customisation, consumed by the frontend."""
 
     app: AppUI
     empty_state: EmptyState

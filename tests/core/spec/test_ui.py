@@ -1,21 +1,23 @@
-"""Tests for `agentorg.core.spec._ui`."""
+"""Tests for ui module."""
+
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from agentorg.core.spec import UI, AgentConfigUI, AppUI, EmptyState, GroupRef, OverviewBlock
 
-APP = {'name': 'Org', 'icon': '🔬', 'description': 'A research org.'}
-EMPTY_STATE = {'icon': '🔬', 'title': 'Pick an agent', 'body': 'Try the pipeline.'}
-GROUP = {'label': 'Research Team', 'ids': ['researcher', 'analyst']}
-AGENT_CONFIG = {
+APP: dict[str, str] = {'name': 'Org', 'icon': '🔬', 'description': 'A research org.'}
+EMPTY_STATE: dict[str, str] = {'icon': '🔬', 'title': 'Pick an agent', 'body': 'Try the pipeline.'}
+GROUP: dict[str, Any] = {'label': 'Research Team', 'ids': ['researcher', 'analyst']}
+AGENT_CONFIG: dict[str, Any] = {
     'model': 'google:gemini-2.5-flash',
     'description': 'Gathers sources.',
     'tools': ['search'],
     'features': [],
 }
-OVERVIEW_BLOCK = {'title': 'Mission', 'body': 'We **publish** structured analysis.'}
-UI_FIELDS = {
+OVERVIEW_BLOCK: dict[str, str] = {'title': 'Mission', 'body': 'We **publish** structured analysis.'}
+UI_FIELDS: dict[str, Any] = {
     'app': APP,
     'empty_state': EMPTY_STATE,
     'knowledge_empty': 'No knowledge yet.',
@@ -27,9 +29,6 @@ UI_FIELDS = {
     'agent_configs': {'researcher': AGENT_CONFIG},
     'chat_quick_prompts': {'researcher': ['Summarise the topic']},
 }
-
-
-# ── Sub-models ───────────────────────────────────────────────────────────────
 
 
 def test_app_ui_fields() -> None:
@@ -72,9 +71,6 @@ def test_sub_model_fields_required(model: type, sample: dict[str, object]) -> No
     for missing in sample:
         with pytest.raises(ValidationError):
             model(**{k: v for k, v in sample.items() if k != missing})
-
-
-# ── UI ───────────────────────────────────────────────────────────────────────
 
 
 def test_ui_construction() -> None:

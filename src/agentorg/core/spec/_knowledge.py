@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class PrincipleParameter(BaseModel):
-    """A user-tunable principles parameter (e.g. `min_test_coverage_pct: 80`)."""
+    """A user-tunable principles parameter."""
 
     name: str
     type: Literal['int', 'float', 'string', 'bool', 'object', 'array']

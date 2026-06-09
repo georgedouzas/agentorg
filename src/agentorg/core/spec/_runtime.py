@@ -6,7 +6,7 @@ from pydantic import BaseModel, model_validator
 
 
 class Infra(BaseModel):
-    """The infrastructure stack — independent component choices."""
+    """The infrastructure stack."""
 
     packaging: Literal['none', 'docker']
     database: Literal['sqlite', 'postgres']

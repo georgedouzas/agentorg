@@ -1,4 +1,6 @@
-"""Tests for `agentorg.core.spec._ai.AI`."""
+"""Tests for ai module."""
+
+from typing import Any
 
 import pytest
 from agno.agent import Agent
@@ -6,51 +8,50 @@ from agno.team import Team
 from agno.workflow import Step, Workflow
 from pydantic import ValidationError
 
-from agentorg.core.spec import AI, PLATFORM_AGENTS
-
-_MODEL = 'google:gemini-2.5-flash'
+from agentorg.core.spec import AI
 
 
 def _custom_agent() -> Agent:
-    return Agent(id='researcher', name='Researcher', model=_MODEL, instructions='Gather sources.')
+    return Agent(id='researcher', name='Researcher', instructions='Gather sources.')
 
 
-def test_construction_with_platform_agents_and_extras() -> None:
-    """`AI` holds the platform agents plus any custom agents, teams, and workflows."""
+def test_construction() -> None:
+    """`AI` holds the user's agents, teams, and workflows."""
     researcher = _custom_agent()
-    team = Team(id='research-team', name='Research Team', members=[researcher], model=_MODEL)
+    team = Team(id='research-team', name='Research Team', members=[researcher])
     workflow = Workflow(id='pipeline', name='Pipeline', steps=[Step(name='Gather', agent=researcher)])
-    ai = AI(agents=[*PLATFORM_AGENTS, researcher], teams=[team], workflows=[workflow])
-    assert {a.id for a in ai.agents} >= {a.id for a in PLATFORM_AGENTS}
+    ai = AI(agents=[researcher], teams=[team], workflows=[workflow])
+    assert ai.agents[0].id == 'researcher'
     assert ai.teams[0].id == 'research-team'
     assert ai.workflows[0].id == 'pipeline'
 
 
-def test_platform_agents_alone_validate() -> None:
-    """The six platform agents with no extras is a valid `AI`."""
-    ai = AI(agents=list(PLATFORM_AGENTS), teams=[], workflows=[])
-    assert len(ai.agents) == len(PLATFORM_AGENTS)
+def test_empty_lists_validate() -> None:
+    """All three fields accept empty lists."""
+    ai = AI(agents=[], teams=[], workflows=[])
+    assert ai.agents == [] == ai.teams == ai.workflows
 
 
-def test_missing_platform_agents_raises() -> None:
-    """Dropping a platform agent fails validation — they are required."""
-    with pytest.raises(ValidationError, match='platform agents'):
-        AI(agents=[_custom_agent()], teams=[], workflows=[])
+def test_framework_defaults_to_agno() -> None:
+    """`framework` defaults to `'agno'` — the only adapter that exists today."""
+    ai = AI(agents=[], teams=[], workflows=[])
+    assert ai.framework == 'agno'
 
 
-def test_empty_agents_raises() -> None:
-    """An empty agent list is missing every platform agent."""
-    with pytest.raises(ValidationError, match='platform agents'):
-        AI(agents=[], teams=[], workflows=[])
+def test_framework_rejects_unknown_value() -> None:
+    """`framework` is a Literal — unknown frameworks fail validation."""
+    with pytest.raises(ValidationError):
+        AI(framework='claude_code', agents=[], teams=[], workflows=[])  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize('missing', ['agents', 'teams', 'workflows'])
 def test_all_fields_required(missing: str) -> None:
     """`agents`, `teams`, and `workflows` are all required keys (empty lists are fine, omission is not)."""
-    fields: dict[str, list[object]] = {
-        'agents': list(PLATFORM_AGENTS),
+    fields: dict[str, Any] = {
+        'agents': [],
         'teams': [],
         'workflows': [],
+        'framework': 'agno',
     }
     del fields[missing]
     with pytest.raises(ValidationError):

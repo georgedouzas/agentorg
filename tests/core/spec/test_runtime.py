@@ -1,11 +1,13 @@
-"""Tests for `agentorg.core.spec._runtime`."""
+"""Tests for runtime module."""
+
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from agentorg.core.spec import EnvVar, EnvVars, Infra, Runtime, SetupStep
 
-LOCAL_INFRA = {
+LOCAL_INFRA: dict[str, Any] = {
     'packaging': 'none',
     'database': 'sqlite',
     'vector_db': 'chromadb',
@@ -14,7 +16,7 @@ LOCAL_INFRA = {
     'frontend': 'none',
     'auth': 'none',
 }
-DOCKER_INFRA = {
+DOCKER_INFRA: dict[str, Any] = {
     'packaging': 'docker',
     'database': 'postgres',
     'vector_db': 'pgvector',
@@ -23,7 +25,7 @@ DOCKER_INFRA = {
     'frontend': 'none',
     'auth': 'none',
 }
-CLOUD_INFRA = {
+CLOUD_INFRA: dict[str, Any] = {
     'packaging': 'docker',
     'database': 'postgres',
     'vector_db': 'pgvector',
@@ -32,8 +34,8 @@ CLOUD_INFRA = {
     'frontend': 'vercel',
     'auth': 'clerk',
 }
-ENV_VAR = {'name': 'GOOGLE_API_KEY', 'description': 'Gemini API key.', 'required_label': 'Prod'}
-SETUP_STEP = {
+ENV_VAR: dict[str, Any] = {'name': 'GOOGLE_API_KEY', 'description': 'Gemini API key.', 'required_label': 'Prod'}
+SETUP_STEP: dict[str, Any] = {
     'id': 'secrets',
     'title': 'Set keys',
     'description': 'Add the key to `.env`.',
@@ -42,7 +44,7 @@ SETUP_STEP = {
 
 
 @pytest.mark.parametrize('infra', [LOCAL_INFRA, DOCKER_INFRA, CLOUD_INFRA])
-def test_valid_infra_combinations(infra: dict[str, str]) -> None:
+def test_valid_infra_combinations(infra: dict[str, Any]) -> None:
     """The local, docker, and cloud stacks all validate."""
     assert Infra(**infra)
 
@@ -95,7 +97,7 @@ def test_env_var_missing_field_raises(missing: str) -> None:
 
 def test_env_vars_holds_required_and_optional() -> None:
     """`EnvVars` splits declared variables into required + optional lists, coercing dicts."""
-    env_vars = EnvVars(required=[ENV_VAR], optional=[])
+    env_vars = EnvVars(required=[EnvVar(**ENV_VAR)], optional=[])
     assert env_vars.required[0].name == 'GOOGLE_API_KEY'
     assert env_vars.optional == []
 
@@ -103,7 +105,7 @@ def test_env_vars_holds_required_and_optional() -> None:
 def test_env_vars_both_lists_required() -> None:
     """`required` and `optional` are both required keys (empty lists are allowed, omission is not)."""
     with pytest.raises(ValidationError):
-        EnvVars(required=[])
+        EnvVars(required=[EnvVar(**ENV_VAR)])  # type: ignore[call-arg]
 
 
 def test_setup_step_fields() -> None:
@@ -126,9 +128,6 @@ def test_setup_step_with_no_variables() -> None:
     """A manual (non-auto-detectable) step declares an empty `variables` list."""
     step = SetupStep(**{**SETUP_STEP, 'variables': []})
     assert step.variables == []
-
-
-# ── Runtime ──────────────────────────────────────────────────────────────────
 
 
 def test_runtime_construction() -> None:

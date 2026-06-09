@@ -1,11 +1,13 @@
-"""Tests for `agentorg.core.spec._org.Org`."""
+"""Tests for org module."""
+
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from agentorg.core.spec import Org
 
-ORG = {
+ORG: dict[str, Any] = {
     'name': 'Acme Organization',
     'slug': 'acme-org',
     'package_name': 'acme_org',
@@ -27,9 +29,10 @@ def test_construct_with_all_fields() -> None:
 @pytest.mark.parametrize('missing', list(ORG))
 def test_missing_field_raises(missing: str) -> None:
     """Omitting any one field raises a validation error."""
-    fields = {k: v for k, v in ORG.items() if k != missing}
+    org = ORG.copy()
+    org.pop(missing)
     with pytest.raises(ValidationError):
-        Org(**fields)
+        Org(**org)
 
 
 def test_visibility_rejects_unknown_value() -> None:
@@ -38,7 +41,10 @@ def test_visibility_rejects_unknown_value() -> None:
         Org(**{**ORG, 'visibility': 'secret'})
 
 
-def test_wrong_type() -> None:
+@pytest.mark.parametrize('field', list(ORG))
+def test_wrong_type(field: str) -> None:
     """All types are strings."""
+    org = ORG.copy()
+    org[field] = 123
     with pytest.raises(ValidationError):
-        Org(**{k: (list(v) if k == 'visibility' else v) for k, v in ORG.items()})
+        Org(**org)

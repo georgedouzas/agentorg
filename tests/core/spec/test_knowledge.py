@@ -1,4 +1,6 @@
-"""Tests for `agentorg.core.spec._knowledge`."""
+"""Tests for knowledge module."""
+
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -8,19 +10,16 @@ from agentorg.core.spec import (
     KnowledgeType,
     KnowledgeTypeMetadataField,
     PrincipleParameter,
-    PrincipleSection,
     Principles,
+    PrincipleSection,
 )
 
-PARAMETER = {'name': 'min_sources', 'type': 'int', 'default': 3, 'label': 'Min Sources', 'format': None}
-SECTION = {'id': 'mission', 'title': 'Mission', 'body': '- Do good work.'}
-METADATA_FIELD = {'name': 'author', 'type': 'string'}
-KNOWLEDGE_TYPE = {'id': 'report', 'label': 'Reports', 'metadata_fields': [METADATA_FIELD]}
-PRINCIPLES = {'parameters': [PARAMETER], 'sections': [SECTION]}
-KNOWLEDGE = {'principles': PRINCIPLES, 'types': [KNOWLEDGE_TYPE]}
-
-
-# ── PrincipleParameter ───────────────────────────────────────────────────────
+PARAMETER: dict[str, Any] = {'name': 'min_sources', 'type': 'int', 'default': 3, 'label': 'Min Sources', 'format': None}
+SECTION: dict[str, Any] = {'id': 'mission', 'title': 'Mission', 'body': '- Do good work.'}
+METADATA_FIELD: dict[str, Any] = {'name': 'author', 'type': 'string'}
+KNOWLEDGE_TYPE: dict[str, Any] = {'id': 'report', 'label': 'Reports', 'metadata_fields': [METADATA_FIELD]}
+PRINCIPLES: dict[str, Any] = {'parameters': [PARAMETER], 'sections': [SECTION]}
+KNOWLEDGE: dict[str, Any] = {'principles': PRINCIPLES, 'types': [KNOWLEDGE_TYPE]}
 
 
 def test_principle_parameter_fields() -> None:
@@ -45,9 +44,6 @@ def test_principle_parameter_rejects_unknown_type() -> None:
         PrincipleParameter(**{**PARAMETER, 'type': 'datetime'})
 
 
-# ── PrincipleSection / Principles ────────────────────────────────────────────
-
-
 def test_principle_section_fields() -> None:
     """`PrincipleSection` is id plus title plus markdown body."""
     section = PrincipleSection(**SECTION)
@@ -69,9 +65,6 @@ def test_principles_fields_required(missing: str) -> None:
         Principles(**{k: v for k, v in PRINCIPLES.items() if k != missing})
 
 
-# ── KnowledgeType ────────────────────────────────────────────────────────────
-
-
 def test_knowledge_type_fields() -> None:
     """`KnowledgeType` is id plus label plus metadata field schema."""
     knowledge_type = KnowledgeType(**KNOWLEDGE_TYPE)
@@ -82,7 +75,7 @@ def test_knowledge_type_fields() -> None:
 def test_knowledge_type_metadata_field_rejects_unknown_type() -> None:
     """A metadata field's `type` is a closed `Literal`."""
     with pytest.raises(ValidationError):
-        KnowledgeTypeMetadataField(name='count', type='list')
+        KnowledgeTypeMetadataField(name='count', type='list')  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize('missing', list(KNOWLEDGE_TYPE))
@@ -90,9 +83,6 @@ def test_knowledge_type_missing_field_raises(missing: str) -> None:
     """Every `KnowledgeType` field is required."""
     with pytest.raises(ValidationError):
         KnowledgeType(**{k: v for k, v in KNOWLEDGE_TYPE.items() if k != missing})
-
-
-# ── Knowledge ────────────────────────────────────────────────────────────────
 
 
 def test_knowledge_construction() -> None:
