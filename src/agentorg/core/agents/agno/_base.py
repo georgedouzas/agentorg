@@ -159,7 +159,7 @@ AGNO_DEFAULTS: dict[str, Any] = {
 }
 
 
-def _create_section(heading: str, intro: str, main: Iterable[str]) -> list[str]:
+def _create_section(heading: str, intro: str, main: Iterable[str]) -> str:
     texts = [f'## {heading}', f'*{intro}*']
     bullet_points = '\n'.join([f"- {bullet_point}" for bullet_point in main])
     texts = [*texts, bullet_points]
@@ -172,7 +172,7 @@ def _compose_instructions(
     principles: Iterable[str],
     when_to_act: Iterable[str],
     in_scope: Iterable[str],
-    out_of_scope: Iterable[tuple[str, str]],
+    out_of_scope: Iterable[str],
     workflow: Iterable[str],
     style: Iterable[str],
     tools_names: Iterable[str],
@@ -224,7 +224,7 @@ def make_agent(
     principles: list[str],
     when_to_act: list[str],
     in_scope: list[str],
-    out_of_scope: list[tuple[str, str]],
+    out_of_scope: list[str],
     workflow: list[str],
     style: list[str],
     **kwargs: object,
@@ -234,7 +234,7 @@ def make_agent(
     Arguments:
         model: The language model the agent should use.
         name: Display name for the agent.
-        agent_id: Unique identifier for the agent (passed to `agno.Agent` as `id`).
+        agent_id: Unique identifier for the agent.
         skills: A list of `agno.skills.loaders.base.SkillLoader` instances for loading agent skills.
         tools: A list of callables the agent can use as tools.
         introduction: An introduction message the agent can use to greet users.
@@ -244,11 +244,10 @@ def make_agent(
         principles: A list of strings describing any org-wide principles the agent should follow.
         when_to_act: A list of rules describing when the agent should engage versus stay quiet.
         in_scope: A list of topics the agent should consider in-scope.
-        out_of_scope: A list of tuples off (topic, referral) for topics the agent should consider out-of-scope.
+        out_of_scope: A list of topics the agent should consider out-of-scope.
         workflow: A list of steps the agent should follow when handling an in-scope request.
         style: A list of rules describing the tone and format of the agent's responses.
-        **kwargs: Any additional configuration values for `agno.Agent` beyond the above, which are passed
-            through directly and can override any of the defaults set in `AGNO_DEFAULTS`.
+        **kwargs: Extra `agno.Agent` configuration that overrides `AGNO_DEFAULTS`.
 
     Returns:
         agent: A configured `agno.Agent` instance.

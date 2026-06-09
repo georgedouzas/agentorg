@@ -10,11 +10,9 @@ import os
 from agentfield import Agent
 from fastapi.middleware.cors import CORSMiddleware
 
-from agentorg.core.skills import register as register_skills
+from agentorg.core.adapters.agno import register_agents, register_teams, register_workflows
+from agentorg.core.agents.agno.platform import register_platform_agents
 
-from org.ai.agents.factory import register_agents
-from org.ai.teams.factory import register_teams
-from org.ai.workflows.factory import register_workflows
 from org.app.routes import build_router
 from org.spec import spec
 
@@ -41,12 +39,9 @@ app = Agent(
 # Embedder declared in `spec.runtime.infra.embedder` — stashed on the node so the knowledge tools resolve it.
 app.embedder_model = spec.runtime.infra.embedder  # type: ignore[attr-defined]
 
-# agentorg's domain functions (knowledge, state, setup, platform engineer tools) are exposed as
-# AgentField skills so the control plane can policy-gate them, cross-org callers can discover them
-# via `GET /skills`, and the MCP shim can re-publish them to other agent frameworks.
-register_skills(app)
-
-# The spec's agents/teams/workflows become reasoners on this node.
+# The spec's agents/teams/workflows become reasoners on this node. Each agent's tools are
+# also exposed as AgentField skills (registered inside `register_reasoner`) so the control
+# plane can policy-gate them and the MCP shim can re-publish them.
 # Substitute principles parameter defaults into section bodies so agents see `Applied Research`
 # rather than the literal `{domain_focus}` placeholder, and wrap each principles section in a
 # `### {title}` sub-heading so the appended `## Principles` block stays readable.
@@ -59,6 +54,7 @@ _principles_text = '\n\n'.join(
     f'### {s.title}\n\n{s.body.format_map(_param_defaults).strip()}'
     for s in spec.knowledge.principles.sections
 )
+register_platform_agents(app, _principles_text)
 register_agents(app, spec, _principles_text)
 register_teams(app, spec)
 register_workflows(app, spec)

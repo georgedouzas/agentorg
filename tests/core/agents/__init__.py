@@ -1,1 +1,1 @@
-"""Tests for the agentorg agents module."""
+"""Tests for the `agentorg.core.agents` module."""

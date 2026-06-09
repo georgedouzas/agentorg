@@ -1,9 +1,4 @@
-"""Tests for the agentorg skill loaders.
-
-These hit real public git remotes (no mocking), so they're marked `network`. The on-disk skills cache is redirected to a
-temp dir per test so each one genuinely clones rather than reusing the developer's `~/.cache`. Deselect with `pytest -m
-'not network'`.
-"""
+"""Tests for the skills module."""
 
 import hashlib
 import subprocess

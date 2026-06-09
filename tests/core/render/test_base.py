@@ -15,7 +15,6 @@ ORG_OUTPUT = FIXTURES_DIR / 'org' / 'output'
 CENTRAL_ENV = FIXTURES_DIR / '.env'
 RENDERED_TESTS = (
     'tests/test_factories.py',
-    'tests/test_instructions.py',
     'tests/test_routes.py',
     'tests/test_knowledge.py',
 )
@@ -70,11 +69,11 @@ def _spec_py(spec_dir: Path, **org_overrides: object) -> None:
     org_kwargs = ', '.join(f'{k}={v!r}' for k, v in org_fields.items())
     spec_dir.mkdir(parents=True, exist_ok=True)
     (spec_dir / 'spec.py').write_text(
-        'from agentorg.core.spec import Spec, Org, AI, PLATFORM_AGENTS\n'
+        'from agentorg.core.spec import Spec, Org, AI\n'
         f'spec = Spec(\n'
         f'    org=Org({org_kwargs}),\n'
         f'    runtime={_MINIMAL_RUNTIME!r},\n'
-        f'    ai=AI(agents=list(PLATFORM_AGENTS), teams=[], workflows=[]),\n'
+        f'    ai=AI(agents=[], teams=[], workflows=[]),\n'
         f'    knowledge={_MINIMAL_KNOWLEDGE!r},\n'
         f'    ui={_MINIMAL_UI!r},\n'
         f')\n',

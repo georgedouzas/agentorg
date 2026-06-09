@@ -1,6 +1,11 @@
-"""Implementation of Agno factory method to create agents."""
+"""The agno agent factory and skill loaders."""
 
-from agentorg.core.agents.agno._base import make_agent
-from agentorg.core.agents.agno._skills import CACHE_ROOT, DEFAULT_SKILLS_REFS, GitHubSkills
+from ._base import make_agent
+from ._skills import CACHE_ROOT, DEFAULT_SKILLS_REFS, GitHubSkills
 
-__all__ = ['CACHE_ROOT', 'DEFAULT_SKILLS_REFS', 'GitHubSkills', 'make_agent']
+__all__ = [
+    'CACHE_ROOT',
+    'DEFAULT_SKILLS_REFS',
+    'GitHubSkills',
+    'make_agent',
+]

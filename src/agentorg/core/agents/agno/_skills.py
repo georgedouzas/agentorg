@@ -9,7 +9,7 @@ from agno.skills.loaders.local import LocalSkills
 from agno.skills.skill import Skill
 
 CACHE_ROOT = Path.home() / '.cache' / 'agentorg' / 'skills'
-DEFAULT_SKILLS_REFS: dict[str, dict[str, str]] = {
+DEFAULT_SKILLS_REFS: dict[str, dict[str, str | bool]] = {
     'superpowers': {
         'url': 'https://github.com/obra/superpowers',
         'ref': 'main',
@@ -32,7 +32,7 @@ DEFAULT_SKILLS_REFS: dict[str, dict[str, str]] = {
 
 
 class GitHubSkills(SkillLoader):
-    """Loads skills from a (public) GitHub repo via shallow clone, cached on disk by (url, ref)."""
+    """Skill loader that shallow-clones a public GitHub repo on demand and caches it on disk."""
 
     def __init__(self, url: str, ref: str = 'HEAD', subpath: str = '', *, validate: bool = True) -> None:
         self.url = url

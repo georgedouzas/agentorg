@@ -1,1 +1,1 @@
-"""Tests for the Agno-backed agent factory and skill loader."""
+"""Tests for the `agentorg.core.agents.agno` module."""

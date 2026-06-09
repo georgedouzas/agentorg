@@ -11,9 +11,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSock
 from pydantic import BaseModel, Field, create_model
 from sse_starlette.sse import EventSourceResponse
 
-from agentorg.core.knowledge import PREFIX as _KN_PREFIX, similarity_units
-from agentorg.core.platform import PLATFORM_AGENT_GROUPS, PLATFORM_AGENT_ICONS, PLATFORM_AGENT_IDS
-from agentorg.core.runtime import FRAMEWORK_TOOL_NAMES, set_calling_agent
+from agentorg.core.agents.tools import PREFIX as _KN_PREFIX, similarity_units
+from agentorg.core.agents.agno.platform import PLATFORM_AGENT_GROUPS, PLATFORM_AGENT_ICONS, PLATFORM_AGENT_IDS, PLATFORM_AGENTS
 from agentorg.core.spec import Spec
 
 
@@ -92,7 +91,7 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
 
     # Index every spec runnable by id so the streaming endpoint can look it up cheaply.
     runnables: dict[str, Any] = {}
-    for runnable in (*spec.ai.agents, *spec.ai.teams, *spec.ai.workflows):
+    for runnable in (*PLATFORM_AGENTS, *spec.ai.agents, *spec.ai.teams, *spec.ai.workflows):
         runnables[_agent_id(runnable)] = runnable
 
     async def _all_units() -> list[dict[str, Any]]:
@@ -181,11 +180,11 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     # ── Agents & workflows (introspection from the spec) ────────────────────
     @router.get('/agents')
     def list_agents() -> list[dict[str, Any]]:
-        return [_agent_summary(a) for a in spec.ai.agents]
+        return [_agent_summary(a) for a in (*PLATFORM_AGENTS, *spec.ai.agents)]
 
     @router.get('/agents/{agent_id}')
     def get_agent(agent_id: str) -> dict[str, Any]:
-        for a in spec.ai.agents:
+        for a in (*PLATFORM_AGENTS, *spec.ai.agents):
             if _agent_id(a) == agent_id:
                 return _agent_summary(a)
         raise HTTPException(status_code=404, detail=f'agent {agent_id!r} not found')
@@ -212,9 +211,6 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             # in a task whose context doesn't see the contextvar update.
             original_get_current = _AfAgent.get_current
             _AfAgent.get_current = staticmethod(lambda: app)  # type: ignore[method-assign]
-            # Stash the running agent's identity so `write_knowledge` and friends can stamp
-            # `metadata.agent_id` + `metadata.agent_name` on every unit they produce.
-            set_calling_agent(runnable)
             try:
                 arun = getattr(runnable, 'arun', None)
                 if arun is None:
@@ -231,10 +227,6 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
                             or getattr(tool, 'name', None)
                             or (tool.__class__.__name__ if tool else None)
                         )
-                        # Hide agno's framework tools (memory / culture / learning / history)
-                        # from the chat UI — they run silently in the background.
-                        if tool_name in FRAMEWORK_TOOL_NAMES:
-                            continue
                         payload['tool_name'] = tool_name
                     yield {'event': kind, 'data': json.dumps(payload)}
             except Exception as exc:  # noqa: BLE001 — surface to the client

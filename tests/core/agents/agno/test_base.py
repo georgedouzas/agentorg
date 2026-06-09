@@ -1,4 +1,4 @@
-"""Tests for the Agno base module."""
+"""Tests for the base module."""
 
 import pytest
 from agno.skills.loaders.local import LocalSkills
