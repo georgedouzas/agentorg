@@ -1,18 +1,8 @@
 """The org's principles plus the catalogue of knowledge types it produces."""
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel
-
-
-class PrincipleParameter(BaseModel):
-    """A user-tunable principles parameter."""
-
-    name: str
-    type: Literal['int', 'float', 'string', 'bool', 'object', 'array']
-    default: Any
-    label: str
-    format: str | None
 
 
 class PrincipleSection(BaseModel):
@@ -24,9 +14,8 @@ class PrincipleSection(BaseModel):
 
 
 class Principles(BaseModel):
-    """The org's principles with tunable parameters and prose sections."""
+    """The org's principles — prose sections rendered into every agent's instructions."""
 
-    parameters: list[PrincipleParameter]
     sections: list[PrincipleSection]
 
 

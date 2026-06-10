@@ -38,7 +38,7 @@ _MINIMAL_RUNTIME = {
     'env_vars': {'required': [], 'optional': []},
     'setup': [],
 }
-_MINIMAL_KNOWLEDGE = {'principles': {'parameters': [], 'sections': []}, 'types': []}
+_MINIMAL_KNOWLEDGE = {'principles': {'sections': []}, 'types': []}
 _MINIMAL_UI = {
     'app': {'name': 'Acme', 'icon': '🤖', 'description': ''},
     'empty_state': {'icon': '🤖', 'title': 'Pick an agent', 'body': ''},
@@ -74,6 +74,7 @@ def _spec_py(spec_dir: Path, **org_overrides: object) -> None:
         f'    org=Org({org_kwargs}),\n'
         f'    runtime={_MINIMAL_RUNTIME!r},\n'
         f'    ai=AI(agents=[], teams=[], workflows=[]),\n'
+        f'    parameters=[],\n'
         f'    knowledge={_MINIMAL_KNOWLEDGE!r},\n'
         f'    ui={_MINIMAL_UI!r},\n'
         f')\n',

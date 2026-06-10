@@ -12,13 +12,13 @@ interface OverviewViewProps {
 }
 
 function ParameterList({ config, configured }: { config: AppConfig; configured: boolean }) {
-  const params = config.principles?.parameters ?? [];
+  const params = config.parameters ?? [];
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(params.map(p => [p.name, p.default])),
   );
   useEffect(() => {
     if (!configured) return;
-    apiFetch<{ parameters: Record<string, unknown> }>('/api/v1/state')
+    apiFetch<{ parameters: Record<string, unknown> }>('/api/v1/parameters')
       .then(s => setValues((v: Record<string, unknown>) => ({ ...v, ...(s.parameters ?? {}) })))
       .catch(() => {/* fall back to defaults */});
   }, [configured]);
@@ -37,7 +37,7 @@ function ParameterList({ config, configured }: { config: AppConfig; configured: 
 
 function PrinciplesSection({ config, configured }: { config: AppConfig; configured: boolean }) {
   const sections = config.principles?.sections ?? [];
-  const hasParams = (config.principles?.parameters ?? []).length > 0;
+  const hasParams = (config.parameters ?? []).length > 0;
   if (sections.length === 0 && !hasParams) return null;
   return (
     <section className={styles.section}>

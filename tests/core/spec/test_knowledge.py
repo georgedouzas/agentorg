@@ -9,39 +9,15 @@ from agentorg.core.spec import (
     Knowledge,
     KnowledgeType,
     KnowledgeTypeMetadataField,
-    PrincipleParameter,
     Principles,
     PrincipleSection,
 )
 
-PARAMETER: dict[str, Any] = {'name': 'min_sources', 'type': 'int', 'default': 3, 'label': 'Min Sources', 'format': None}
 SECTION: dict[str, Any] = {'id': 'mission', 'title': 'Mission', 'body': '- Do good work.'}
 METADATA_FIELD: dict[str, Any] = {'name': 'author', 'type': 'string'}
 KNOWLEDGE_TYPE: dict[str, Any] = {'id': 'report', 'label': 'Reports', 'metadata_fields': [METADATA_FIELD]}
-PRINCIPLES: dict[str, Any] = {'parameters': [PARAMETER], 'sections': [SECTION]}
+PRINCIPLES: dict[str, Any] = {'sections': [SECTION]}
 KNOWLEDGE: dict[str, Any] = {'principles': PRINCIPLES, 'types': [KNOWLEDGE_TYPE]}
-
-
-def test_principle_parameter_fields() -> None:
-    """`PrincipleParameter` carries name, type, default, label, and an optional format."""
-    param = PrincipleParameter(**PARAMETER)
-    assert param.name == 'min_sources'
-    assert param.type == 'int'
-    assert param.default == PARAMETER['default']
-    assert param.format is None
-
-
-@pytest.mark.parametrize('missing', list(PARAMETER))
-def test_principle_parameter_missing_field_raises(missing: str) -> None:
-    """Every `PrincipleParameter` field is required (`format` may be None but must be passed)."""
-    with pytest.raises(ValidationError):
-        PrincipleParameter(**{k: v for k, v in PARAMETER.items() if k != missing})
-
-
-def test_principle_parameter_rejects_unknown_type() -> None:
-    """`type` is a closed `Literal`."""
-    with pytest.raises(ValidationError):
-        PrincipleParameter(**{**PARAMETER, 'type': 'datetime'})
 
 
 def test_principle_section_fields() -> None:
@@ -51,18 +27,16 @@ def test_principle_section_fields() -> None:
     assert section.body.startswith('- Do good work.')
 
 
-def test_principles_holds_parameters_and_sections() -> None:
-    """`Principles` coerces dict parameters and sections into their models."""
+def test_principles_holds_sections() -> None:
+    """`Principles` coerces dict sections into their models."""
     principles = Principles(**PRINCIPLES)
-    assert principles.parameters[0].name == 'min_sources'
     assert principles.sections[0].id == 'mission'
 
 
-@pytest.mark.parametrize('missing', ['parameters', 'sections'])
-def test_principles_fields_required(missing: str) -> None:
-    """`parameters` and `sections` are required keys (empty lists allowed, omission is not)."""
+def test_principles_sections_required() -> None:
+    """`sections` is a required key on `Principles` (empty list allowed, omission is not)."""
     with pytest.raises(ValidationError):
-        Principles(**{k: v for k, v in PRINCIPLES.items() if k != missing})
+        Principles()  # type: ignore[call-arg]
 
 
 def test_knowledge_type_fields() -> None:
@@ -88,7 +62,7 @@ def test_knowledge_type_missing_field_raises(missing: str) -> None:
 def test_knowledge_construction() -> None:
     """`Knowledge` wraps the principles and the knowledge-type catalogue, coercing dicts."""
     knowledge = Knowledge.model_validate(KNOWLEDGE)
-    assert knowledge.principles.parameters[0].name == 'min_sources'
+    assert knowledge.principles.sections[0].id == 'mission'
     assert knowledge.types[0].id == 'report'
 
 

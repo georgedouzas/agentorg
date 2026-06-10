@@ -9,9 +9,9 @@ import pytest_asyncio
 
 @pytest.fixture(scope='session')
 def needs_memory() -> None:
-    """Skip the test unless a control plane is configured (knowledge/state can't round-trip without one)."""
+    """Skip the test unless a control plane is configured (knowledge / parameters can't round-trip without one)."""
     if not os.getenv('AGENTFIELD_SERVER'):
-        pytest.skip('AGENTFIELD_SERVER not set; knowledge/state need an AgentField control plane.')
+        pytest.skip('AGENTFIELD_SERVER not set; knowledge / parameters need an AgentField control plane.')
 
 
 @pytest_asyncio.fixture(scope='session')

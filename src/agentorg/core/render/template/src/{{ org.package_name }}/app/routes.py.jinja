@@ -27,12 +27,12 @@ def _py_type(t: str) -> type:
     return {'int': int, 'float': float, 'string': str, 'bool': bool, 'object': dict, 'array': list}.get(t, str)
 
 
-def _state_model(spec: Spec) -> type[BaseModel]:
+def _parameters_model(spec: Spec) -> type[BaseModel]:
     fields: dict[str, Any] = {}
-    for p in spec.knowledge.principles.parameters:
+    for p in spec.parameters:
         py = _py_type(p.type)
         fields[p.name] = (py, Field(default=p.default))
-    return create_model('OrgConfig', **fields)  # type: ignore[call-overload]
+    return create_model('OrgParameters', **fields)  # type: ignore[call-overload]
 
 
 def _document(unit: dict[str, Any]) -> dict[str, Any]:
@@ -83,7 +83,7 @@ def _agent_summary(agent: Any) -> dict[str, Any]:
 def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     """Build the FastAPI router with handlers closed over the AgentField node and spec."""
     router = APIRouter(prefix='/api/v1', tags=['api'])
-    org_config = _state_model(spec)
+    org_parameters = _parameters_model(spec)
     # AgentField exposes `app.memory` only inside reasoner executions; HTTP handlers run outside
     # any execution context, so capture the interface once at build time and reuse it.
     memory = app.memory
@@ -104,7 +104,7 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     def ui_config() -> dict[str, Any]:
         ui = spec.ui
         principles = spec.knowledge.principles
-        defaults = {p.name: p.default for p in principles.parameters}
+        defaults = {p.name: p.default for p in spec.parameters}
         sections = [
             {'id': s.id, 'title': s.title, 'body': s.body.format_map(_Safe(defaults))}
             for s in principles.sections
@@ -121,27 +121,28 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             'agent_icons': {**PLATFORM_AGENT_ICONS, **ui.agent_icons},
             'overview': [b.model_dump() for b in ui.overview],
             'agent_configs': {k: v.model_dump() for k, v in ui.agent_configs.items()},
-            'principles': {'parameters': [p.model_dump() for p in principles.parameters], 'sections': sections},
+            'parameters': [p.model_dump() for p in spec.parameters],
+            'principles': {'sections': sections},
             'types': [t.model_dump() for t in spec.knowledge.types],
             'platform_agent_groups': [{'label': g['label'], 'ids': list(g['ids'])} for g in PLATFORM_AGENT_GROUPS],
         }
 
-    # ── State ───────────────────────────────────────────────────────────────
-    @router.get('/state')
-    async def get_state(user_id: str = Query(default='default')) -> dict[str, Any]:
+    # ── Org instance parameters ─────────────────────────────────────────────
+    @router.get('/parameters')
+    async def get_parameters(user_id: str = Query(default='default')) -> dict[str, Any]:
         state = await memory.actor(user_id).get('org_state')
         if state is None:
-            return {'configured': False, 'parameters': {}, 'data': {}}
-        return {'configured': True, 'parameters': state.get('parameters', {}), 'data': state.get('data', {})}
+            return {'configured': False, 'parameters': {}}
+        return {'configured': True, 'parameters': state.get('parameters', {})}
 
-    @router.post('/state')
-    async def set_state(body: org_config, user_id: str = Query(default='default')) -> dict[str, Any]:  # type: ignore[valid-type]
+    @router.post('/parameters')
+    async def set_parameters(body: org_parameters, user_id: str = Query(default='default')) -> dict[str, Any]:  # type: ignore[valid-type]
         params = {**body.model_dump(), 'inception_date': datetime.now(tz=UTC).date().isoformat()}
-        await memory.actor(user_id).set('org_state', {'parameters': params, 'data': {}})
+        await memory.actor(user_id).set('org_state', {'parameters': params})
         return {'status': 'configured', 'parameters': params}
 
-    @router.post('/state/reset')
-    async def reset_state(user_id: str = Query(default='default')) -> dict[str, Any]:
+    @router.post('/parameters/reset')
+    async def reset_parameters(user_id: str = Query(default='default')) -> dict[str, Any]:
         for key in [k for k in await knowledge.list_keys() if k.startswith(_KN_PREFIX)]:
             await knowledge.delete(key)
         await memory.actor(user_id).delete('org_state')

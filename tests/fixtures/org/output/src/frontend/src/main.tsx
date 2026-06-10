@@ -16,7 +16,7 @@ function slugify(name: string): string {
 // RESET_ON_STARTUP=1 wiping `org_state`), drop the local identity so the app
 // boots straight to the LoginScreen.
 async function fetchStateWithRetry(userId: string, retries = 8, delayMs = 600): Promise<{ configured?: boolean } | null> {
-  const url = `${API_BASE}/api/v1/state?user_id=${encodeURIComponent(userId)}`;
+  const url = `${API_BASE}/api/v1/parameters?user_id=${encodeURIComponent(userId)}`;
   for (let i = 0; i < retries; i++) {
     try {
       const res = await fetch(url, { cache: 'no-store' });

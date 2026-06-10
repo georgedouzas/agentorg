@@ -170,24 +170,24 @@ spec = Spec(
         teams=[research_team],
         workflows=[research_pipeline],
     ),
+    parameters=[
+        {
+            'name': 'domain_focus',
+            'type': 'string',
+            'default': 'Applied Research',
+            'label': 'Domain Focus',
+            'format': None,
+        },
+        {
+            'name': 'min_sources',
+            'type': 'int',
+            'default': 3,
+            'label': 'Minimum Sources',
+            'format': None,
+        },
+    ],
     knowledge={
         'principles': {
-            'parameters': [
-                {
-                    'name': 'domain_focus',
-                    'type': 'string',
-                    'default': 'Applied Research',
-                    'label': 'Domain Focus',
-                    'format': None,
-                },
-                {
-                    'name': 'min_sources',
-                    'type': 'int',
-                    'default': 3,
-                    'label': 'Minimum Sources',
-                    'format': None,
-                },
-            ],
             'sections': [
                 {
                     'id': 'mission',

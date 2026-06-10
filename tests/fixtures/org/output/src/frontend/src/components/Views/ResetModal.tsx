@@ -21,7 +21,7 @@ export function ResetModal({ orgName, onClose }: ResetModalProps) {
   async function submit() {
     setSubmitting(true);
     try {
-      await apiPost('/api/v1/state/reset', {});
+      await apiPost('/api/v1/parameters/reset', {});
       window.location.reload();
     } catch (e) {
       window.alert('Reset failed: ' + (e as Error).message);

@@ -5,6 +5,7 @@ export interface AppConfig {
   empty_state: EmptyState;
   knowledge_empty: string;
   types: KnowledgeType[];
+  parameters: Parameter[];
   principles: Principles;
   agent_groups: AgentGroup[];
   workflow_groups?: AgentGroup[];
@@ -17,7 +18,7 @@ export interface AppConfig {
 
 export interface EmptyState { icon: string; title: string; body: string; }
 export interface KnowledgeType { id: string; label: string; metadata_fields?: { name: string; type: string }[]; }
-export interface PrincipleParameter {
+export interface Parameter {
   name: string;
   type: string;
   default: number | string | boolean;
@@ -25,7 +26,7 @@ export interface PrincipleParameter {
   format?: string | null;
 }
 export interface PrincipleSection { id: string; title: string; body: string; }
-export interface Principles { parameters: PrincipleParameter[]; sections: PrincipleSection[]; }
+export interface Principles { sections: PrincipleSection[]; }
 
 export interface AgentGroup { label: string; ids: string[]; }
 export interface FeaturedAgent { id: string; label?: string; accent?: string; }

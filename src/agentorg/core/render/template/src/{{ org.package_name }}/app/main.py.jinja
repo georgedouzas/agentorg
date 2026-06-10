@@ -49,7 +49,7 @@ class _SafeDefaults(dict):
     def __missing__(self, key: str) -> str:
         return '{' + key + '}'
 
-_param_defaults = _SafeDefaults({p.name: p.default for p in spec.knowledge.principles.parameters})
+_param_defaults = _SafeDefaults({p.name: p.default for p in spec.parameters})
 _principles_text = '\n\n'.join(
     f'### {s.title}\n\n{s.body.format_map(_param_defaults).strip()}'
     for s in spec.knowledge.principles.sections

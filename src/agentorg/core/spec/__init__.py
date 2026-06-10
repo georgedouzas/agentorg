@@ -6,11 +6,11 @@ from ._knowledge import (
     Knowledge,
     KnowledgeType,
     KnowledgeTypeMetadataField,
-    PrincipleParameter,
     Principles,
     PrincipleSection,
 )
 from ._org import Org
+from ._parameters import Parameter
 from ._runtime import EnvVar, EnvVars, Infra, Runtime, SetupStep
 from ._ui import UI, AgentConfigUI, AppUI, EmptyState, GroupRef, OverviewBlock
 
@@ -29,7 +29,7 @@ __all__ = [
     'KnowledgeTypeMetadataField',
     'Org',
     'OverviewBlock',
-    'PrincipleParameter',
+    'Parameter',
     'PrincipleSection',
     'Principles',
     'Runtime',

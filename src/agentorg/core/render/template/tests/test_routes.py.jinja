@@ -20,11 +20,11 @@ async def test_get_config_includes_sidebar_groups(client) -> None:  # noqa: ANN0
     assert isinstance(body.get('workflow_groups'), list)
 
 
-async def test_get_config_includes_principles(client) -> None:  # noqa: ANN001
-    """`GET /api/v1/config` surfaces the principles from the spec."""
+async def test_get_config_includes_parameters_and_principles(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/config` surfaces the org parameters and principle sections from the spec."""
     body = (await client.get('/api/v1/config')).json()
+    assert isinstance(body.get('parameters'), list)
     assert 'principles' in body
-    assert isinstance(body['principles'].get('parameters'), list)
     assert isinstance(body['principles'].get('sections'), list)
 
 
@@ -42,17 +42,17 @@ async def test_get_setup_returns_steps(client) -> None:  # noqa: ANN001
 
 
 @pytest.mark.usefixtures('needs_memory')
-async def test_get_state_returns_defaults_for_fresh_user(client) -> None:  # noqa: ANN001
-    """`GET /api/v1/state` returns `configured: False` for a never-set-up user."""
-    r = await client.get('/api/v1/state?user_id=fresh_user')
+async def test_get_parameters_returns_defaults_for_fresh_user(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/parameters` returns `configured: False` for a never-set-up user."""
+    r = await client.get('/api/v1/parameters?user_id=fresh_user')
     assert r.status_code == 200
     assert r.json().get('configured') is False
 
 
 @pytest.mark.usefixtures('needs_memory')
-async def test_post_state_reset_succeeds(client) -> None:  # noqa: ANN001
-    """`POST /api/v1/state/reset` is idempotent (works even when nothing exists)."""
-    r = await client.post('/api/v1/state/reset?user_id=temp_user')
+async def test_post_parameters_reset_succeeds(client) -> None:  # noqa: ANN001
+    """`POST /api/v1/parameters/reset` is idempotent (works even when nothing exists)."""
+    r = await client.post('/api/v1/parameters/reset?user_id=temp_user')
     assert r.status_code == 200
     assert r.json().get('status') == 'reset'
 
