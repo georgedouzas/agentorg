@@ -1,6 +1,7 @@
 """The Platform Engineer — operates the org's runtime."""
 
-from ....tools import get_setup_status, get_state, reset_state, update_state
+from agentorg.core.agents.tools import get_setup_status, get_state, reset_state, update_state
+
 from .._make import platform_make_agent
 from ._tools import check_health, list_env_vars, read_infra
 

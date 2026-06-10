@@ -6,7 +6,7 @@ Two custom agents (`researcher`, `analyst`), one pipeline workflow, one coordina
 from agno.team import Team
 from agno.workflow import Step, Workflow
 
-from agentorg.core.agents.agno import make_agent
+from agentorg.core.agents.framework.agno import make_agent
 from agentorg.core.spec import AI, Org, Spec
 from agentorg.core.agents.tools import list_knowledge, read_knowledge, write_knowledge
 

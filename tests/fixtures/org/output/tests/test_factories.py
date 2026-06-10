@@ -3,7 +3,7 @@
 from agentfield import Agent
 
 from agentorg.core.adapters.agno import register_agents, register_teams, register_workflows
-from agentorg.core.agents.agno.platform import PLATFORM_AGENTS, register_platform_agents
+from agentorg.core.agents.framework.agno.platform import PLATFORM_AGENTS, register_platform_agents
 
 from org.spec import spec
 

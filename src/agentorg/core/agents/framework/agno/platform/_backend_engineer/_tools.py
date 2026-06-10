@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ....tools._tags import tags
+from agentorg.core.agents.tools._tags import tags
 
 
 @tags('platform', 'backend')

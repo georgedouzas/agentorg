@@ -1,12 +1,13 @@
 """The Knowledge Engineer — curates the org's knowledge base."""
 
-from ....tools import (
+from agentorg.core.agents.tools import (
     delete_knowledge,
     list_knowledge,
     read_knowledge,
     search_knowledge,
     write_knowledge,
 )
+
 from .._make import platform_make_agent
 
 agent = platform_make_agent(

@@ -4,7 +4,7 @@ import os
 import re
 from pathlib import Path
 
-from ....tools._tags import tags
+from agentorg.core.agents.tools._tags import tags
 
 _SECRET_PATTERNS = [
     re.compile(r'AKIA[0-9A-Z]{16}'),

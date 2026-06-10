@@ -1,4 +1,4 @@
-"""Agent factories and the agentorg `Agent` type."""
+"""Agent factories, tools and skills."""
 
 from ._types import Agent, AgnoAgent
 

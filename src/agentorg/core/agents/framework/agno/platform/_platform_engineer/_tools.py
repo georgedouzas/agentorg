@@ -3,7 +3,7 @@
 import os
 import socket
 
-from ....tools._tags import tags
+from agentorg.core.agents.tools._tags import tags
 
 
 @tags('platform', 'infra')

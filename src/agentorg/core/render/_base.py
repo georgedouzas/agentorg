@@ -9,7 +9,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from agentorg.core.agents.agno.platform import PLATFORM_AGENTS
+from agentorg.core.agents.framework.agno.platform import PLATFORM_AGENTS
 from agentorg.core.spec import Spec
 
 

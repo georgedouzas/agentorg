@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from agentorg.core.agents.agno import GitHubSkills
+from agentorg.core.agents.framework.agno import GitHubSkills
 
 
 def _cache_key(url: str, ref: str) -> str:

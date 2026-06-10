@@ -3,7 +3,8 @@
 import pytest
 from agno.skills.loaders.local import LocalSkills
 
-from agentorg.core.agents.agno import DEFAULT_SKILLS_REFS, GitHubSkills, make_agent
+from agentorg.core.agents.framework.agno import GitHubSkills, make_agent
+from agentorg.core.agents.skills import DEFAULT_SKILLS_REFS
 
 AGENT_ARGS = {
     'model': 'google:gemini-2.5-flash',

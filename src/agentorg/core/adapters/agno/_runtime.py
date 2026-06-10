@@ -61,7 +61,7 @@ def register_agents(node: AgentFieldNode, spec: Spec, principles_text: str = '')
     """Register every user agent in `spec.ai.agents` as a reasoner tagged `agent`.
 
     Platform agents are not handled here — they register through
-    `agentorg.core.agents.agno.platform.register_platform_agents`.
+    `agentorg.core.agents.framework.agno.platform.register_platform_agents`.
 
     Arguments:
         node: The AgentField node to register on.

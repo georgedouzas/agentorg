@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, create_model
 from sse_starlette.sse import EventSourceResponse
 
 from agentorg.core.agents.tools import PREFIX as _KN_PREFIX, similarity_units
-from agentorg.core.agents.agno.platform import PLATFORM_AGENT_GROUPS, PLATFORM_AGENT_ICONS, PLATFORM_AGENT_IDS, PLATFORM_AGENTS
+from agentorg.core.agents.framework.agno.platform import PLATFORM_AGENT_GROUPS, PLATFORM_AGENT_ICONS, PLATFORM_AGENT_IDS, PLATFORM_AGENTS
 from agentorg.core.spec import Spec
 
 
