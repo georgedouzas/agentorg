@@ -10,6 +10,7 @@ from ._knowledge import (
 from ._knowledge_storage import PREFIX, similarity_units
 from ._setup import get_setup_status
 from ._state import get_state, reset_state, update_state
+from ._tags import tags
 
 __all__ = [
     'PREFIX',
@@ -21,6 +22,7 @@ __all__ = [
     'reset_state',
     'search_knowledge',
     'similarity_units',
+    'tags',
     'update_state',
     'write_knowledge',
 ]
