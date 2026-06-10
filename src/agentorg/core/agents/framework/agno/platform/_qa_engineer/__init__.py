@@ -1,4 +1,4 @@
-"""The QA Engineer — runs tests and validates the spec."""
+"""The QA Engineer."""
 
 from ._agent import agent
 

@@ -1,4 +1,4 @@
-"""The six built-in platform agents shipped with every org."""
+"""The built-in platform agents."""
 
 from ._base import PLATFORM_AGENT_IDS, PLATFORM_AGENTS
 from ._defaults import (

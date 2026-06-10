@@ -1,4 +1,4 @@
-"""The Security Engineer — audits secrets, env vars, and AgentField governance."""
+"""The Security Engineer."""
 
 from ._agent import agent
 

@@ -10,7 +10,14 @@ from agentorg.core.agents.tools._tags import tags
 
 @tags('platform', 'backend')
 def list_agent_ids(spec_agents: list[dict[str, Any]] | None = None) -> str:
-    """List every agent id in the spec."""
+    """List every agent id in the spec.
+
+    Arguments:
+        spec_agents: Agent dicts from the spec, or None for an empty list.
+
+    Returns:
+        listing: The agent ids, one per line.
+    """
     agents = spec_agents or []
     if not agents:
         return 'No agents in spec.'
@@ -19,7 +26,15 @@ def list_agent_ids(spec_agents: list[dict[str, Any]] | None = None) -> str:
 
 @tags('platform', 'backend')
 def read_agent_spec(agent_id: str, spec_agents: list[dict[str, Any]] | None = None) -> str:
-    """Return the agent's spec entry as pretty-printed JSON."""
+    """Return the agent's spec entry as pretty-printed JSON.
+
+    Arguments:
+        agent_id: The agent id to look up.
+        spec_agents: Agent dicts from the spec, or None for an empty list.
+
+    Returns:
+        json: The agent's spec entry, or a not-found message.
+    """
     for agent in spec_agents or []:
         if agent.get('id') == agent_id:
             return json.dumps(agent, indent=2)

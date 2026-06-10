@@ -11,7 +11,15 @@ _LITELLM_PROVIDER_ALIASES = {'google': 'gemini'}
 
 
 def key(type_: str, name: str) -> str:
-    """Memory key for a knowledge unit identified by `type` and `name`."""
+    """Compose the memory key for a knowledge unit.
+
+    Arguments:
+        type_: The knowledge type.
+        name: The unit name within the type.
+
+    Returns:
+        key: The composed `kn:<type>:<name>` memory key.
+    """
     return f'{PREFIX}{type_}:{name}'
 
 
@@ -37,7 +45,14 @@ async def embed(text: str, model: str | None) -> list[float] | None:
 
 
 async def list_units(scope: Any) -> list[dict[str, Any]]:
-    """Hydrate every `kn:`-prefixed entry in `scope` into its stored JSON unit."""
+    """Hydrate every knowledge unit stored under the `kn:` prefix.
+
+    Arguments:
+        scope: The AgentField memory scope to read from.
+
+    Returns:
+        units: The stored knowledge units.
+    """
     keys = [k for k in await scope.list_keys() if k.startswith(PREFIX)]
     units = [await scope.get(k) for k in keys]
     return [u for u in units if u is not None]

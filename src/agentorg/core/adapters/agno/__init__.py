@@ -1,4 +1,4 @@
-"""The agno → AgentField runtime adapter."""
+"""The agno to AgentField adapter."""
 
 from ._runtime import register_agents, register_reasoner, register_teams, register_workflows
 

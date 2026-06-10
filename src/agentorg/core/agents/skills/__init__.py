@@ -1,4 +1,4 @@
-"""Skills references."""
+"""Framework-agnostic skills that agents use."""
 
 from ._refs import DEFAULT_SKILLS_REFS
 

@@ -1,4 +1,4 @@
-"""Core agentorg machinery for spec models, rendering, and runtime tools."""
+"""Core agentorg machinery for organization specification, rendering, agents and runtime tools."""
 
 from .render import render
 

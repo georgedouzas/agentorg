@@ -1,4 +1,4 @@
-"""The Knowledge Engineer — curates the org's knowledge base."""
+"""The Knowledge Engineer."""
 
 from ._agent import agent
 

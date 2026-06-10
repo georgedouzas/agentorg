@@ -1,1 +1,1 @@
-"""Per-framework agent construction subpackages — one per `spec.ai.framework` value."""
+"""Per-framework agent construction subpackages."""

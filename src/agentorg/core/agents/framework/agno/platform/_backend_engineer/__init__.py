@@ -1,4 +1,4 @@
-"""The Backend Engineer — owns Python code and agent specs."""
+"""The Backend Engineer."""
 
 from ._agent import agent
 

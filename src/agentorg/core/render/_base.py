@@ -81,10 +81,10 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
 def render(spec_path: Path, output_dir: Path, template_dir: Path | None = None) -> None:
     """Render the project template from a spec file.
 
-    Args:
+    Arguments:
         spec_path: Path to the user's `spec.py`.
-        output_dir: Output directory (created/overwritten in place).
-        template_dir: Override the template root (defaults to the agentorg-shipped template).
+        output_dir: Output directory, created or overwritten in place.
+        template_dir: Override the template root, or None to use the agentorg-shipped template.
     """
     # Load specification
     spec = runpy.run_path(str(spec_path)).get('spec')

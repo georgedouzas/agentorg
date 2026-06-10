@@ -1,4 +1,4 @@
-"""The Frontend Engineer — owns the dashboard's UI configuration."""
+"""The Frontend Engineer."""
 
 from ._agent import agent
 

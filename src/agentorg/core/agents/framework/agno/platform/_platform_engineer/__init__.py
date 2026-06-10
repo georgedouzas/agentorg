@@ -1,4 +1,4 @@
-"""The Platform Engineer — operates the org's runtime."""
+"""The Platform Engineer."""
 
 from ._agent import agent
 

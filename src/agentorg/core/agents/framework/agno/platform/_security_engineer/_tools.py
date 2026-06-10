@@ -17,7 +17,14 @@ _SECRET_PATTERNS = [
 
 @tags('platform', 'security')
 def scan_secrets(scan_dir: str = 'src') -> str:
-    """Scan every `.py` file under `scan_dir` for likely hardcoded secrets."""
+    """Scan `.py` files for likely hardcoded secrets.
+
+    Arguments:
+        scan_dir: The directory to scan recursively.
+
+    Returns:
+        report: A list of likely matches with file and line, or a clean message.
+    """
     root = Path(scan_dir)
     if not root.exists():
         return f'No directory at {scan_dir}.'
@@ -33,7 +40,14 @@ def scan_secrets(scan_dir: str = 'src') -> str:
 
 @tags('platform', 'security')
 def list_required_env_vars(required: list[str] | None = None) -> str:
-    """List the spec's required env vars + their set/unset status."""
+    """List the spec's required env vars and their set/unset status.
+
+    Arguments:
+        required: The required env var names, or None for an empty list.
+
+    Returns:
+        listing: Each env var with a `set` or `MISSING` marker.
+    """
     required = required or []
     if not required:
         return 'No required env vars declared.'

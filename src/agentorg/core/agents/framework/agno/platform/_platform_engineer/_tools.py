@@ -20,7 +20,11 @@ def read_infra() -> str:
 
 @tags('platform', 'infra')
 def list_env_vars() -> str:
-    """List all `AGENTORG_*` and `DB_*` env vars currently set."""
+    """List the org-related env vars currently set.
+
+    Returns:
+        listing: Each set env var name, one per line.
+    """
     lines = ['Env vars:']
     for name in sorted(os.environ):
         if name.startswith(('AGENTORG_', 'DB_', 'GOOGLE_', 'EXA_')):
@@ -30,7 +34,16 @@ def list_env_vars() -> str:
 
 @tags('platform', 'infra')
 def check_health(host: str = '127.0.0.1', port: int = 8000, timeout: float = 1.0) -> str:
-    """Quick TCP check that the FastAPI app is listening."""
+    """TCP-check that the FastAPI app is listening.
+
+    Arguments:
+        host: The host to connect to.
+        port: The port to connect to.
+        timeout: The connection timeout in seconds.
+
+    Returns:
+        status: An `OK` or `FAIL` line with the host, port, and error if any.
+    """
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return f'OK: {host}:{port} reachable.'

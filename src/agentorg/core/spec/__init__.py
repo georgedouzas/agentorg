@@ -1,4 +1,4 @@
-"""Pydantic models describing the agentorg spec."""
+"""Pydantic models describing the agentorg specification."""
 
 from ._ai import AI
 from ._base import Spec
