@@ -82,8 +82,8 @@ export default function App() {
 
   useEffect(() => {
     if (!identity.loggedIn) return;
-    apiFetch<{ configured: boolean }>('/api/v1/parameters')
-      .then(d => setConfigured(d.configured))
+    apiFetch<{ parameters: Record<string, unknown> }>('/api/v1/parameters')
+      .then(d => setConfigured(Object.keys(d.parameters ?? {}).length > 0))
       .catch(() => setConfigured(false));
   }, [identity.loggedIn, identity.userId]);
 

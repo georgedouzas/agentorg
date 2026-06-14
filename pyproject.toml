@@ -76,6 +76,9 @@ dev = [
     "git-changelog>=2.5.2",
     "twine>=5.1.1",
     "nox[uv]>=2024.4.15",
+    "pytest-asyncio>=0.23.0",
+    "testcontainers>=4.0.0",
+    "types-requests>=2.33.0.20260518",
 ]
 
 [project.scripts]
@@ -134,6 +137,7 @@ python_files = ["test_*.py"]
 addopts = "--cov"
 testpaths = ["tests"]
 norecursedirs = ["tests/fixtures"]
+asyncio_mode = "auto"
 markers = ["network: test clones from public git remotes; deselect with -m 'not network'"]
 
 [tool.coverage.run]

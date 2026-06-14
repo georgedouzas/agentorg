@@ -129,23 +129,21 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
 
     # ── Org instance parameters ─────────────────────────────────────────────
     @router.get('/parameters')
-    async def get_parameters(user_id: str = Query(default='default')) -> dict[str, Any]:
-        state = await memory.actor(user_id).get('org_state')
-        if state is None:
-            return {'configured': False, 'parameters': {}}
-        return {'configured': True, 'parameters': state.get('parameters', {})}
+    async def get_parameters() -> dict[str, Any]:
+        state = await knowledge.get('org_parameters')
+        return {'parameters': state.get('parameters', {}) if state else {}}
 
     @router.post('/parameters')
-    async def set_parameters(body: org_parameters, user_id: str = Query(default='default')) -> dict[str, Any]:  # type: ignore[valid-type]
+    async def set_parameters(body: org_parameters) -> dict[str, Any]:  # type: ignore[valid-type]
         params = {**body.model_dump(), 'inception_date': datetime.now(tz=UTC).date().isoformat()}
-        await memory.actor(user_id).set('org_state', {'parameters': params})
+        await knowledge.set('org_parameters', {'parameters': params})
         return {'status': 'configured', 'parameters': params}
 
     @router.post('/parameters/reset')
-    async def reset_parameters(user_id: str = Query(default='default')) -> dict[str, Any]:
+    async def reset_parameters() -> dict[str, Any]:
         for key in [k for k in await knowledge.list_keys() if k.startswith(_KN_PREFIX)]:
             await knowledge.delete(key)
-        await memory.actor(user_id).delete('org_state')
+        await knowledge.delete('org_parameters')
         return {'status': 'reset', 'errors': []}
 
     # ── Setup checklist ─────────────────────────────────────────────────────
