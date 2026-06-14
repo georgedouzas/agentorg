@@ -13,7 +13,7 @@ from agentfield import Agent
 from httpx import ASGITransport, AsyncClient
 from testcontainers.core.container import DockerContainer
 
-from agentorg.core.agents.tools import get_org_parameters, reset_org_parameters, set_org_parameter
+from agentorg.core.agents import tools as _tools
 
 HEALTHY = 200
 START_TIMEOUT_S = 30
@@ -43,10 +43,11 @@ def control_plane() -> Iterator[str]:
 
 @pytest_asyncio.fixture
 async def client(control_plane: str) -> AsyncIterator[AsyncClient]:
-    """A test node with the parameter tools registered as reasoners, fronted by an httpx client."""
+    """A test node with every `@tags`-decorated tool registered as a reasoner, fronted by an httpx client."""
     node = Agent(node_id='test-node')
-    for fn in (get_org_parameters, set_org_parameter, reset_org_parameters):
-        node.reasoner(name=fn.__name__, tags=getattr(fn, 'tags', []))(fn)
+    for fn in (getattr(_tools, n) for n in _tools.__all__):
+        if callable(fn) and hasattr(fn, 'tags'):
+            node.reasoner(name=fn.__name__, tags=fn.tags)(fn)
     async with AsyncClient(transport=ASGITransport(app=node), base_url='http://test') as client:
         yield client
 
