@@ -40,3 +40,11 @@ def node() -> Iterator[object]:
     Agent.get_current = staticmethod(lambda: app)  # type: ignore[method-assign]
     yield app
     Agent.get_current = original  # type: ignore[method-assign]
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _isolate_state(client) -> AsyncIterator[None]:  # noqa: ANN001
+    """Wipe parameters and `kn:*` knowledge keys before each test so shared control-plane state doesn't leak."""
+    if os.getenv('AGENTFIELD_SERVER'):
+        await client.post('/api/v1/parameters/reset')
+    yield

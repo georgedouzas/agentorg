@@ -32,22 +32,22 @@ async def test_write_knowledge_replaces_existing_unit(call):
 
 async def test_list_knowledge_filters_by_type(call):
     """`list_knowledge(knowledge_type=...)` lists only units of that type, in the canonical format."""
-    await call('write_knowledge', type='report', name='q1', content='Q1 sales up 12%.')
-    await call('write_knowledge', type='report', name='q2', content='Q2 sales up 15%.')
-    await call('write_knowledge', type='action', name='hedge-sell', content='Sell stocks.')
-    result = await call('list_knowledge', knowledge_type='report')
+    await call('write_knowledge', type='rpt', name='q1', content='Q1 sales up 12%.')
+    await call('write_knowledge', type='rpt', name='q2', content='Q2 sales up 15%.')
+    await call('write_knowledge', type='act', name='hedge-sell', content='Sell stocks.')
+    result = await call('list_knowledge', knowledge_type='rpt')
     stripped = re.sub(r'\s*\(updated [^)]+\)', '', result)
-    assert stripped == 'Report:\n  - q1\n  - q2'
+    assert stripped == 'Rpt:\n  - q1\n  - q2'
 
 
 async def test_list_knowledge_filters_by_metadata(call):
     """`list_knowledge(metadata_filter=...)` lists only units whose metadata is a superset of the filter."""
-    await call('write_knowledge', type='report', name='q1', content='Q1.', metadata={'author': 'alice'})
-    await call('write_knowledge', type='report', name='q2', content='Q2.', metadata={'author': 'alice'})
-    await call('write_knowledge', type='report', name='q3', content='Q3.', metadata={'author': 'bob'})
-    result = await call('list_knowledge', metadata_filter={'author': 'alice'})
+    await call('write_knowledge', type='meta', name='q1', content='Q1.', metadata={'author': 'alice-uniq'})
+    await call('write_knowledge', type='meta', name='q2', content='Q2.', metadata={'author': 'alice-uniq'})
+    await call('write_knowledge', type='meta', name='q3', content='Q3.', metadata={'author': 'bob-uniq'})
+    result = await call('list_knowledge', metadata_filter={'author': 'alice-uniq'})
     stripped = re.sub(r'\s*\(updated [^)]+\)', '', result)
-    assert stripped == "Report:\n  - q1 {'author': 'alice'}\n  - q2 {'author': 'alice'}"
+    assert stripped == "Meta:\n  - q1 {'author': 'alice-uniq'}\n  - q2 {'author': 'alice-uniq'}"
 
 
 async def test_list_knowledge_shows_title_when_set(call):

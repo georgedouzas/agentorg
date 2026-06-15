@@ -66,3 +66,10 @@ def call(client: AsyncClient) -> Callable[..., Awaitable[Any]]:
             return payload
 
     return _call
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _isolate_global_state(client: AsyncClient) -> AsyncIterator[None]:
+    """Reset org parameters before each test so shared control-plane state doesn't leak between tests."""
+    await client.post('/reasoners/reset_org_parameters', json={})
+    yield

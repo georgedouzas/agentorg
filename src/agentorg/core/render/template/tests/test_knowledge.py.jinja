@@ -28,7 +28,7 @@ async def test_list_filters_by_type() -> None:
     """`list_knowledge(type='report')` surfaces a written report."""
     name = f'listed_{uuid.uuid4().hex[:8]}'
     await write_knowledge(type='report', name=name, title='Listed', content='c1')
-    listing = await list_knowledge(type='report')
+    listing = await list_knowledge(knowledge_type='report')
     assert name in listing
 
 
@@ -38,5 +38,5 @@ async def test_delete_removes_a_unit() -> None:
     name = f'gone_{uuid.uuid4().hex[:8]}'
     await write_knowledge(type='report', name=name, title='X', content='gone soon')
     await delete_knowledge(type='report', name=name)
-    listing = await list_knowledge(type='report')
+    listing = await list_knowledge(knowledge_type='report')
     assert name not in listing

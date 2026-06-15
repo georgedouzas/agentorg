@@ -1,4 +1,4 @@
-"""Tests for the skills module."""
+"""Tests for the skills loaders module."""
 
 import hashlib
 import subprocess
@@ -42,9 +42,8 @@ def test_clone_is_cached_not_refetched(cache_root):
     """The first load clones; a second load with the same (url, ref) reuses the clone instead of refetching."""
     url, ref = 'https://github.com/upstash/context7', 'master'
     first = GitHubSkills(url, ref=ref, subpath='skills').load()
-    assert {s.name for s in first}  # non-empty
+    assert {s.name for s in first}
 
-    # A re-clone would wipe and recreate the dir, so a sentinel surviving proves the cache was reused.
     dest = cache_root / _cache_key(url, ref)
     sentinel = dest / '.agentorg-cache-probe'
     sentinel.write_text('x')
