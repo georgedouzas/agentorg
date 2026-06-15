@@ -83,7 +83,7 @@ dev = [
 
 [project.scripts]
 agentorg = "agentorg.cli:main"
-agentorg-mcp = "agentorg.mcp:run"
+agentorg-mcp = "agentorg.core.adapters.mcp:run"
 
 [tool.hatch.version]
 source = "vcs"

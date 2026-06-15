@@ -50,7 +50,8 @@ async def _serve(node_url: str) -> None:
         @server.call_tool()
         async def _call(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             if name not in skill_index:
-                raise ValueError(f'unknown skill {name!r}')
+                msg = f'unknown skill {name!r}'
+                raise ValueError(msg)
             resp = await client.post(
                 f'{node_url.rstrip("/")}/skills/{name}',
                 json=arguments or {},
