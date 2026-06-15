@@ -14,7 +14,7 @@ const DEFAULT_CONFIG: AppConfig = {
   knowledge_empty: "No knowledge yet, run the researcher first.",
   types: [{"id": "research", "label": "Research Docs", "metadata_fields": []}, {"id": "report", "label": "Analyst Reports", "metadata_fields": []}],
   parameters: [{"default": "Applied Research", "format": null, "label": "Domain Focus", "name": "domain_focus", "type": "string"}, {"default": 3, "format": null, "label": "Minimum Sources", "name": "min_sources", "type": "int"}],
-  principles: {"sections": [{"body": "- Focus area: {domain_focus}\n- Every research doc cites at least {min_sources} sources.\n- Reports are structured around Overview, Findings, Implications, and Open Questions.", "id": "mission", "title": "Mission"}, {"body": "- Researcher gathers material and writes research docs.\n- Analyst synthesises research into a final report.\n- Both auto-save their outputs.", "id": "process", "title": "Process"}]},
+  principles: {"sections": [{"body": "- Focus area: {domain_focus}\n- Every research doc cites at least {min_sources} sources.\n- Reports are structured around Overview, Findings, Implications, and Open Questions.", "id": "mission", "title": "Mission"}, {"body": "- Researcher gathers material and writes research docs.\n- Analyst synthesises research into a final report.\n- Neither agent auto-saves; the user is asked before anything is persisted.", "id": "process", "title": "Process"}]},
   agent_groups: [],
   featured_agents: [],
   agent_icons: {},

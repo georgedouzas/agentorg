@@ -7,7 +7,8 @@ agent = platform_make_agent(
     name='QA Engineer',
     agent_id='qa-engineer',
     role=(
-        "Validates the org's correctness: runs the test suite, checks spec consistency, " 'reports failures concisely.'
+        "Validates the org's correctness: runs the test suite, checks spec consistency, "
+        'reports failures concisely.'
     ),
     tools=[run_tests, validate_spec],
     in_scope=[

@@ -2,8 +2,9 @@
 
 import pytest
 from agno.skills.loaders.local import LocalSkills
+from agno.workflow import Step
 
-from agentorg.core.agents.framework.agno import GitHubSkills, make_agent
+from agentorg.core.agents.framework.agno import GitHubSkills, make_agent, make_team, make_workflow
 from agentorg.core.agents.skills import DEFAULT_SKILLS_REFS
 
 AGENT_ARGS = {
@@ -159,7 +160,7 @@ def test_empty_style_falls_back_to_default():
 
 
 def test_kwargs_override_agno_defaults():
-    """Extra `**kwargs` replace the corresponding entries in `AGNO_DEFAULTS`."""
+    """Extra `**kwargs` replace the corresponding entries in `AGENT_DEFAULTS`."""
     custom_history_runs = 99
     agent = make_agent(**{**AGENT_ARGS, 'telemetry': False, 'num_history_runs': custom_history_runs})
     assert agent.telemetry is False
@@ -177,3 +178,137 @@ def test_skills_attribute_is_none_when_no_loaders_passed():
     """`skills=[]` leaves the agent with no Skills object — the `skills` attribute resolves to None."""
     agent = make_agent(**AGENT_ARGS)
     assert agent.skills is None
+
+
+def _build_member_agent(agent_id: str, name: str) -> object:
+    """Helper that builds a minimal agent suitable for use as a team member."""
+    return make_agent(
+        model='google:gemini-2.5-flash',
+        name=name,
+        agent_id=agent_id,
+        role=f'{name} responsibilities.',
+        tools=[],
+        in_scope=['anything in scope'],
+        workflow=['run the workflow'],
+    )
+
+
+_TEAM_BASE = {
+    'model': 'google:gemini-2.5-flash',
+    'name': 'Research Team',
+    'team_id': 'research-team',
+    'role': 'Coordinate research and analysis.',
+    'workflow': ['Delegate to the researcher.', 'Then hand off to the analyst.'],
+}
+
+
+def test_make_team_sets_identity_and_membership():
+    """`team_id`, `name`, `mode`, and `members` reach the constructed team verbatim."""
+    members = [_build_member_agent('member-a', 'Member A'), _build_member_agent('member-b', 'Member B')]
+    team = make_team(**_TEAM_BASE, members=members, mode='coordinate')
+    assert team.id == 'research-team'
+    assert team.name == 'Research Team'
+    assert team.mode.value == 'coordinate'
+    assert team.members == members
+
+
+def test_make_team_defaults_mode_to_coordinate():
+    """`mode` defaults to `coordinate` when omitted — the most common multi-agent shape."""
+    team = make_team(**_TEAM_BASE, members=[_build_member_agent('m', 'M')])
+    assert team.mode.value == 'coordinate'
+
+
+def test_make_team_applies_team_defaults():
+    """Entries in `TEAM_DEFAULTS` reach the team (in-memory db, markdown on, chat history readable)."""
+    team = make_team(**_TEAM_BASE, members=[_build_member_agent('m', 'M')])
+    assert team.db is not None
+    assert team.markdown is True
+    assert team.read_chat_history is True
+
+
+def test_make_team_kwargs_override_team_defaults():
+    """Extra `**kwargs` replace the corresponding entries in `TEAM_DEFAULTS`."""
+    team = make_team(**_TEAM_BASE, members=[_build_member_agent('m', 'M')], markdown=False)
+    assert team.markdown is False
+
+
+def test_make_team_composes_instructions_from_persona_sections():
+    """A team built with principles/in_scope/style gets those sections rendered into `instructions`."""
+    team = make_team(
+        **_TEAM_BASE,
+        members=[_build_member_agent('m', 'M')],
+        principles=['Coordinate without micromanaging.'],
+        in_scope=['Multi-step research deliverables'],
+        out_of_scope=['Single-shot lookups -> **Researcher**'],
+        style=['Hand off cleanly; do not narrate routing decisions.'],
+    )
+    assert '## Principles' in team.instructions
+    assert 'Coordinate without micromanaging.' in team.instructions
+    assert '## In scope' in team.instructions
+    assert 'Multi-step research deliverables' in team.instructions
+    assert '## Style' in team.instructions
+
+
+def test_make_team_lists_members_under_a_members_section():
+    """The team's `instructions` carry a `Members` section listing each member by name."""
+    members = [_build_member_agent('researcher', 'Researcher'), _build_member_agent('analyst', 'Analyst')]
+    team = make_team(**_TEAM_BASE, members=members)
+    assert '## Members' in team.instructions
+    assert '- Researcher' in team.instructions
+    assert '- Analyst' in team.instructions
+    assert '## Tools' not in team.instructions  # teams render Members, not Tools
+
+
+def test_make_team_installs_prompt_injection_guardrail():
+    """Persona-aware teams get the same `PromptInjectionGuardrail` pre-hook as agents."""
+    team = make_team(**_TEAM_BASE, members=[_build_member_agent('m', 'M')])
+    assert team.pre_hooks is not None
+    assert len(team.pre_hooks) == 1
+
+
+def test_make_workflow_sets_identity_and_steps():
+    """`workflow_id`, `name`, `description`, and `steps` reach the constructed workflow verbatim."""
+    member = _build_member_agent('step-runner', 'Step Runner')
+    step = Step(name='Run', agent=member)
+    workflow = make_workflow(
+        steps=[step],
+        name='Research Pipeline',
+        workflow_id='research-pipeline',
+        description='Gather then analyse.',
+    )
+    assert workflow.id == 'research-pipeline'
+    assert workflow.name == 'Research Pipeline'
+    assert workflow.description == 'Gather then analyse.'
+    assert workflow.steps == [step]
+
+
+def test_make_workflow_defaults_description_to_empty_string():
+    """`description` defaults to `''` so the kwarg is optional for the common case."""
+    workflow = make_workflow(
+        steps=[Step(name='Run', agent=_build_member_agent('runner', 'Runner'))],
+        name='Pipeline',
+        workflow_id='pipeline-id',
+    )
+    assert workflow.description == ''
+
+
+def test_make_workflow_applies_workflow_defaults():
+    """Entries in `WORKFLOW_DEFAULTS` reach the workflow (in-memory db, event storage on)."""
+    workflow = make_workflow(
+        steps=[Step(name='Run', agent=_build_member_agent('runner', 'Runner'))],
+        name='Pipeline',
+        workflow_id='pipeline-id',
+    )
+    assert workflow.db is not None
+    assert workflow.store_events is True
+
+
+def test_make_workflow_kwargs_override_workflow_defaults():
+    """Extra `**kwargs` replace the corresponding entries in `WORKFLOW_DEFAULTS`."""
+    workflow = make_workflow(
+        steps=[Step(name='Run', agent=_build_member_agent('runner', 'Runner'))],
+        name='Pipeline',
+        workflow_id='pipeline-id',
+        store_events=False,
+    )
+    assert workflow.store_events is False

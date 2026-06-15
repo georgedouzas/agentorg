@@ -14,17 +14,17 @@ PREFIX = 'kn:'
 LITELLM_PROVIDER_ALIASES = {'google': 'gemini'}
 
 
-def _key(type_: str, name: str) -> str:
+def _key(knowledge_type: str, name: str) -> str:
     """Compose the memory key for a knowledge unit.
 
     Arguments:
-        type_: The knowledge type.
+        knowledge_type: The knowledge type.
         name: The unit name within the type.
 
     Returns:
-        key: The composed `kn:<type>:<name>` memory key.
+        key: The composed `kn:<knowledge_type>:<name>` memory key.
     """
-    return f'{PREFIX}{type_}:{name}'
+    return f'{PREFIX}{knowledge_type}:{name}'
 
 
 async def _embed(text: str, model: str | None) -> list[float] | None:
@@ -63,7 +63,7 @@ async def similarity_units(
     scope: ScopedMemoryClient,
     embedder: str | None,
     query: str,
-    types: list[str] | None,
+    knowledge_types: list[str] | None,
     top_k: int,
 ) -> list[dict[str, Any]]:
     """Rank knowledge units by embedding similarity, falling back to substring when no embedder.
@@ -72,7 +72,7 @@ async def similarity_units(
         scope: The AgentField memory scope to search.
         embedder: The `provider:name` embedder model, or None.
         query: The query text.
-        types: Restrict to these knowledge types, or None for all.
+        knowledge_types: Restrict to these knowledge types, or None for all.
         top_k: Maximum number of hits to return.
 
     Returns:
@@ -80,7 +80,7 @@ async def similarity_units(
     """
     vec = await _embed(query, embedder)
     if vec is not None:
-        filters = {'type': {'$in': types}} if types else None
+        filters = {'knowledge_type': {'$in': knowledge_types}} if knowledge_types else None
         hits = await scope.similarity_search(vec, top_k=top_k, filters=filters)
         units = [await scope.get(h.get('key') or h.get('id')) for h in hits if (h.get('key') or h.get('id'))]
         return [u for u in units if u is not None]
@@ -88,7 +88,8 @@ async def similarity_units(
     matches = [
         u
         for u in await _list_units(scope)
-        if (not types or u.get('type') in types) and needle in (u.get('content') or '').lower()
+        if (not knowledge_types or u.get('knowledge_type') in knowledge_types)
+        and needle in (u.get('content') or '').lower()
     ]
     matches.sort(key=lambda u: u.get('updated_at', ''), reverse=True)
     return matches[:top_k]
@@ -117,7 +118,7 @@ def _matches_metadata(unit: dict[str, Any], metadata_filter: dict[str, Any]) -> 
 
 @tags('knowledge')
 async def write_knowledge(
-    type: str,  # noqa: A002
+    knowledge_type: str,
     name: str,
     content: str,
     title: str | None = None,
@@ -126,7 +127,7 @@ async def write_knowledge(
     """Write or update a knowledge unit.
 
     Arguments:
-        type: The knowledge type.
+        knowledge_type: The knowledge type.
         name: The unique unit name within the type.
         content: Markdown body for the unit.
         title: Display title.
@@ -138,9 +139,9 @@ async def write_knowledge(
     scope = _scope()
     md = dict(metadata or {})
     await scope.set(
-        _key(type, name),
+        _key(knowledge_type, name),
         {
-            'type': type,
+            'knowledge_type': knowledge_type,
             'name': name,
             'title': title,
             'content': content,
@@ -150,24 +151,28 @@ async def write_knowledge(
     )
     vec = await _embed(f'{title or name}\n\n{content}', _embedder())
     if vec is not None:
-        await scope.set_vector(_key(type, name), vec, metadata={'type': type, 'name': name, **md})
-    return f"Saved {type} '{name}' to knowledge."
+        await scope.set_vector(
+            _key(knowledge_type, name),
+            vec,
+            metadata={'knowledge_type': knowledge_type, 'name': name, **md},
+        )
+    return f"Saved {knowledge_type} '{name}' to knowledge."
 
 
 @tags('knowledge')
-async def read_knowledge(type: str, name: str) -> str:  # noqa: A002
+async def read_knowledge(knowledge_type: str, name: str) -> str:
     """Read a knowledge unit by type and name.
 
     Arguments:
-        type: The knowledge type.
+        knowledge_type: The knowledge type.
         name: The unit name.
 
     Returns:
         content: The unit's content, or a not-found message.
     """
-    unit = await _scope().get(_key(type, name))
+    unit = await _scope().get(_key(knowledge_type, name))
     if unit is None:
-        return f"No {type} knowledge found for '{name}'."
+        return f"No {knowledge_type} knowledge found for '{name}'."
     return str(unit['content'])
 
 
@@ -186,17 +191,17 @@ async def list_knowledge(knowledge_type: str = '', metadata_filter: dict[str, An
     units = [
         u
         for u in await _list_units(scope)
-        if (not knowledge_type or u.get('type') == knowledge_type)
+        if (not knowledge_type or u.get('knowledge_type') == knowledge_type)
         and (not metadata_filter or _matches_metadata(u, metadata_filter))
     ]
     if not units:
         return 'No knowledge units found.'
-    units.sort(key=lambda u: (u.get('type', ''), u.get('name', '')))
+    units.sort(key=lambda u: (u.get('knowledge_type', ''), u.get('name', '')))
     lines: list[str] = []
     current = None
     for unit in units:
-        if unit.get('type') != current:
-            current = unit.get('type')
+        if unit.get('knowledge_type') != current:
+            current = unit.get('knowledge_type')
             lines.append(f'{str(current).title()}:')
         title_part = f' — {unit["title"]}' if unit.get('title') else ''
         meta = f' {unit["metadata"]}' if unit.get('metadata') else ''
@@ -205,39 +210,41 @@ async def list_knowledge(knowledge_type: str = '', metadata_filter: dict[str, An
 
 
 @tags('knowledge')
-async def search_knowledge(query: str, types: list[str] | None = None, top_k: int = 10) -> str:
+async def search_knowledge(query: str, knowledge_types: list[str] | None = None, top_k: int = 10) -> str:
     """Search knowledge units ranked by embedding similarity.
 
     Arguments:
         query: The query text.
-        types: Restrict to these knowledge types, or None for all.
+        knowledge_types: Restrict to these knowledge types, or None for all.
         top_k: Maximum number of hits.
 
     Returns:
         results: Formatted top-matching units.
     """
-    hits = await similarity_units(_scope(), _embedder(), query, types, top_k)
+    hits = await similarity_units(_scope(), _embedder(), query, knowledge_types, top_k)
     if not hits:
         return f"No knowledge units matching '{query}'."
-    return '\n\n'.join(f'**{u.get("type")}/{u.get("name")}**\n{(u.get("content") or "")[:400]}…' for u in hits)
+    return '\n\n'.join(
+        f'**{u.get("knowledge_type")}/{u.get("name")}**\n{(u.get("content") or "")[:400]}…' for u in hits
+    )
 
 
 @tags('knowledge')
-async def delete_knowledge(type: str, name: str) -> str:  # noqa: A002
+async def delete_knowledge(knowledge_type: str, name: str) -> str:
     """Delete a knowledge unit and its embedding.
 
     Arguments:
-        type: The knowledge type.
+        knowledge_type: The knowledge type.
         name: The unit name.
 
     Returns:
         message: Confirmation of deletion, or a not-found message.
     """
     scope = _scope()
-    k = _key(type, name)
+    k = _key(knowledge_type, name)
     if await scope.get(k) is None:
-        return f"No {type} knowledge found for '{name}'."
+        return f"No {knowledge_type} knowledge found for '{name}'."
     await scope.delete(k)
     with contextlib.suppress(Exception):
         await scope.delete_vector(k)
-    return f"Deleted {type} '{name}'."
+    return f"Deleted {knowledge_type} '{name}'."

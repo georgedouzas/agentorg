@@ -1,7 +1,7 @@
 """The agno to AgentField runtime adapter."""
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 from weakref import WeakSet
 
 from agentfield.agent import Agent as AgentFieldNode
@@ -45,7 +45,7 @@ def register_reasoner(node: AgentFieldNode, agent: AgnoAgent, tags: list[str]) -
     return name
 
 
-def _append_principles(agent: Any, principles: str) -> None:
+def _append_principles(agent: AgnoAgent, principles: str) -> None:
     """Append the org principles to an agno-style agent's `instructions` (no-op for plain callables)."""
     if not principles:
         return
@@ -54,7 +54,7 @@ def _append_principles(agent: Any, principles: str) -> None:
         return
     if isinstance(existing, list):
         existing = '\n'.join(existing)
-    agent.instructions = f'{existing}\n\n## Principles\n\n{principles}'
+    cast(Any, agent).instructions = f'{existing}\n\n## Principles\n\n{principles}'
 
 
 def register_agents(node: AgentFieldNode, spec: Spec, principles_text: str = '') -> list[str]:

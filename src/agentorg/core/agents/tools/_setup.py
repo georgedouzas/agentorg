@@ -43,5 +43,5 @@ def get_setup_status(spec_setup_steps: list[dict[str, Any]] | None = None) -> st
             'blocked_count': blocked,
             'pending_count': pending,
             'all_done': total > 0 and blocked == 0 and pending == 0,
-        }
+        },
     )
