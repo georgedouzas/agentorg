@@ -1,4 +1,4 @@
-"""Tests for `agentorg.core.render._base`."""
+"""Tests for base module."""
 
 import os
 import shutil

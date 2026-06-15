@@ -59,6 +59,10 @@ def call(client: AsyncClient) -> Callable[..., Awaitable[Any]]:
     async def _call(reasoner: str, /, **kwargs: Any) -> Any:  # noqa: ANN401
         r = await client.post(f'/reasoners/{reasoner}', json=kwargs)
         assert r.status_code == HEALTHY, f'/reasoners/{reasoner} -> {r.status_code}: {r.text}'
-        return json.loads(r.json())
+        payload = r.json()
+        try:
+            return json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            return payload
 
     return _call

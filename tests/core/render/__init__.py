@@ -1,1 +1,1 @@
-"""Tests for the organization rendering implementation."""
+"""Tests for the `agentorg.core.render` module."""

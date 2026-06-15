@@ -1,10 +1,4 @@
-"""Org instance parameter tools, backed by AgentField global-scope memory.
-
-Org instance parameters are the configurable knobs that distinguish one instance of an org from another (e.g.,
-`domain_focus`, `min_sources`). They are set once at initialization via the dashboard's setup form, and may be adjusted
-afterwards by a Platform Engineer in response to a user request. Parameters are org-wide — one set per org, shared by
-every user — not per-user.
-"""
+"""Org instance parameter tools, backed by AgentField global-scope memory."""
 
 import json
 from typing import Any
