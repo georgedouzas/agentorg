@@ -136,3 +136,44 @@ def test_instructions_composition_with_tools_and_skills(cache_root):
     agent_extra_args = {'tools': [search_web, fetch_url], 'skills': [local_skills, remote_skills]}
     agent = make_agent(**{**AGENT_ARGS, **agent_extra_args})
     assert agent.instructions == f'{INSTRUCTIONS}\n\n{INSTRUCTIONS_TOOLS_SKILLS}'
+
+
+def test_empty_when_to_act_falls_back_to_default():
+    """An empty `when_to_act` substitutes the `WHEN_TO_ACT_DEFAULT` bullets into the instructions."""
+    from agentorg.core.agents.framework.agno._base import WHEN_TO_ACT_DEFAULT  # noqa: PLC0415
+
+    agent = make_agent(**{**AGENT_ARGS, 'when_to_act': []})
+    instructions = agent.instructions or ''
+    for line in WHEN_TO_ACT_DEFAULT:
+        assert line in instructions
+
+
+def test_empty_style_falls_back_to_default():
+    """An empty `style` substitutes the `STYLE_DEFAULT` bullets into the instructions."""
+    from agentorg.core.agents.framework.agno._base import STYLE_DEFAULT  # noqa: PLC0415
+
+    agent = make_agent(**{**AGENT_ARGS, 'style': []})
+    instructions = agent.instructions or ''
+    for line in STYLE_DEFAULT:
+        assert line in instructions
+
+
+def test_kwargs_override_agno_defaults():
+    """Extra `**kwargs` replace the corresponding entries in `AGNO_DEFAULTS`."""
+    custom_history_runs = 99
+    agent = make_agent(**{**AGENT_ARGS, 'telemetry': False, 'num_history_runs': custom_history_runs})
+    assert agent.telemetry is False
+    assert agent.num_history_runs == custom_history_runs
+
+
+def test_agent_id_and_name_are_set():
+    """`agent_id` and `name` reach the constructed agent verbatim."""
+    agent = make_agent(**AGENT_ARGS)
+    assert agent.id == 'code-reviewer'
+    assert agent.name == 'Code Reviewer'
+
+
+def test_skills_attribute_is_none_when_no_loaders_passed():
+    """`skills=[]` leaves the agent with no Skills object — the `skills` attribute resolves to None."""
+    agent = make_agent(**AGENT_ARGS)
+    assert agent.skills is None
