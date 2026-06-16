@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from agno.agent import Agent
 from click.testing import CliRunner
 
 from agentorg.cli import new
@@ -14,6 +15,16 @@ def _reset() -> None:
     reset_state()
 
 
+@pytest.fixture
+def _skip_cli_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace `agno.Agent.acli_app` with a no-op so the chat REPL doesn't try to read from stdin."""
+
+    async def _noop_cli_app(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(Agent, 'acli_app', _noop_cli_app)
+
+
 def test_new_help_documents_the_command():
     """`agentorg new --help` exits 0 and mentions the interview."""
     result = CliRunner().invoke(new, ['--help'])
@@ -21,13 +32,18 @@ def test_new_help_documents_the_command():
     assert 'interview' in result.output.lower() or 'spec.py' in result.output
 
 
-def test_new_with_no_input_exits_cleanly(tmp_path: Path):
-    """Sending immediate EOF terminates the chat loop without finalising."""
-    draft = tmp_path / 'draft.json'
-    result = CliRunner().invoke(new, ['--draft', str(draft)], input='')
+@pytest.mark.usefixtures('_skip_cli_app')
+def test_new_without_resume_starts_from_a_fresh_seed(tmp_path: Path):
+    """Without `--resume`, the working spec is reset to the placeholder seed before the chat starts."""
+    set_org_identity(name='Previous Session Org', description='leftover')
+    assert get_state().spec.org.name == 'Previous Session Org'
+
+    result = CliRunner().invoke(new, ['--draft', str(tmp_path / 'draft.json')])
     assert result.exit_code == 0
+    assert get_state().spec.org.name == 'My Org'  # back to seed
 
 
+@pytest.mark.usefixtures('_skip_cli_app')
 def test_new_resume_loads_an_existing_draft(tmp_path: Path):
     """`--resume` reads the draft file before the chat loop starts."""
     set_org_identity(name='Resumed Org', description='From draft.')
@@ -43,7 +59,7 @@ def test_new_resume_loads_an_existing_draft(tmp_path: Path):
     reset_state()
     assert get_state().spec.org.name == 'My Org'  # confirm fresh
 
-    result = CliRunner().invoke(new, ['--resume', '--draft', str(draft)], input='')
+    result = CliRunner().invoke(new, ['--resume', '--draft', str(draft)])
     assert result.exit_code == 0
     assert 'Resumed draft from' in result.output
     assert get_state().spec.org.name == 'Resumed Org'

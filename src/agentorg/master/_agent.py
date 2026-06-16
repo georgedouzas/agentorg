@@ -1,10 +1,12 @@
 """The master agent."""
 
+import os
 from collections.abc import Callable
 from textwrap import dedent
 
 from agno.agent import Agent
 from agno.db.in_memory import InMemoryDb
+from dotenv import load_dotenv
 
 from ._tools import (
     add_or_update_agent,
@@ -40,6 +42,8 @@ from ._tools import (
     set_ui_app,
     set_ui_empty_state,
 )
+
+load_dotenv()
 
 MASTER_TOOLS: list[Callable[..., object]] = [
     list_placeholders,
@@ -113,11 +117,8 @@ MASTER_INSTRUCTIONS = dedent(
 ).strip()
 
 
-def build_master_agent(*, model: str = 'google:gemini-2.5-flash') -> Agent:
+def build_master_agent() -> Agent:
     """Build the master agent that interviews the user to assemble a spec.py.
-
-    Arguments:
-        model: The model to back the master agent. Override for testing or to use a stronger model.
 
     Returns:
         agent: A configured `agno.Agent` carrying every patch tool.
@@ -125,7 +126,7 @@ def build_master_agent(*, model: str = 'google:gemini-2.5-flash') -> Agent:
     return Agent(
         id='master',
         name='Master',
-        model=model,
+        model=os.getenv('AGENTORG_MODEL'),
         instructions=MASTER_INSTRUCTIONS,
         db=InMemoryDb(),
         tools=MASTER_TOOLS,

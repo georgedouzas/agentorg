@@ -6,6 +6,11 @@ __pycache__/
 .venv/
 __pypackages__/
 
+# Local environment files (may contain secrets)
+.env
+.env.*
+!.env.example
+
 # Build artifacts
 build/
 dist/
