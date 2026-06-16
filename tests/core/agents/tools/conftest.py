@@ -4,7 +4,6 @@ import json
 import os
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
-from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -53,10 +52,10 @@ async def client(control_plane: str) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture
-def call(client: AsyncClient) -> Callable[..., Awaitable[Any]]:
+def call(client: AsyncClient) -> Callable[..., Awaitable[object]]:
     """Invoke a reasoner over HTTP and decode the JSON-string result the tool returns."""
 
-    async def _call(reasoner: str, /, **kwargs: Any) -> Any:  # noqa: ANN401
+    async def _call(reasoner: str, /, **kwargs: object) -> object:
         r = await client.post(f'/reasoners/{reasoner}', json=kwargs)
         assert r.status_code == HEALTHY, f'/reasoners/{reasoner} -> {r.status_code}: {r.text}'
         payload = r.json()

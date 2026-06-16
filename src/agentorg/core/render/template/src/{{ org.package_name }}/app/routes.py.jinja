@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import json
+import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -149,8 +150,6 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     # ── Setup checklist ─────────────────────────────────────────────────────
     @router.get('/setup')
     def setup_checklist() -> dict[str, Any]:
-        import os  # noqa: PLC0415
-
         steps: list[dict[str, Any]] = []
         blocked = pending = 0
         for s in spec.runtime.setup:
@@ -310,13 +309,16 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
     return router
 
 
+_KN_KEY_PARTS = 3
+
+
 def _type_of(key: str) -> str | None:
     parts = key.split(':', 2)
-    return parts[1] if len(parts) >= 3 and parts[0] == 'kn' else None  # noqa: PLR2004
+    return parts[1] if len(parts) >= _KN_KEY_PARTS and parts[0] == 'kn' else None
 
 
 def _name_of(key: str) -> str | None:
     parts = key.split(':', 2)
-    return parts[2] if len(parts) >= 3 and parts[0] == 'kn' else None  # noqa: PLR2004
+    return parts[2] if len(parts) >= _KN_KEY_PARTS and parts[0] == 'kn' else None
 
 
