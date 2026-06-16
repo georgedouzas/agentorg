@@ -61,8 +61,8 @@ def _spec_py(spec_dir: Path, **org_overrides: object) -> None:
         'package_name': 'acme',
         'description': '',
         'repository': '',
-        'author_name': '',
-        'author_email': '',
+        'admin_name': '',
+        'admin_email': '',
         'visibility': 'private',
         **org_overrides,
     }

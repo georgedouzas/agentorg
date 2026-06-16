@@ -16,7 +16,7 @@ def test_default_spec_uses_recognisable_placeholders():
     assert spec.org.name == PLACEHOLDER_NAME
     assert spec.org.description == PLACEHOLDER
     assert spec.org.repository == PLACEHOLDER
-    assert spec.org.author_name == PLACEHOLDER
+    assert spec.org.admin_name == PLACEHOLDER
 
 
 def test_default_spec_starts_with_no_agents():

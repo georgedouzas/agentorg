@@ -152,8 +152,8 @@ spec = Spec(
         package_name='org',
         description='Small research team that gathers sources and publishes structured analysis reports.',
         repository='https://github.com/example/org',
-        author_name='Agentorg Authors',
-        author_email='agentorg@example.com',
+        admin_name='Agentorg Authors',
+        admin_email='agentorg@example.com',
         visibility='private',
     ),
     runtime=Runtime(

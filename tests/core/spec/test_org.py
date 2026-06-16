@@ -13,8 +13,8 @@ ORG: dict[str, Any] = {
     'package_name': 'acme_org',
     'description': 'Makes widgets.',
     'repository': 'https://github.com/acme/acme_org',
-    'author_name': 'A. Coyote',
-    'author_email': 'coyote@acme.com',
+    'admin_name': 'A. Coyote',
+    'admin_email': 'coyote@acme.com',
     'visibility': 'private',
 }
 
