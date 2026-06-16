@@ -2,6 +2,7 @@
 
 from ._ai import AI
 from ._base import Spec
+from ._config import SpecModel
 from ._knowledge import (
     Knowledge,
     KnowledgeType,
@@ -35,4 +36,5 @@ __all__ = [
     'Runtime',
     'SetupStep',
     'Spec',
+    'SpecModel',
 ]

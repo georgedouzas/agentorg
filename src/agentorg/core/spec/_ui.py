@@ -1,9 +1,9 @@
 """Everything the UI dashboard needs to render the org."""
 
-from pydantic import BaseModel
+from ._config import SpecModel
 
 
-class AppUI(BaseModel):
+class AppUI(SpecModel):
     """App-level UI metadata shown in the dashboard chrome."""
 
     name: str
@@ -11,7 +11,7 @@ class AppUI(BaseModel):
     description: str
 
 
-class EmptyState(BaseModel):
+class EmptyState(SpecModel):
     """Copy shown when the user lands without selecting an agent or workflow."""
 
     icon: str
@@ -19,7 +19,7 @@ class EmptyState(BaseModel):
     body: str
 
 
-class AgentConfigUI(BaseModel):
+class AgentConfigUI(SpecModel):
     """Per-agent display config for the sidebar and agent picker."""
 
     model: str
@@ -28,21 +28,21 @@ class AgentConfigUI(BaseModel):
     features: list[str]
 
 
-class GroupRef(BaseModel):
+class GroupRef(SpecModel):
     """A sidebar group with a label and the agent or workflow ids it contains."""
 
     label: str
     ids: list[str]
 
 
-class OverviewBlock(BaseModel):
+class OverviewBlock(SpecModel):
     """A custom markdown card rendered on the Overview tab below the defaults."""
 
     title: str
     body: str
 
 
-class UI(BaseModel):
+class UI(SpecModel):
     """All UI customisation, consumed by the frontend."""
 
     app: AppUI

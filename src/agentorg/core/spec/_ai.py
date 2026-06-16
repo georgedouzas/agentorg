@@ -2,13 +2,11 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from ._config import SpecModel
 
 
-class AI(BaseModel):
+class AI(SpecModel):
     """The org's user-declared agents, teams, and workflows."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     framework: Literal['agno'] = 'agno'
     agents: list[Any]

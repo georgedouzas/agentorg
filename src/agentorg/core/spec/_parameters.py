@@ -1,11 +1,11 @@
-"""Org instance parameters — the configurable knobs that distinguish one org instance from another."""
+"""Org instance parameters - the configurable knobs that distinguish one org instance from another."""
 
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from ._config import SpecModel
 
 
-class Parameter(BaseModel):
+class Parameter(SpecModel):
     """A single user-tunable org instance parameter."""
 
     name: str

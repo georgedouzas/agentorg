@@ -2,10 +2,12 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import model_validator
+
+from ._config import SpecModel
 
 
-class Infra(BaseModel):
+class Infra(SpecModel):
     """The infrastructure stack."""
 
     packaging: Literal['none', 'docker']
@@ -19,10 +21,10 @@ class Infra(BaseModel):
     @model_validator(mode='after')
     def _validate_combinations(self) -> 'Infra':
         if self.vector_db == 'pgvector' and self.database != 'postgres':
-            msg = "vector_db='pgvector' requires database='postgres' — pgvector is a Postgres extension."
+            msg = "vector_db='pgvector' requires database='postgres' - pgvector is a Postgres extension."
             raise ValueError(msg)
         if self.api == 'railway' and self.packaging != 'docker':
-            msg = "api='railway' requires packaging='docker' — Railway deploys the API from a Dockerfile."
+            msg = "api='railway' requires packaging='docker' - Railway deploys the API from a Dockerfile."
             raise ValueError(msg)
         if ':' not in self.embedder:
             msg = "embedder must be 'provider:model' (e.g. 'google:text-embedding-004')."
@@ -30,7 +32,7 @@ class Infra(BaseModel):
         return self
 
 
-class EnvVar(BaseModel):
+class EnvVar(SpecModel):
     """A declared environment variable the rendered org expects."""
 
     name: str
@@ -38,14 +40,14 @@ class EnvVar(BaseModel):
     required_label: str
 
 
-class EnvVars(BaseModel):
+class EnvVars(SpecModel):
     """Required + optional env vars the rendered org expects."""
 
     required: list[EnvVar]
     optional: list[EnvVar]
 
 
-class SetupStep(BaseModel):
+class SetupStep(SpecModel):
     """One item on the post-install setup checklist."""
 
     id: str
@@ -54,7 +56,7 @@ class SetupStep(BaseModel):
     variables: list[str]
 
 
-class Runtime(BaseModel):
+class Runtime(SpecModel):
     """How and where the org runs."""
 
     infra: Infra

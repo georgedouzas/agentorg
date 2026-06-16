@@ -1,8 +1,7 @@
 """The top-level `Spec` model that a user constructs in `spec.py`."""
 
-from pydantic import BaseModel, ConfigDict
-
 from ._ai import AI
+from ._config import SpecModel
 from ._knowledge import Knowledge
 from ._org import Org
 from ._parameters import Parameter
@@ -10,10 +9,8 @@ from ._runtime import Runtime
 from ._ui import UI
 
 
-class Spec(BaseModel):
+class Spec(SpecModel):
     """The whole organization specification."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     org: Org
     runtime: Runtime

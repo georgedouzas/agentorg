@@ -2,10 +2,10 @@
 
 from typing import Literal
 
-from pydantic import BaseModel
+from ._config import SpecModel
 
 
-class Org(BaseModel):
+class Org(SpecModel):
     """Organization metadata model."""
 
     name: str
