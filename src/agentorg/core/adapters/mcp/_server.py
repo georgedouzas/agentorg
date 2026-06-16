@@ -11,7 +11,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 
-async def _discover_skills(client: httpx.AsyncClient, node_url: str) -> list[dict[str, Any]]:
+async def discover_skills(client: httpx.AsyncClient, node_url: str) -> list[dict[str, Any]]:
     """Fetch the node's `GET /skills` listing and normalise it into a flat skill list."""
     resp = await client.get(f'{node_url.rstrip("/")}/skills')
     resp.raise_for_status()
@@ -20,7 +20,7 @@ async def _discover_skills(client: httpx.AsyncClient, node_url: str) -> list[dic
     return list(skills) if isinstance(skills, list) else []
 
 
-def _tool_for(skill: dict[str, Any]) -> Tool:
+def tool_for(skill: dict[str, Any]) -> Tool:
     """Project an AgentField skill descriptor into the MCP `Tool` shape."""
     sid = skill.get('id') or skill.get('name') or 'unknown'
     description_parts: list[str] = []
@@ -40,12 +40,12 @@ async def _serve(node_url: str) -> None:
     server: Server = Server(name='agentorg', instructions=f'Skills proxied from {node_url}')
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        skills = await _discover_skills(client, node_url)
+        skills = await discover_skills(client, node_url)
         skill_index = {(s.get('id') or s.get('name')): s for s in skills if (s.get('id') or s.get('name'))}
 
         @server.list_tools()
         async def _list() -> list[Tool]:
-            return [_tool_for(s) for s in skill_index.values()]
+            return [tool_for(s) for s in skill_index.values()]
 
         @server.call_tool()
         async def _call(name: str, arguments: dict[str, Any]) -> list[TextContent]:

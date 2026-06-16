@@ -2,7 +2,7 @@
 
 from click.testing import CliRunner
 
-from agentorg.cli._main import main
+from agentorg.cli import main
 
 
 def test_main_help_lists_the_render_subcommand():

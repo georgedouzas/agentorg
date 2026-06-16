@@ -1,7 +1,6 @@
 """Tests for the make module."""
 
-from agentorg.core.agents.framework.agno.platform import PLATFORM_DEFAULT_MODEL
-from agentorg.core.agents.framework.agno.platform._make import platform_make_agent
+from agentorg.core.agents.framework.agno.platform import PLATFORM_DEFAULT_MODEL, platform_make_agent
 
 
 def _noop() -> str:

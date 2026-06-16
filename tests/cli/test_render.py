@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from agentorg.cli._render import render
+from agentorg.cli import render
 
 
 def test_render_dispatches_to_core_with_explicit_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

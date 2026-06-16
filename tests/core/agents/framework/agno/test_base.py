@@ -4,7 +4,14 @@ import pytest
 from agno.skills.loaders.local import LocalSkills
 from agno.workflow import Step
 
-from agentorg.core.agents.framework.agno import GitHubSkills, make_agent, make_team, make_workflow
+from agentorg.core.agents.framework.agno import (
+    STYLE_DEFAULT,
+    WHEN_TO_ACT_DEFAULT,
+    GitHubSkills,
+    make_agent,
+    make_team,
+    make_workflow,
+)
 from agentorg.core.agents.skills import DEFAULT_SKILLS_REFS
 
 AGENT_ARGS = {
@@ -141,8 +148,6 @@ def test_instructions_composition_with_tools_and_skills(cache_root):
 
 def test_empty_when_to_act_falls_back_to_default():
     """An empty `when_to_act` substitutes the `WHEN_TO_ACT_DEFAULT` bullets into the instructions."""
-    from agentorg.core.agents.framework.agno._base import WHEN_TO_ACT_DEFAULT  # noqa: PLC0415
-
     agent = make_agent(**{**AGENT_ARGS, 'when_to_act': []})
     instructions = agent.instructions or ''
     for line in WHEN_TO_ACT_DEFAULT:
@@ -151,8 +156,6 @@ def test_empty_when_to_act_falls_back_to_default():
 
 def test_empty_style_falls_back_to_default():
     """An empty `style` substitutes the `STYLE_DEFAULT` bullets into the instructions."""
-    from agentorg.core.agents.framework.agno._base import STYLE_DEFAULT  # noqa: PLC0415
-
     agent = make_agent(**{**AGENT_ARGS, 'style': []})
     instructions = agent.instructions or ''
     for line in STYLE_DEFAULT:

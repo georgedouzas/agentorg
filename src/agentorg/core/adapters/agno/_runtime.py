@@ -45,7 +45,7 @@ def register_reasoner(node: AgentFieldNode, agent: AgnoAgent, tags: list[str]) -
     return name
 
 
-def _append_principles(agent: AgnoAgent, principles: str) -> None:
+def append_principles(agent: AgnoAgent, principles: str) -> None:
     """Append the org principles to an agno-style agent's `instructions` (no-op for plain callables)."""
     if not principles:
         return
@@ -73,7 +73,7 @@ def register_agents(node: AgentFieldNode, spec: Spec, principles_text: str = '')
     """
     names: list[str] = []
     for agent in spec.ai.agents:
-        _append_principles(agent, principles_text)
+        append_principles(agent, principles_text)
         names.append(register_reasoner(node, agent, tags=['agent']))
     return names
 

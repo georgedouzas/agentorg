@@ -1,7 +1,6 @@
 """Tests for the runtime module."""
 
-from agentorg.core.adapters.agno import register_reasoner
-from agentorg.core.adapters.agno._runtime import _append_principles
+from agentorg.core.adapters.agno import append_principles, register_reasoner
 
 
 def test_register_reasoner_returns_agent_name(node, agno_agent):
@@ -17,27 +16,27 @@ class _FakeAgent:
         self.instructions = instructions
 
 
-def test_append_principles_adds_principles_block():
+def testappend_principles_adds_principles_block():
     """A non-empty principles is appended under a `## Principles` heading, original instructions kept."""
     agent = _FakeAgent('Do the work.')
-    _append_principles(agent, 'Always be excellent.')
+    append_principles(agent, 'Always be excellent.')
     assert 'Do the work.' in agent.instructions
     assert '## Principles' in agent.instructions
     assert 'Always be excellent.' in agent.instructions
     assert agent.instructions.rstrip().endswith('Always be excellent.')
 
 
-def test_append_principles_is_noop_without_text():
+def testappend_principles_is_noop_without_text():
     """An empty principles leaves the agent's instructions untouched."""
     agent = _FakeAgent('Do the work.')
-    _append_principles(agent, '')
+    append_principles(agent, '')
     assert agent.instructions == 'Do the work.'
 
 
-def test_append_principles_is_noop_for_plain_callable():
+def testappend_principles_is_noop_for_plain_callable():
     """A plain callable agent has no `instructions` attribute and append is a safe no-op."""
 
     async def plain_agent(message: str) -> dict[str, str]:
         return {'output': message}
 
-    _append_principles(plain_agent, 'Always be excellent.')  # must not raise
+    append_principles(plain_agent, 'Always be excellent.')  # must not raise

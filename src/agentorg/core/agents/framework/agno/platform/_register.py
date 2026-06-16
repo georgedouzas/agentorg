@@ -2,8 +2,7 @@
 
 from agentfield.agent import Agent as AgentFieldNode
 
-from agentorg.core.adapters.agno import register_reasoner
-from agentorg.core.adapters.agno._runtime import _append_principles
+from agentorg.core.adapters.agno import append_principles, register_reasoner
 
 from ._base import PLATFORM_AGENTS
 
@@ -22,6 +21,6 @@ def register_platform_agents(node: AgentFieldNode, principles_text: str = '') ->
     """
     names: list[str] = []
     for agent in PLATFORM_AGENTS:
-        _append_principles(agent, principles_text)
+        append_principles(agent, principles_text)
         names.append(register_reasoner(node, agent, tags=['agent', 'platform']))
     return names
