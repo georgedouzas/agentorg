@@ -6,10 +6,7 @@ from ._tools import run_tests, validate_spec
 agent = platform_make_agent(
     name='QA Engineer',
     agent_id='qa-engineer',
-    role=(
-        "Validates the org's correctness: runs the test suite, checks spec consistency, "
-        'reports failures concisely.'
-    ),
+    role="Validates the org's correctness: runs the test suite, checks spec consistency, reports failures concisely.",
     tools=[run_tests, validate_spec],
     in_scope=[
         'Running the test suite and summarising results',
