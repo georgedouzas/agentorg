@@ -1,6 +1,6 @@
 """The agentorg master agent that interviews the user to produce a spec.py."""
 
-from ._agent import MASTER_INSTRUCTIONS, MASTER_TOOLS, build_master_agent
+from ._agent import MASTER_INSTRUCTIONS, MASTER_INTRODUCTION, MASTER_TOOLS, build_master_agent
 from ._models import AgentSpec, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 from ._persistence import DEFAULT_DRAFT_PATH, load_draft, save_draft
 from ._sandbox import ToolValidationError, validate_tool_source
@@ -45,6 +45,7 @@ from ._writer import python_literal, render_spec, write_spec
 __all__ = [
     'DEFAULT_DRAFT_PATH',
     'MASTER_INSTRUCTIONS',
+    'MASTER_INTRODUCTION',
     'MASTER_TOOLS',
     'PLACEHOLDER',
     'PLACEHOLDER_NAME',
