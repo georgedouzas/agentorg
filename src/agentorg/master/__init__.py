@@ -1,9 +1,9 @@
 """The agentorg master agent that interviews the user to produce a spec.py."""
 
 from ._agent import MASTER_INSTRUCTIONS, MASTER_INTRODUCTION, MASTER_TOOLS, build_master_agent
-from ._models import AgentSpec, CustomTool, StepSpec, TeamSpec, WorkflowSpec
+from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 from ._persistence import DEFAULT_DRAFT_PATH, load_draft, save_draft
-from ._sandbox import ToolValidationError, validate_tool_source
+from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
 from ._seed import PLACEHOLDER, PLACEHOLDER_NAME, PLACEHOLDER_VALUES, default_spec
 from ._state import State, get_state, reset_state
 from ._tools import (
@@ -17,12 +17,14 @@ from ._tools import (
     add_or_update_setup_step,
     add_or_update_team,
     add_or_update_workflow,
+    emit_custom_skill,
     emit_custom_tool,
     finalize_spec,
     get_current_spec,
     list_placeholders,
     remove_agent,
     remove_agent_group,
+    remove_custom_skill,
     remove_custom_tool,
     remove_env_var,
     remove_knowledge_type,
@@ -51,7 +53,9 @@ __all__ = [
     'PLACEHOLDER_NAME',
     'PLACEHOLDER_VALUES',
     'AgentSpec',
+    'CustomSkill',
     'CustomTool',
+    'SkillValidationError',
     'State',
     'StepSpec',
     'TeamSpec',
@@ -69,6 +73,7 @@ __all__ = [
     'add_or_update_workflow',
     'build_master_agent',
     'default_spec',
+    'emit_custom_skill',
     'emit_custom_tool',
     'finalize_spec',
     'get_current_spec',
@@ -78,6 +83,7 @@ __all__ = [
     'python_literal',
     'remove_agent',
     'remove_agent_group',
+    'remove_custom_skill',
     'remove_custom_tool',
     'remove_env_var',
     'remove_knowledge_type',
@@ -97,6 +103,7 @@ __all__ = [
     'set_runtime_infra',
     'set_ui_app',
     'set_ui_empty_state',
+    'validate_skill_source',
     'validate_tool_source',
     'write_spec',
 ]

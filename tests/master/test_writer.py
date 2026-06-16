@@ -45,8 +45,8 @@ def _populate_minimum_viable_spec() -> None:
         package_name='research_org',
         description='Reads papers, writes reports.',
         repository='https://github.com/example/research-org',
-        author_name='Research Authors',
-        author_email='authors@example.com',
+        admin_name='Research Authors',
+        admin_email='authors@example.com',
         visibility='private',
     )
     add_or_update_agent(
@@ -86,8 +86,8 @@ def test_python_literal_renders_pydantic_models_as_constructor_calls():
         package_name='x',
         description='Y',
         repository='r',
-        author_name='a',
-        author_email='a@b.c',
+        admin_name='a',
+        admin_email='a@b.c',
         visibility='private',
     )
     source = python_literal(org)
@@ -118,6 +118,28 @@ def test_render_spec_references_imported_tools_as_bare_identifiers():
     assert 'tools=[write_knowledge, read_knowledge]' in source
 
 
+def test_render_spec_emits_skills_via_default_skills_refs_catalog(tmp_path: Path):
+    """`skills=['superpowers']` renders as `GitHubSkills(**DEFAULT_SKILLS_REFS['superpowers'])`."""
+    _populate_minimum_viable_spec()
+    add_or_update_agent(
+        agent_id='analyst',
+        name='Analyst',
+        role='Skill-using analyst.',
+        in_scope=['Reasoning over research docs.'],
+        workflow=['Read docs.', 'Reason.', 'Write report.'],
+        skills=['superpowers'],
+    )
+    target = tmp_path / 'spec.py'
+    finalize_spec(target)
+    source = target.read_text()
+    assert 'from agentorg.core.agents.framework.agno import GitHubSkills, make_agent' in source
+    assert 'from agentorg.core.agents.skills import DEFAULT_SKILLS_REFS' in source
+    assert "GitHubSkills(**DEFAULT_SKILLS_REFS['superpowers'])" in source
+
+    module = _import_spec_from_path(target)
+    assert len(module.spec.ai.agents) == 2  # researcher + analyst
+
+
 def test_render_spec_ai_agents_uses_bare_identifiers_not_agentspec_constructors():
     """`spec.ai.agents` references module-level agents by name, not as inline `AgentSpec(...)`."""
     _populate_minimum_viable_spec()
@@ -139,7 +161,7 @@ def test_finalize_spec_writes_a_file_that_imports_and_yields_a_real_spec(tmp_pat
     assert len(module.spec.ai.agents) == 1
 
 
-@pytest.mark.parametrize('overhead_field', ['package_name', 'author_name'])
+@pytest.mark.parametrize('overhead_field', ['package_name', 'admin_name'])
 def test_finalize_spec_round_trips_provided_org_fields(tmp_path: Path, overhead_field: str):
     """Org fields set during the interview survive the render -> import round trip."""
     _populate_minimum_viable_spec()

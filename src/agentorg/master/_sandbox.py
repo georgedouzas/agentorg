@@ -69,3 +69,42 @@ def validate_tool_source(name: str, source: str) -> None:
     if result.returncode != 0:
         msg = f'sandbox import failed:\n{result.stderr.strip()}'
         raise ToolValidationError(msg)
+
+
+class SkillValidationError(Exception):
+    """Raised when emitted skill source fails validation."""
+
+
+_SKILL_NAME_PATTERN = '^[a-z][a-z0-9-]*$'
+
+
+def validate_skill_source(name: str, skill_md: str) -> None:
+    """Validate a custom skill's SKILL.md before registering it.
+
+    Skills are filesystem-shaped (a folder containing SKILL.md and optional supporting files),
+    so they cannot be subprocess-imported like tools. Validation is purely structural here:
+    the skill name must be a lowercase-with-hyphens identifier, and the SKILL.md body must
+    begin with a markdown H1 heading and contain at least one non-heading line of content.
+
+    Arguments:
+        name: Folder name for the skill (lowercase-with-hyphens).
+        skill_md: Full markdown body of the SKILL.md file.
+
+    Raises:
+        SkillValidationError: If the name or markdown fails validation.
+    """
+    import re  # noqa: PLC0415  (stdlib import isolated to this validator)
+
+    if not re.match(_SKILL_NAME_PATTERN, name):
+        msg = f"skill name {name!r} must be lowercase-with-hyphens (e.g. 'negotiation-playbook')"
+        raise SkillValidationError(msg)
+
+    stripped = skill_md.strip()
+    if not stripped.startswith('# '):
+        msg = 'SKILL.md must start with a level-1 markdown heading (`# Skill name`)'
+        raise SkillValidationError(msg)
+
+    non_heading = [line for line in stripped.splitlines()[1:] if line.strip() and not line.startswith('#')]
+    if not non_heading:
+        msg = 'SKILL.md must contain at least one non-heading line of content'
+        raise SkillValidationError(msg)

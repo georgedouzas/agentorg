@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from agentorg.core.spec import Spec
 
-from ._models import AgentSpec, CustomTool, StepSpec, TeamSpec, WorkflowSpec
+from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 
 INDENT = '    '
 
@@ -18,23 +18,36 @@ def _py_ident(value: str) -> str:
     return value.replace('-', '_')
 
 
-def write_spec(spec: Spec, target: Path, *, custom_tools: Iterable[CustomTool] = ()) -> None:
-    """Render `spec` (and any registered custom tools) as spec.py source and write it to `target`.
+def write_spec(
+    spec: Spec,
+    target: Path,
+    *,
+    custom_tools: Iterable[CustomTool] = (),
+    custom_skills: Iterable[CustomSkill] = (),
+) -> None:
+    """Render `spec` (and any registered custom tools/skills) as spec.py source and write to `target`.
 
     Arguments:
         spec: The working spec to render.
         target: Destination file path.
         custom_tools: User-defined tool functions to inline at the top of the rendered file.
+        custom_skills: User-defined skill names; each will be referenced as `LocalSkills('skills/<name>')`.
     """
-    target.write_text(render_spec(spec, custom_tools=custom_tools))
+    target.write_text(render_spec(spec, custom_tools=custom_tools, custom_skills=custom_skills))
 
 
-def render_spec(spec: Spec, *, custom_tools: Iterable[CustomTool] = ()) -> str:
-    """Render a `Spec` plus optional custom tools as a runnable spec.py source string.
+def render_spec(
+    spec: Spec,
+    *,
+    custom_tools: Iterable[CustomTool] = (),
+    custom_skills: Iterable[CustomSkill] = (),
+) -> str:
+    """Render a `Spec` plus optional custom tools/skills as a runnable spec.py source string.
 
     Arguments:
         spec: The working spec.
         custom_tools: User-defined tool functions to inline.
+        custom_skills: User-defined skill folders to reference via `LocalSkills`.
 
     Returns:
         source: A Python source string that, when imported, reconstructs the spec.
@@ -43,14 +56,28 @@ def render_spec(spec: Spec, *, custom_tools: Iterable[CustomTool] = ()) -> str:
     team_specs = [t for t in spec.ai.teams if isinstance(t, TeamSpec)]
     workflow_specs = [w for w in spec.ai.workflows if isinstance(w, WorkflowSpec)]
     custom_tool_list = list(custom_tools)
+    custom_skill_list = list(custom_skills)
 
-    custom_names = {c.name for c in custom_tool_list}
-    builtin_tool_names = sorted({t for a in agent_specs for t in a.tools if t not in custom_names})
+    custom_tool_names = {c.name for c in custom_tool_list}
+    custom_skill_names = {s.name for s in custom_skill_list}
+    all_tool_refs = {t for a in agent_specs for t in a.tools} | {t for tm in team_specs for t in tm.tools}
+    builtin_tool_names = sorted(t for t in all_tool_refs if t not in custom_tool_names)
+    all_skill_refs = {s for a in agent_specs for s in a.skills} | {s for tm in team_specs for s in tm.skills}
+    github_skill_refs = sorted(r for r in all_skill_refs if not r.startswith('custom:'))
+    local_skill_refs = sorted(r.removeprefix('custom:') for r in all_skill_refs if r.startswith('custom:'))
+    # Skills that reference unknown custom names are dropped to keep the rendered file importable.
+    local_skill_refs = [n for n in local_skill_refs if n in custom_skill_names]
     needs_step = bool(workflow_specs)
 
     sections: list[str] = [
         _render_header(spec),
-        _render_imports(builtin_tool_names, needs_team=bool(team_specs), needs_workflow=needs_step),
+        _render_imports(
+            builtin_tool_names,
+            github_skill_refs=github_skill_refs,
+            uses_local_skills=bool(local_skill_refs),
+            needs_team=bool(team_specs),
+            needs_workflow=needs_step,
+        ),
         *(t.source.rstrip() for t in custom_tool_list),
         *(_render_make_agent_call(a) for a in agent_specs),
         *(_render_make_team_call(t) for t in team_specs),
@@ -64,19 +91,32 @@ def _render_header(spec: Spec) -> str:
     return f'"""Spec for {spec.org.name}."""'
 
 
-def _render_imports(builtin_tool_names: list[str], *, needs_team: bool, needs_workflow: bool) -> str:
+def _render_imports(
+    builtin_tool_names: list[str],
+    *,
+    github_skill_refs: list[str],
+    uses_local_skills: bool,
+    needs_team: bool,
+    needs_workflow: bool,
+) -> str:
     """Build the import block, sorted so the output is deterministic."""
     lines: list[str] = []
+    if uses_local_skills:
+        lines.append('from agno.skills.loaders.local import LocalSkills')
     if needs_workflow:
         lines.append('from agno.workflow import Step')
     if builtin_tool_names:
         lines.append(f'from agentorg.core.agents.tools import {", ".join(builtin_tool_names)}')
     factories = ['make_agent']
+    if github_skill_refs:
+        factories.insert(0, 'GitHubSkills')
     if needs_team:
         factories.append('make_team')
     if needs_workflow:
         factories.append('make_workflow')
     lines.append(f'from agentorg.core.agents.framework.agno import {", ".join(factories)}')
+    if github_skill_refs:
+        lines.append('from agentorg.core.agents.skills import DEFAULT_SKILLS_REFS')
     lines.append('from agentorg.core.spec import (')
     for symbol in (
         'AI',
@@ -104,6 +144,36 @@ def _render_imports(builtin_tool_names: list[str], *, needs_team: bool, needs_wo
     return '\n'.join(lines)
 
 
+def _render_skill_entry(ref: str) -> str:
+    """Render a single `skills=[...]` entry from a skill ref.
+
+    `ref` may be:
+    - `'catalog'`         -> `GitHubSkills(**DEFAULT_SKILLS_REFS['catalog'])` (whole catalog).
+    - `'catalog/sub'`     -> `GitHubSkills(...)` narrowed to the `sub` folder.
+    - `'custom:name'`     -> `LocalSkills('skills/name')` from the spec-adjacent folder.
+    """
+    if ref.startswith('custom:'):
+        name = ref.removeprefix('custom:')
+        return f"LocalSkills('skills/{name}')"
+    catalog, _, sub = ref.partition('/')
+    if not sub:
+        return f"GitHubSkills(**DEFAULT_SKILLS_REFS[{catalog!r}])"
+    return (
+        f'GitHubSkills(\n'
+        f"{INDENT * 3}url=DEFAULT_SKILLS_REFS[{catalog!r}]['url'],\n"
+        f"{INDENT * 3}ref=DEFAULT_SKILLS_REFS[{catalog!r}]['ref'],\n"
+        f"{INDENT * 3}subpath=DEFAULT_SKILLS_REFS[{catalog!r}]['subpath'] + '/{sub}',\n"
+        f"{INDENT * 3}validate=DEFAULT_SKILLS_REFS[{catalog!r}]['validate'],\n"
+        f'{INDENT * 2})'
+    )
+
+
+def _render_skills_field(skills: list[str]) -> str:
+    """Render the `skills=[...]` line for an agent or team."""
+    entries = ',\n'.join(INDENT * 2 + _render_skill_entry(s) for s in skills)
+    return f'skills=[\n{entries},\n{INDENT}]'
+
+
 def _render_make_agent_call(agent: AgentSpec) -> str:
     """Render `<agent_id> = make_agent(...)`. `tools` references imported callables by bare name."""
     fields: list[str] = [
@@ -114,6 +184,8 @@ def _render_make_agent_call(agent: AgentSpec) -> str:
     ]
     if agent.tools:
         fields.append(f'tools=[{", ".join(agent.tools)}]')
+    if agent.skills:
+        fields.append(_render_skills_field(agent.skills))
     fields.extend(
         _optional_list_fields(
             agent,
@@ -135,6 +207,10 @@ def _render_make_team_call(team: TeamSpec) -> str:
         f'members=[{", ".join(_py_ident(m) for m in team.member_ids)}]',
         f'mode={python_literal(team.mode, 1)}',
     ]
+    if team.tools:
+        fields.append(f'tools=[{", ".join(team.tools)}]')
+    if team.skills:
+        fields.append(_render_skills_field(team.skills))
     fields.extend(
         _optional_list_fields(
             team,

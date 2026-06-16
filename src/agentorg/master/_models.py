@@ -15,6 +15,7 @@ class AgentSpec(SpecModel):
     role: str
     model: str = 'google:gemini-2.5-flash'
     tools: list[str] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
     in_scope: list[str] = Field(default_factory=list)
     workflow: list[str] = Field(default_factory=list)
     when_to_act: list[str] = Field(default_factory=list)
@@ -44,6 +45,8 @@ class TeamSpec(SpecModel):
     member_ids: list[str]
     mode: Literal['coordinate', 'route', 'broadcast', 'tasks'] = 'coordinate'
     model: str = 'google:gemini-2.5-flash'
+    tools: list[str] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
     in_scope: list[str] = Field(default_factory=list)
     out_of_scope: list[str] = Field(default_factory=list)
     when_to_act: list[str] = Field(default_factory=list)
@@ -68,3 +71,14 @@ class CustomTool(SpecModel):
 
     name: str
     source: str
+
+
+class CustomSkill(SpecModel):
+    """A user-defined skill emitted via `emit_custom_skill`.
+
+    `skill_md` is the full SKILL.md markdown body. The writer materialises a folder of the form `skills/<name>/SKILL.md`
+    next to the rendered `spec.py`, and the agents that reference this skill load it via `LocalSkills('skills/<name>')`.
+    """
+
+    name: str
+    skill_md: str

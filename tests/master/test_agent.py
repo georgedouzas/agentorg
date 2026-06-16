@@ -7,6 +7,12 @@ from agentorg.master import (
     MASTER_INTRODUCTION,
     MASTER_TOOLS,
     add_or_update_agent,
+    add_or_update_agent_group,
+    add_or_update_knowledge_type,
+    add_or_update_parameter,
+    add_or_update_principle_section,
+    add_or_update_team,
+    add_or_update_workflow,
     build_master_agent,
     reset_state,
     set_knowledge_empty,
@@ -115,8 +121,8 @@ def test_next_question_advances_as_fields_are_filled():
         package_name='org',
         description='Does things.',
         repository='https://example.com/org',
-        author_name='Maintainer',
-        author_email='m@example.com',
+        admin_name='Maintainer',
+        admin_email='m@example.com',
     )
     # All org placeholders set; UI app.name placeholder should still trigger before ai.agents.
     # Set UI placeholders too.
@@ -129,7 +135,7 @@ def test_next_question_advances_as_fields_are_filled():
 
 
 def test_next_question_returns_finalize_prompt_when_nothing_left():
-    """When the placeholder list is empty, the fallback nudges toward finalising."""
+    """When every section is filled (or explicitly populated), the fallback nudges toward finalising."""
     reset_state()
     set_org_identity(
         name='Org',
@@ -137,12 +143,25 @@ def test_next_question_returns_finalize_prompt_when_nothing_left():
         package_name='org',
         description='Does things.',
         repository='https://example.com/org',
-        author_name='Maintainer',
-        author_email='m@example.com',
+        admin_name='Maintainer',
+        admin_email='m@example.com',
     )
     set_ui_app(name='App', icon='icon', description='App description.')
     set_ui_empty_state(icon='icon', title='Title', body='Body.')
     set_knowledge_empty('Nothing yet.')
-    add_or_update_agent(agent_id='r', name='R', role='r', in_scope=['s'], workflow=['w'])
+    add_or_update_agent(
+        agent_id='r',
+        name='R',
+        role='r',
+        in_scope=['Pre-purchase questions.'],
+        workflow=['Restate the request.'],
+        tools=['read_knowledge'],
+    )
+    add_or_update_team(team_id='t', name='T', role='r', workflow=['Coordinate.'], member_ids=['r'])
+    add_or_update_workflow(workflow_id='w', name='W', steps=[{'name': 's', 'agent_id': 'r'}])
+    add_or_update_knowledge_type(knowledge_type_id='note', label='Notes')
+    add_or_update_principle_section(section_id='p1', title='Mission', body='Be helpful.')
+    add_or_update_parameter(name='param', param_type='string', default='x', label='Param')
+    add_or_update_agent_group(label='All', ids=['r'])
 
     assert _next_question() == ALL_PLACEHOLDERS_FILLED

@@ -103,14 +103,14 @@ INSTRUCTIONS = """## Principles
 - Use file_path:line_number format so the reader can navigate."""
 INSTRUCTIONS_TOOLS_SKILLS = """## Tools
 
-*The only tools names you are allowed to mention in chat. Everything else is silent.*
+*The only tool names you are allowed to mention in chat. Everything else is silent.*
 
 - search_web
 - fetch_url
 
 ## Skills
 
-*The only skills names you are allowed to mention in chat. Everything else is silent.*
+*The only skill names you are allowed to mention in chat. Everything else is silent.*
 
 - greeter
 - brainstorming"""

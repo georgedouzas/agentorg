@@ -385,9 +385,9 @@ def make_agent(
     name: str,
     agent_id: str,
     role: str,
-    tools: list[Callable],
     in_scope: list[str],
     workflow: list[str],
+    tools: list[Callable] | None = None,
     skills: list[SkillLoader] | None = None,
     introduction: str = '',
     description: str = '',
@@ -421,6 +421,7 @@ def make_agent(
     Returns:
         agent: A configured `agno.Agent` instance.
     """
+    tools = tools or []
     skills = skills or []
     principles = principles or []
     out_of_scope = out_of_scope or []

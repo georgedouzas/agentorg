@@ -34,8 +34,8 @@ def default_spec() -> Spec:
             package_name=PLACEHOLDER_PACKAGE,
             description=PLACEHOLDER,
             repository=PLACEHOLDER,
-            author_name=PLACEHOLDER,
-            author_email=PLACEHOLDER_EMAIL,
+            admin_name=PLACEHOLDER,
+            admin_email=PLACEHOLDER_EMAIL,
             visibility='private',
         ),
         runtime=Runtime(

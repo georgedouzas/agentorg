@@ -71,7 +71,7 @@ def test_list_placeholders_on_seed_reports_org_fields_and_empty_agents():
     paths = {path for path, _ in list_placeholders()}
     assert 'org.description' in paths
     assert 'org.repository' in paths
-    assert 'org.author_name' in paths
+    assert 'org.admin_name' in paths
     assert 'ai.agents' in paths
 
 
@@ -136,6 +136,27 @@ def test_add_or_update_agent_clears_the_agents_placeholder():
     _add_basic_agent()
     paths = {path for path, _ in list_placeholders()}
     assert 'ai.agents' not in paths
+
+
+def test_agent_with_neither_tools_nor_skills_is_flagged_unfinished():
+    """An agent missing both tools and skills shows up as `<id>.tools_or_skills (empty)`."""
+    _add_basic_agent('toolless')
+    paths = {path for path, _ in list_placeholders()}
+    assert any(p.startswith('ai.agents[toolless].') for p in paths)
+
+
+def test_agent_with_only_skills_is_considered_finished():
+    """An agent with skills but no tools is NOT flagged - skills cover the same need."""
+    add_or_update_agent(
+        agent_id='skilled',
+        name='Skilled',
+        role='Uses skills.',
+        in_scope=['Reasoning over the question.'],
+        workflow=['Think through it.', 'Reply.'],
+        skills=['superpowers'],
+    )
+    paths = {path for path, _ in list_placeholders()}
+    assert not any(p.startswith('ai.agents[skilled].') for p in paths)
 
 
 def test_remove_agent_drops_an_existing_agent():

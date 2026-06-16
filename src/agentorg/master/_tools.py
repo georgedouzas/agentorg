@@ -26,8 +26,8 @@ from agentorg.core.spec import (
     Spec,
 )
 
-from ._models import AgentSpec, CustomTool, StepSpec, TeamSpec, WorkflowSpec
-from ._sandbox import ToolValidationError, validate_tool_source
+from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
+from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
 from ._seed import PLACEHOLDER_VALUES
 from ._state import get_state
 from ._writer import write_spec
@@ -77,19 +77,40 @@ def _replace_ai(
     )
 
 
-def list_placeholders() -> list[tuple[str, str]]:
-    """List the fields in the working spec that still hold seed placeholders.
+_ORG_STRING_FIELDS: tuple[str, ...] = (
+    'name',
+    'slug',
+    'package_name',
+    'description',
+    'repository',
+    'admin_name',
+    'admin_email',
+)
 
-    Returns:
-        items: `(field_path, current_value)` tuples for each unfilled field, plus `('ai.agents', '(empty)')`
-            when no user agents have been declared yet.
-    """
-    spec = get_state().spec
-    placeholders: list[tuple[str, str]] = []
-    for fld in ('name', 'slug', 'package_name', 'description', 'repository', 'author_name', 'author_email'):
-        value = getattr(spec.org, fld)
-        if _is_placeholder(value):
-            placeholders.append((f'org.{fld}', value))
+
+def _org_placeholders(spec: Spec) -> list[tuple[str, str]]:
+    """Return placeholder entries for the seed-valued fields on `spec.org`."""
+    return [(f'org.{f}', getattr(spec.org, f)) for f in _ORG_STRING_FIELDS if _is_placeholder(getattr(spec.org, f))]
+
+
+def _ai_placeholders(spec: Spec) -> list[tuple[str, str]]:
+    """Return placeholder entries for empty agent/team/workflow collections + toolless agents."""
+    out: list[tuple[str, str]] = []
+    if not spec.ai.agents:
+        out.append(('ai.agents', '(empty)'))
+    for agent in spec.ai.agents:
+        if isinstance(agent, AgentSpec) and not agent.tools and not agent.skills:
+            out.append((f'ai.agents[{agent.agent_id}].tools_or_skills', '(empty)'))
+    if not spec.ai.teams:
+        out.append(('ai.teams', '(empty)'))
+    if not spec.ai.workflows:
+        out.append(('ai.workflows', '(empty)'))
+    return out
+
+
+def _ui_placeholders(spec: Spec) -> list[tuple[str, str]]:
+    """Return placeholder entries for seed-valued UI fields + empty UI collections."""
+    out: list[tuple[str, str]] = []
     for fld, value in (
         ('ui.app.name', spec.ui.app.name),
         ('ui.app.icon', spec.ui.app.icon),
@@ -100,10 +121,36 @@ def list_placeholders() -> list[tuple[str, str]]:
         ('ui.knowledge_empty', spec.ui.knowledge_empty),
     ):
         if _is_placeholder(value):
-            placeholders.append((fld, value))
-    if not spec.ai.agents:
-        placeholders.append(('ai.agents', '(empty)'))
-    return placeholders
+            out.append((fld, value))
+    if not spec.ui.agent_groups:
+        out.append(('ui.agent_groups', '(empty)'))
+    return out
+
+
+def list_placeholders() -> list[tuple[str, str]]:
+    """List fields and sections the master still needs to confirm with the user.
+
+    Two kinds of items show up: (a) required fields still holding their TODO placeholder string,
+    and (b) optional collections that are still empty (no agents/teams/workflows/parameters/
+    knowledge/principles/UI groups, plus agents with no tools attached). The master treats both
+    as "ask the user about this before finalising"; an explicit "leave empty" answer is still
+    a turn that needs to happen.
+
+    Returns:
+        items: `(field_path, current_value)` tuples in interview-priority order.
+    """
+    spec = get_state().spec
+    out: list[tuple[str, str]] = []
+    out.extend(_org_placeholders(spec))
+    out.extend(_ai_placeholders(spec))
+    if not spec.knowledge.types:
+        out.append(('knowledge.types', '(empty)'))
+    if not spec.knowledge.principles.sections:
+        out.append(('knowledge.principles.sections', '(empty)'))
+    if not spec.parameters:
+        out.append(('parameters', '(empty)'))
+    out.extend(_ui_placeholders(spec))
+    return out
 
 
 def set_org_identity(
@@ -113,8 +160,8 @@ def set_org_identity(
     package_name: str | None = None,
     description: str | None = None,
     repository: str | None = None,
-    author_name: str | None = None,
-    author_email: str | None = None,
+    admin_name: str | None = None,
+    admin_email: str | None = None,
     visibility: Literal['public', 'private'] | None = None,
 ) -> str:
     """Update fields on `spec.org`.
@@ -127,8 +174,8 @@ def set_org_identity(
             package_name: Python package name.
             description: One-line description.
             repository: Git repository URL.
-            author_name: Author name.
-            author_email: Author email.
+            admin_name: Author name.
+            admin_email: Author email.
             visibility: `public` or `private`.
 
     Returns:
@@ -141,8 +188,8 @@ def set_org_identity(
         'package_name': package_name,
         'description': description,
         'repository': repository,
-        'author_name': author_name,
-        'author_email': author_email,
+        'admin_name': admin_name,
+        'admin_email': admin_email,
         'visibility': visibility,
     }
     changed = {k: v for k, v in updates.items() if v is not None}
@@ -160,6 +207,7 @@ def add_or_update_agent(
     in_scope: list[str],
     workflow: list[str],
     tools: list[str] | None = None,
+    skills: list[str] | None = None,
     model: str = 'google:gemini-2.5-flash',
     when_to_act: list[str] | None = None,
     out_of_scope: list[str] | None = None,
@@ -178,6 +226,7 @@ def add_or_update_agent(
         in_scope: Topics the agent owns.
         workflow: Steps the agent follows for an in-scope request.
         tools: Names of built-in or custom tools the agent uses.
+        skills: Names of skill-catalog refs (keys of `DEFAULT_SKILLS_REFS`) the agent uses.
         model: Model the agent runs on.
         when_to_act: Rules for when the agent engages.
         out_of_scope: Topics the agent declines.
@@ -196,6 +245,7 @@ def add_or_update_agent(
         role=role,
         model=model,
         tools=tools or [],
+        skills=skills or [],
         in_scope=in_scope,
         workflow=workflow,
         when_to_act=when_to_act or [],
@@ -236,6 +286,8 @@ def add_or_update_team(
     member_ids: list[str],
     mode: Literal['coordinate', 'route', 'broadcast', 'tasks'] = 'coordinate',
     model: str = 'google:gemini-2.5-flash',
+    tools: list[str] | None = None,
+    skills: list[str] | None = None,
     in_scope: list[str] | None = None,
     out_of_scope: list[str] | None = None,
     when_to_act: list[str] | None = None,
@@ -255,6 +307,11 @@ def add_or_update_team(
         member_ids: `agent_id`s of the team's members.
         mode: Coordination mode.
         model: Model the team's orchestrator runs on.
+        tools: Names of built-in or custom tools available at the team level (in addition to
+            anything its members can call).
+        skills: Skill-catalog refs the team's orchestrator can use. Plain catalog refs
+            (`'superpowers'`) load the whole catalog; granular refs (`'superpowers/negotiation'`)
+            load a single subfolder.
         in_scope: Topics the team handles.
         out_of_scope: Topics the team declines.
         when_to_act: Rules for when the team engages.
@@ -274,6 +331,8 @@ def add_or_update_team(
         model=model,
         member_ids=member_ids,
         mode=mode,
+        tools=tools or [],
+        skills=skills or [],
         workflow=workflow,
         in_scope=in_scope or [],
         out_of_scope=out_of_scope or [],
@@ -815,6 +874,49 @@ def remove_custom_tool(name: str) -> str:
     return f"Removed custom tool '{name}'."
 
 
+def emit_custom_skill(*, name: str, skill_md: str) -> str:
+    """Validate and register a user-defined skill (SKILL.md folder).
+
+    The `skill_md` is the full markdown body of a SKILL.md file. Validation is structural:
+    the name must be lowercase-with-hyphens, and the markdown must start with an H1 heading
+    plus at least one line of content. On success the skill is stored in state and will be
+    materialised at `finalize_spec` time as a `skills/<name>/SKILL.md` folder next to the
+    rendered `spec.py`. Agents reference it via `skills=['custom:<name>']`.
+
+    Arguments:
+        name: Folder name for the skill, lowercase-with-hyphens (e.g. `'negotiation-playbook'`).
+        skill_md: Full markdown body of the SKILL.md file.
+
+    Returns:
+        message: `Registered` or `Updated` confirmation, or a validation-error description.
+    """
+    try:
+        validate_skill_source(name, skill_md)
+    except SkillValidationError as exc:
+        return f"Validation failed for '{name}': {exc}"
+    state = get_state()
+    new_skills, existed = _upsert(list(state.custom_skills), 'name', name, CustomSkill(name=name, skill_md=skill_md))
+    state.custom_skills = new_skills
+    return f"{'Updated' if existed else 'Registered'} custom skill '{name}'."
+
+
+def remove_custom_skill(name: str) -> str:
+    """Remove the custom skill with the given `name`.
+
+    Arguments:
+        name: Name of the skill to remove.
+
+    Returns:
+        message: Confirmation, or a not-found message.
+    """
+    state = get_state()
+    new_skills, removed = _remove(list(state.custom_skills), 'name', name)
+    if not removed:
+        return f"No custom skill named '{name}'."
+    state.custom_skills = new_skills
+    return f"Removed custom skill '{name}'."
+
+
 def get_current_spec() -> Spec:
     """Return the working spec.
 
@@ -827,6 +929,9 @@ def get_current_spec() -> Spec:
 def finalize_spec(output_path: str | Path) -> str:
     """Render the working spec to a `spec.py` file at `output_path`.
 
+    Any custom skills registered via `emit_custom_skill` are materialised as
+    `skills/<name>/SKILL.md` folders next to the rendered file.
+
     Arguments:
         output_path: Destination file path. Parent directories are created if missing.
 
@@ -835,5 +940,10 @@ def finalize_spec(output_path: str | Path) -> str:
     """
     target = Path(output_path).expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
-    write_spec(get_state().spec, target, custom_tools=get_state().custom_tools)
+    state = get_state()
+    write_spec(state.spec, target, custom_tools=state.custom_tools, custom_skills=state.custom_skills)
+    for skill in state.custom_skills:
+        skill_dir = target.parent / 'skills' / skill.name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / 'SKILL.md').write_text(skill.skill_md)
     return f'Wrote {target}.'
