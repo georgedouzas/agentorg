@@ -2,6 +2,7 @@
 
 import click
 
+from ._new import new
 from ._render import render
 
 
@@ -10,4 +11,5 @@ from ._render import render
 def main() -> None:
     """Agentorg: Generate runnable multi-agent organisations."""
 
+main.add_command(new)
 main.add_command(render)

@@ -121,7 +121,8 @@ select = ["C", "E", "F", "W", "B", "I", "D", "N", "UP", "YTT", "ANN", "S",
 [tool.ruff.lint.per-file-ignores]
 "docs/examples/*" = ["ANN", "D", "B018"]
 "docs/generated/*" = ["ANN", "D"]
-"test_*" = ["ANN"]
+"test_*" = ["ANN", "PLR2004"]
+"src/agentorg/master/_sandbox.py" = ["S603"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
