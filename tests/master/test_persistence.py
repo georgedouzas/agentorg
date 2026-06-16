@@ -27,7 +27,9 @@ VALID_TOOL_SOURCE = textwrap.dedent(
     async def echo_tool(message: str) -> str:
         """Return the message unchanged."""
         return message
-    ''',
+    '''
+
+       ,
 ).strip()
 
 

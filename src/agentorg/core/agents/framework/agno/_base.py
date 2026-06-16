@@ -353,8 +353,8 @@ def _compose_instructions(
 ) -> str:
     """Compose an agent's (or team's) instructions from the standard six-section template.
 
-    `extras` appends additional `(heading, intro, items)` sections in order; an entry whose `items`
-    is empty is skipped. Agents pass Tools and Skills; teams pass Members.
+    `extras` appends additional `(heading, intro, items)` sections in order; an entry whose `items` is empty is skipped.
+    Agents pass Tools and Skills; teams pass Members.
     """
     sections: list[str] = []
     for name, main_text in [

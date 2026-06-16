@@ -7,6 +7,16 @@ import tempfile
 from pathlib import Path
 
 SANDBOX_TIMEOUT_SECONDS = 10
+SUBPROCESS_PROGRAM = (
+    'import importlib.util, asyncio, sys\n'
+    'path, name = sys.argv[1], sys.argv[2]\n'
+    "spec = importlib.util.spec_from_file_location('candidate_tool', path)\n"
+    'module = importlib.util.module_from_spec(spec)\n'
+    'spec.loader.exec_module(module)\n'
+    'fn = getattr(module, name, None)\n'
+    "assert callable(fn), 'no callable named ' + name\n"
+    "assert asyncio.iscoroutinefunction(fn), name + ' must be async'\n"
+)
 
 
 class ToolValidationError(Exception):
@@ -44,7 +54,7 @@ def validate_tool_source(name: str, source: str) -> None:
         tmp_path = Path(tmp.name)
     try:
         result = subprocess.run(
-            [sys.executable, '-c', _SUBPROCESS_PROGRAM, str(tmp_path), name],
+            [sys.executable, '-c', SUBPROCESS_PROGRAM, str(tmp_path), name],
             capture_output=True,
             timeout=SANDBOX_TIMEOUT_SECONDS,
             text=True,
@@ -59,15 +69,3 @@ def validate_tool_source(name: str, source: str) -> None:
     if result.returncode != 0:
         msg = f'sandbox import failed:\n{result.stderr.strip()}'
         raise ToolValidationError(msg)
-
-
-_SUBPROCESS_PROGRAM = (
-    'import importlib.util, asyncio, sys\n'
-    'path, name = sys.argv[1], sys.argv[2]\n'
-    "spec = importlib.util.spec_from_file_location('candidate_tool', path)\n"
-    'module = importlib.util.module_from_spec(spec)\n'
-    'spec.loader.exec_module(module)\n'
-    'fn = getattr(module, name, None)\n'
-    "assert callable(fn), 'no callable named ' + name\n"
-    "assert asyncio.iscoroutinefunction(fn), name + ' must be async'\n"
-)

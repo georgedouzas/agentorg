@@ -47,7 +47,9 @@ VALID_TOOL_SOURCE = textwrap.dedent(
     async def echo_tool(message: str) -> str:
         """Return the message unchanged - used as a smoke test for the sandbox."""
         return message
-    ''',
+    '''
+
+       ,
 ).strip()
 
 

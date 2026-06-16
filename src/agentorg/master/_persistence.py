@@ -1,9 +1,4 @@
-"""Disk persistence for the master agent's interview draft.
-
-Drafts live under `~/.agentorg/draft.json` by default. Each save snapshots the working `Spec` plus
-any custom-tool definitions; the loader reconstructs `AgentSpec` / `TeamSpec` / `WorkflowSpec` from
-the JSON because `AI.agents` is `list[Any]` and otherwise loses its types on round-trip.
-"""
+"""Disk persistence for the master agent's interview draft."""
 
 import json
 from pathlib import Path

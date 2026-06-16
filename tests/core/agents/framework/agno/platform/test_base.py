@@ -5,14 +5,16 @@ from agno.agent import Agent
 from agentorg.core.agents.framework.agno.platform import PLATFORM_AGENT_IDS, PLATFORM_AGENTS
 
 _EXPECTED_AGENT_COUNT = 6
-_EXPECTED_IDS = frozenset({
-    'platform-engineer',
-    'security-engineer',
-    'backend-engineer',
-    'frontend-engineer',
-    'knowledge-engineer',
-    'qa-engineer',
-})
+_EXPECTED_IDS = frozenset(
+    {
+        'platform-engineer',
+        'security-engineer',
+        'backend-engineer',
+        'frontend-engineer',
+        'knowledge-engineer',
+        'qa-engineer',
+    },
+)
 
 
 def test_platform_agents_has_six_entries():

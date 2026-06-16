@@ -41,7 +41,10 @@ def _is_placeholder(value: object) -> bool:
 
 
 def _upsert(items: list[ItemT], key_field: str, key_value: object, new_item: ItemT) -> tuple[list[ItemT], bool]:
-    """Insert or replace an item identified by `key_field`. Returns the new list + whether it existed before."""
+    """Insert or replace an item identified by `key_field`.
+
+    Returns the new list + whether it existed before.
+    """
     existed = any(getattr(i, key_field) == key_value for i in items)
     new_items = [i for i in items if getattr(i, key_field) != key_value]
     new_items.append(new_item)
@@ -49,7 +52,10 @@ def _upsert(items: list[ItemT], key_field: str, key_value: object, new_item: Ite
 
 
 def _remove(items: list[ItemT], key_field: str, key_value: object) -> tuple[list[ItemT], bool]:
-    """Drop the item identified by `key_field`. Returns the new list + whether it was present."""
+    """Drop the item identified by `key_field`.
+
+    Returns the new list + whether it was present.
+    """
     new_items = [i for i in items if getattr(i, key_field) != key_value]
     return new_items, len(new_items) != len(items)
 
@@ -100,9 +106,6 @@ def list_placeholders() -> list[tuple[str, str]]:
     return placeholders
 
 
-# ---- Org ---------------------------------------------------------------------------------------
-
-
 def set_org_identity(
     *,
     name: str | None = None,
@@ -114,20 +117,22 @@ def set_org_identity(
     author_email: str | None = None,
     visibility: Literal['public', 'private'] | None = None,
 ) -> str:
-    """Update fields on `spec.org`. Only provided arguments are changed.
+    """Update fields on `spec.org`.
+
+    Only provided arguments are changed.
 
     Arguments:
-        name: Display name.
-        slug: URL-safe identifier.
-        package_name: Python package name.
-        description: One-line description.
-        repository: Git repository URL.
-        author_name: Author name.
-        author_email: Author email.
-        visibility: `public` or `private`.
+            name: Display name.
+            slug: URL-safe identifier.
+            package_name: Python package name.
+            description: One-line description.
+            repository: Git repository URL.
+            author_name: Author name.
+            author_email: Author email.
+            visibility: `public` or `private`.
 
     Returns:
-        message: Confirmation listing the fields that changed.
+            message: Confirmation listing the fields that changed.
     """
     state = get_state()
     updates = {
@@ -145,9 +150,6 @@ def set_org_identity(
         return 'No changes - all arguments were omitted.'
     state.spec.org = Org(**{**state.spec.org.model_dump(), **changed})
     return f"Updated org fields: {', '.join(sorted(changed))}."
-
-
-# ---- Agents ------------------------------------------------------------------------------------
 
 
 def add_or_update_agent(
@@ -223,9 +225,6 @@ def remove_agent(agent_id: str) -> str:
         return f"No agent named '{agent_id}'."
     _replace_ai(agents=new_agents)
     return f"Removed agent '{agent_id}'."
-
-
-# ---- Teams -------------------------------------------------------------------------------------
 
 
 def add_or_update_team(
@@ -306,9 +305,6 @@ def remove_team(team_id: str) -> str:
     return f"Removed team '{team_id}'."
 
 
-# ---- Workflows ---------------------------------------------------------------------------------
-
-
 def add_or_update_workflow(
     *,
     workflow_id: str,
@@ -348,9 +344,6 @@ def remove_workflow(workflow_id: str) -> str:
         return f"No workflow named '{workflow_id}'."
     _replace_ai(workflows=new_workflows)
     return f"Removed workflow '{workflow_id}'."
-
-
-# ---- Parameters --------------------------------------------------------------------------------
 
 
 def add_or_update_parameter(
@@ -397,9 +390,6 @@ def remove_parameter(name: str) -> str:
     return f"Removed parameter '{name}'."
 
 
-# ---- Knowledge types ---------------------------------------------------------------------------
-
-
 def add_or_update_knowledge_type(
     *,
     knowledge_type_id: str,
@@ -439,9 +429,6 @@ def remove_knowledge_type(knowledge_type_id: str) -> str:
         return f"No knowledge type named '{knowledge_type_id}'."
     state.spec.knowledge = Knowledge(principles=state.spec.knowledge.principles, types=new_types)
     return f"Removed knowledge type '{knowledge_type_id}'."
-
-
-# ---- Principles --------------------------------------------------------------------------------
 
 
 def add_or_update_principle_section(*, section_id: str, title: str, body: str) -> str:
@@ -485,9 +472,6 @@ def remove_principle_section(section_id: str) -> str:
     return f"Removed principle section '{section_id}'."
 
 
-# ---- Runtime -----------------------------------------------------------------------------------
-
-
 def set_runtime_infra(
     *,
     packaging: Literal['none', 'docker'] | None = None,
@@ -498,19 +482,21 @@ def set_runtime_infra(
     frontend: Literal['none', 'vercel'] | None = None,
     auth: Literal['none', 'clerk'] | None = None,
 ) -> str:
-    """Update fields on `spec.runtime.infra`. Only provided arguments are changed.
+    """Update fields on `spec.runtime.infra`.
+
+    Only provided arguments are changed.
 
     Arguments:
-        packaging: `none` or `docker`.
-        database: `sqlite` or `postgres`.
-        vector_db: `chromadb` or `pgvector`.
-        embedder: `provider:model` pair.
-        api: `none` or `railway`.
-        frontend: `none` or `vercel`.
-        auth: `none` or `clerk`.
+            packaging: `none` or `docker`.
+            database: `sqlite` or `postgres`.
+            vector_db: `chromadb` or `pgvector`.
+            embedder: `provider:model` pair.
+            api: `none` or `railway`.
+            frontend: `none` or `vercel`.
+            auth: `none` or `clerk`.
 
     Returns:
-        message: Confirmation listing the fields that changed.
+            message: Confirmation listing the fields that changed.
     """
     state = get_state()
     updates = {
@@ -630,9 +616,6 @@ def remove_setup_step(step_id: str) -> str:
     return f"Removed setup step '{id}'."
 
 
-# ---- UI ---------------------------------------------------------------------------------------
-
-
 def _replace_ui(**changes: object) -> None:
     """Replace `spec.ui` carrying the supplied field overrides on top of the current UI."""
     state = get_state()
@@ -640,15 +623,17 @@ def _replace_ui(**changes: object) -> None:
 
 
 def set_ui_app(*, name: str | None = None, icon: str | None = None, description: str | None = None) -> str:
-    """Update `spec.ui.app`. Only provided arguments are changed.
+    """Update `spec.ui.app`.
+
+    Only provided arguments are changed.
 
     Arguments:
-        name: App display name.
-        icon: Single emoji or short string.
-        description: One-line app description.
+            name: App display name.
+            icon: Single emoji or short string.
+            description: One-line app description.
 
     Returns:
-        message: Confirmation listing the fields that changed.
+            message: Confirmation listing the fields that changed.
     """
     state = get_state()
     updates = {k: v for k, v in {'name': name, 'icon': icon, 'description': description}.items() if v is not None}
@@ -660,15 +645,17 @@ def set_ui_app(*, name: str | None = None, icon: str | None = None, description:
 
 
 def set_ui_empty_state(*, icon: str | None = None, title: str | None = None, body: str | None = None) -> str:
-    """Update `spec.ui.empty_state`. Only provided arguments are changed.
+    """Update `spec.ui.empty_state`.
+
+    Only provided arguments are changed.
 
     Arguments:
-        icon: Single emoji or short string.
-        title: Bold heading copy.
-        body: Body copy under the title.
+            icon: Single emoji or short string.
+            title: Bold heading copy.
+            body: Body copy under the title.
 
     Returns:
-        message: Confirmation listing the fields that changed.
+            message: Confirmation listing the fields that changed.
     """
     state = get_state()
     updates = {k: v for k, v in {'icon': icon, 'title': title, 'body': body}.items() if v is not None}
@@ -786,9 +773,6 @@ def remove_overview_block(title: str) -> str:
     return f"Removed overview block '{title}'."
 
 
-# ---- Custom tools ------------------------------------------------------------------------------
-
-
 def emit_custom_tool(*, name: str, source: str) -> str:
     """Validate and register a user-defined async tool function.
 
@@ -829,9 +813,6 @@ def remove_custom_tool(name: str) -> str:
         return f"No custom tool named '{name}'."
     state.custom_tools = new_tools
     return f"Removed custom tool '{name}'."
-
-
-# ---- Spec lifecycle ----------------------------------------------------------------------------
 
 
 def get_current_spec() -> Spec:

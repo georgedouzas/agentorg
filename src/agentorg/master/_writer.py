@@ -1,4 +1,4 @@
-"""Render an in-memory `Spec` (plus interview-time AgentSpec/TeamSpec/WorkflowSpec) to a spec.py source file."""
+"""Render an in-memory `Spec` to a spec.py source file."""
 
 from collections.abc import Iterable
 from pathlib import Path

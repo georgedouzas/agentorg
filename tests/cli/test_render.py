@@ -51,7 +51,8 @@ def test_render_default_output_is_relative_output_dir(tmp_path: Path, monkeypatc
 
 
 def test_render_raises_click_exception_when_default_spec_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     """Running `render` with no args and no `./spec.py` shows a friendly error, not a stack trace."""
     monkeypatch.chdir(tmp_path)
