@@ -47,5 +47,24 @@ def test_validate_tool_source_rejects_sync_function_with_the_target_name():
 def test_validate_tool_source_rejects_import_time_exceptions():
     """An import-time exception surfaces as a sandbox failure."""
     source = 'raise RuntimeError("boom")\n\nasync def echo_tool(): return "x"'
-    with pytest.raises(ToolValidationError, match='sandbox import failed'):
+    with pytest.raises(ToolValidationError, match='sandbox check failed'):
         validate_tool_source('echo_tool', source)
+
+
+def test_validate_tool_source_runs_supplied_smoke_test_cases():
+    """A passing smoke case (expected substring is present) accepts the tool."""
+    validate_tool_source(
+        'echo_tool',
+        VALID_TOOL_SOURCE,
+        test_cases=[{'input': {'message': 'pong'}, 'expected_contains': 'pong'}],
+    )
+
+
+def test_validate_tool_source_rejects_tool_that_fails_a_smoke_case():
+    """A test case whose expected substring is missing fails the sandbox."""
+    with pytest.raises(ToolValidationError, match='sandbox check failed'):
+        validate_tool_source(
+            'echo_tool',
+            VALID_TOOL_SOURCE,
+            test_cases=[{'input': {'message': 'hello'}, 'expected_equals': 'pong'}],
+        )

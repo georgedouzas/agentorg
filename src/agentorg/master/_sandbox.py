@@ -1,6 +1,7 @@
 """Subprocess sandbox that validates user-emitted tool code before it lands in the spec."""
 
 import ast
+import json
 import subprocess
 import sys
 import tempfile
@@ -8,14 +9,25 @@ from pathlib import Path
 
 SANDBOX_TIMEOUT_SECONDS = 10
 SUBPROCESS_PROGRAM = (
-    'import importlib.util, asyncio, sys\n'
-    'path, name = sys.argv[1], sys.argv[2]\n'
+    'import importlib.util, asyncio, json, sys\n'
+    'path, name, cases_path = sys.argv[1], sys.argv[2], sys.argv[3]\n'
     "spec = importlib.util.spec_from_file_location('candidate_tool', path)\n"
     'module = importlib.util.module_from_spec(spec)\n'
     'spec.loader.exec_module(module)\n'
     'fn = getattr(module, name, None)\n'
     "assert callable(fn), 'no callable named ' + name\n"
     "assert asyncio.iscoroutinefunction(fn), name + ' must be async'\n"
+    'with open(cases_path) as f:\n'
+    '    cases = json.load(f)\n'
+    'for i, case in enumerate(cases):\n'
+    "    result = asyncio.new_event_loop().run_until_complete(fn(**case.get('input', {})))\n"
+    '    rendered = str(result)\n'
+    "    contains = case.get('expected_contains')\n"
+    '    if contains is not None and contains not in rendered:\n'
+    "        raise AssertionError(f'test case {i}: expected output to contain {contains!r}, got {rendered!r}')\n"
+    "    equals = case.get('expected_equals')\n"
+    '    if equals is not None and rendered != equals:\n'
+    "        raise AssertionError(f'test case {i}: expected output {equals!r}, got {rendered!r}')\n"
 )
 
 
@@ -23,17 +35,22 @@ class ToolValidationError(Exception):
     """Raised when emitted tool source fails the sandbox validator."""
 
 
-def validate_tool_source(name: str, source: str) -> None:
+def validate_tool_source(name: str, source: str, test_cases: list[dict] | None = None) -> None:
     """Validate a custom tool's source code before registering it.
 
-    Validation runs in two steps. First, the source is parsed as Python and checked for a top-level
-    `async def <name>(...)` function. Second, a fresh subprocess imports the source as a module with
-    a hard timeout; any import-time error (syntax issue caught late, missing symbol, banned global
-    side effect) propagates as a `ToolValidationError`.
+    Validation runs in three steps. First, the source is parsed as Python and checked for a
+    top-level `async def <name>(...)` function. Second, a fresh subprocess imports the source
+    as a module with a hard timeout. Third (optional), each entry in `test_cases` is awaited
+    against the function and the result checked.
+
+    Each test case is a dict:
+        {'input': {kwargs}, 'expected_contains': 'substring'}  # OR
+        {'input': {kwargs}, 'expected_equals': 'exact string'}
 
     Arguments:
         name: The expected top-level async-function name.
         source: Python source code to validate.
+        test_cases: Optional list of smoke-test cases to run against the imported function.
 
     Raises:
         ToolValidationError: If the source fails any validation step.
@@ -52,22 +69,27 @@ def validate_tool_source(name: str, source: str) -> None:
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
         tmp.write(source)
         tmp_path = Path(tmp.name)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cases_tmp:
+        json.dump(list(test_cases or []), cases_tmp)
+        cases_tmp_path = Path(cases_tmp.name)
     try:
         result = subprocess.run(
-            [sys.executable, '-c', SUBPROCESS_PROGRAM, str(tmp_path), name],
+            [sys.executable, '-c', SUBPROCESS_PROGRAM, str(tmp_path), name, str(cases_tmp_path)],
             capture_output=True,
             timeout=SANDBOX_TIMEOUT_SECONDS,
             text=True,
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        msg = f'sandbox import exceeded {SANDBOX_TIMEOUT_SECONDS}s timeout'
+        msg = f'sandbox import or test case exceeded {SANDBOX_TIMEOUT_SECONDS}s timeout'
         raise ToolValidationError(msg) from exc
     finally:
         tmp_path.unlink(missing_ok=True)
+        cases_tmp_path.unlink(missing_ok=True)
 
     if result.returncode != 0:
-        msg = f'sandbox import failed:\n{result.stderr.strip()}'
+        stderr = result.stderr.strip()
+        msg = f'sandbox check failed:\n{stderr}'
         raise ToolValidationError(msg)
 
 

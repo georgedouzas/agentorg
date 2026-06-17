@@ -109,7 +109,8 @@ def test_next_question_picks_an_org_field_first_on_seed():
     question = _next_question()
     assert question in QUESTION_TEMPLATES.values()
     # The first placeholder by priority is something on `org.`
-    assert 'organisation' in question.lower() or 'author' in question.lower() or 'repository' in question.lower()
+    lower = question.lower()
+    assert any(keyword in lower for keyword in ('organisation', 'admin', 'repository'))
 
 
 def test_next_question_advances_as_fields_are_filled():

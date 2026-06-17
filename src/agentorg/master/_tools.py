@@ -1,5 +1,6 @@
 """Patch tools the master agent calls to update the working spec."""
 
+import re
 from pathlib import Path
 from typing import Literal, TypeVar
 
@@ -153,6 +154,23 @@ def list_placeholders() -> list[tuple[str, str]]:
     return out
 
 
+_EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$')
+_GIT_HTTPS_RE = re.compile(r'^https?://[A-Za-z0-9.\-]+(?::\d+)?(?:/[^/\s]+)+/?$')
+_GIT_SSH_RE = re.compile(r'^git@[A-Za-z0-9.\-]+:[^/\s][^/\s]*/[^/\s]+(?:\.git)?$')
+_REPO_PLACEHOLDER_SUFFIX = '/TODO'
+
+
+def _is_valid_email(value: str) -> bool:
+    return bool(_EMAIL_RE.match(value))
+
+
+def _is_valid_repository(value: str) -> bool:
+    """Validate a repository URL. Recognises the seed placeholder and `https://example.com/TODO`."""
+    if value in PLACEHOLDER_VALUES or value.endswith(_REPO_PLACEHOLDER_SUFFIX):
+        return True
+    return bool(_GIT_HTTPS_RE.match(value) or _GIT_SSH_RE.match(value))
+
+
 def set_org_identity(
     *,
     name: str | None = None,
@@ -166,21 +184,33 @@ def set_org_identity(
 ) -> str:
     """Update fields on `spec.org`.
 
-    Only provided arguments are changed.
+    Only provided arguments are changed. `repository` must be an `http(s)` or `git@` URL (the
+    seed placeholder and `https://example.com/TODO` are accepted); `admin_email` must look
+    like an email.
 
     Arguments:
-            name: Display name.
-            slug: URL-safe identifier.
-            package_name: Python package name.
-            description: One-line description.
-            repository: Git repository URL.
-            admin_name: Author name.
-            admin_email: Author email.
-            visibility: `public` or `private`.
+        name: Display name.
+        slug: URL-safe identifier.
+        package_name: Python package name.
+        description: One-line description.
+        repository: Git repository URL.
+        admin_name: Admin / maintainer name.
+        admin_email: Admin / maintainer email.
+        visibility: `public` or `private`.
 
     Returns:
-            message: Confirmation listing the fields that changed.
+        message: Confirmation listing the fields that changed, or a validation-error
+            description if a value was rejected.
     """
+    if repository is not None and not _is_valid_repository(repository):
+        return (
+            f"Repository URL {repository!r} doesn't look right. Expected an http(s):// or git@ URL "
+            f"like 'https://github.com/owner/repo' or 'git@github.com:owner/repo.git'. "
+            f"Use 'https://example.com/TODO' if the user wants to skip it."
+        )
+    if admin_email is not None and not _is_valid_email(admin_email):
+        return f"Admin email {admin_email!r} doesn't look like an email. Ask the user again (format: name@host.tld)."
+
     state = get_state()
     updates = {
         'name': name,
@@ -832,23 +862,33 @@ def remove_overview_block(title: str) -> str:
     return f"Removed overview block '{title}'."
 
 
-def emit_custom_tool(*, name: str, source: str) -> str:
+def emit_custom_tool(*, name: str, source: str, test_cases: list[dict] | None = None) -> str:
     """Validate and register a user-defined async tool function.
 
     The `source` must define a top-level `async def <name>(...)` returning a string. It is
-    validated in a subprocess sandbox: the source is imported with a hard timeout, and the named
-    function must be a coroutine function. On success the tool is stored in state and becomes
-    available to `add_or_update_agent(tools=[...])`.
+    validated in a subprocess sandbox: the source is imported with a hard timeout, the named
+    function must be a coroutine function, and (when `test_cases` is supplied) each case is
+    awaited against the function and its result checked.
+
+    A test case is a dict like:
+        {'input': {'message': 'hello'}, 'expected_contains': 'hello'}
+        {'input': {}, 'expected_equals': 'pong'}
+
+    Supplying at least one smoke case for any non-trivial tool catches logic bugs that an
+    import-time check cannot.
 
     Arguments:
         name: The function name that must appear in `source` as `async def <name>(...)`.
         source: Complete Python source code defining the function (and any imports it needs).
+        test_cases: Optional list of `{input, expected_contains | expected_equals}` smoke
+            cases the sandbox runs against the imported function. The tool is rejected if any
+            case fails.
 
     Returns:
         message: `Registered` or `Updated` confirmation, or a validation-error description.
     """
     try:
-        validate_tool_source(name, source)
+        validate_tool_source(name, source, test_cases=test_cases)
     except ToolValidationError as exc:
         return f"Validation failed for '{name}': {exc}"
     state = get_state()
@@ -915,6 +955,39 @@ def remove_custom_skill(name: str) -> str:
         return f"No custom skill named '{name}'."
     state.custom_skills = new_skills
     return f"Removed custom skill '{name}'."
+
+
+async def sandbox_agent(*, agent_id: str, test_prompts: list[str]) -> str:
+    """Build the named agent for real and run the supplied prompts against it.
+
+    The agent is instantiated via `make_agent` with tools and skills resolved from the
+    current state (built-in catalog, custom tools, GitHub skill catalogs, and custom
+    skills materialised on disk under a temp dir). The agent then runs each prompt via
+    `arun`, calling the REAL model and executing REAL tools - any external side effects
+    those tools have will happen.
+
+    Use this in Stage 4 (Capability Audit) AFTER warning the user about side-effect risk
+    and after they confirm the prompts to run.
+
+    Arguments:
+        agent_id: The `agent_id` of an existing `AgentSpec` in `spec.ai.agents`.
+        test_prompts: One or more prompts to run sequentially.
+
+    Returns:
+        report: A markdown report covering each prompt's response, tool calls, and errors.
+    """
+    from ._agent_sandbox import sandbox_run  # noqa: PLC0415  (defer import; agno + skills loaders are heavy)
+
+    state = get_state()
+    agent_spec = next(
+        (a for a in state.spec.ai.agents if isinstance(a, AgentSpec) and a.agent_id == agent_id),
+        None,
+    )
+    if agent_spec is None:
+        return f"No agent named '{agent_id}'. Add it first via add_or_update_agent."
+    if not test_prompts:
+        return 'sandbox_agent needs at least one test prompt.'
+    return await sandbox_run(agent_spec, test_prompts, state.custom_tools, state.custom_skills)
 
 
 def get_current_spec() -> Spec:

@@ -102,6 +102,44 @@ def test_set_org_identity_with_no_args_is_a_noop():
     assert 'No changes' in result
 
 
+def test_set_org_identity_rejects_malformed_repository_url():
+    """A bare word for `repository` is rejected with a guidance message; state is not mutated."""
+    result = set_org_identity(repository='not-a-url')
+    assert "doesn't look right" in result
+    assert get_state().spec.org.repository == 'TODO'  # unchanged
+
+
+def test_set_org_identity_accepts_https_github_repository():
+    """A well-formed GitHub HTTPS URL is accepted."""
+    set_org_identity(repository='https://github.com/example/research-org')
+    assert get_state().spec.org.repository == 'https://github.com/example/research-org'
+
+
+def test_set_org_identity_accepts_git_ssh_repository():
+    """A `git@host:owner/repo.git` URL is accepted."""
+    set_org_identity(repository='git@github.com:example/research-org.git')
+    assert get_state().spec.org.repository.startswith('git@')
+
+
+def test_set_org_identity_accepts_example_com_todo_placeholder():
+    """`https://example.com/TODO` (the master's "skip" placeholder) is accepted."""
+    set_org_identity(repository='https://example.com/TODO')
+    assert get_state().spec.org.repository == 'https://example.com/TODO'
+
+
+def test_set_org_identity_rejects_malformed_admin_email():
+    """A junk string for `admin_email` is rejected with a guidance message; state is not mutated."""
+    result = set_org_identity(admin_email='qwfe')
+    assert "doesn't look like an email" in result
+    assert get_state().spec.org.admin_email == 'author@example.com'  # unchanged seed
+
+
+def test_set_org_identity_accepts_well_formed_admin_email():
+    """A reasonable email is accepted."""
+    set_org_identity(admin_email='admin@example.com')
+    assert get_state().spec.org.admin_email == 'admin@example.com'
+
+
 # ---- Agents ----
 
 
@@ -405,6 +443,25 @@ def test_emit_custom_tool_updates_existing_tool_by_name():
     msg = emit_custom_tool(name='echo_tool', source=new_source)
     assert msg.startswith('Updated')
     assert '+ "!"' in get_state().custom_tools[0].source
+
+
+def test_emit_custom_tool_runs_supplied_smoke_test_cases():
+    """A passing smoke case keeps the tool; a failing one rejects it and leaves state untouched."""
+    ok = emit_custom_tool(
+        name='echo_tool',
+        source=VALID_TOOL_SOURCE,
+        test_cases=[{'input': {'message': 'pong'}, 'expected_contains': 'pong'}],
+    )
+    assert ok.startswith('Registered')
+
+    bad = emit_custom_tool(
+        name='other_tool',
+        source=VALID_TOOL_SOURCE.replace('echo_tool', 'other_tool'),
+        test_cases=[{'input': {'message': 'hello'}, 'expected_equals': 'pong'}],
+    )
+    assert 'Validation failed' in bad
+    names = {t.name for t in get_state().custom_tools}
+    assert names == {'echo_tool'}  # 'other_tool' was rejected
 
 
 def test_emit_custom_tool_returns_a_message_on_validation_failure():
