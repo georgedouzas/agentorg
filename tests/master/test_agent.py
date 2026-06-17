@@ -72,7 +72,7 @@ def test_build_master_agent_enables_conversation_history_and_live_context():
     assert agent.add_dependencies_to_context is True
     assert agent.add_datetime_to_context is True
     assert agent.dependencies is not None
-    assert set(agent.dependencies) == {'working_spec', 'placeholders'}
+    assert set(agent.dependencies) == {'working_spec', 'placeholders', 'next_question'}
 
 
 def test_working_spec_dependency_reflects_current_state():
@@ -110,7 +110,7 @@ def test_next_question_picks_an_org_field_first_on_seed():
     assert question in QUESTION_TEMPLATES.values()
     # The first placeholder by priority is something on `org.`
     lower = question.lower()
-    assert any(keyword in lower for keyword in ('organisation', 'admin', 'repository'))
+    assert any(keyword in lower for keyword in ('organization', 'admin', 'repository'))
 
 
 def test_next_question_advances_as_fields_are_filled():

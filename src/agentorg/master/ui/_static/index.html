@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentOrg</title>
+<link rel="stylesheet" href="/static/style.css" />
+<script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script defer src="/static/app.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">
+    <svg class="logo" width="30" height="30" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7aa4ff"/>
+          <stop offset="100%" stop-color="#b07cff"/>
+        </linearGradient>
+      </defs>
+      <line x1="16" y1="16" x2="6"  y2="6"  stroke="url(#brand-grad)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+      <line x1="16" y1="16" x2="26" y2="6"  stroke="url(#brand-grad)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+      <line x1="16" y1="16" x2="16" y2="28" stroke="url(#brand-grad)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+      <circle cx="6"  cy="6"  r="3.5" fill="url(#brand-grad)"/>
+      <circle cx="26" cy="6"  r="3.5" fill="url(#brand-grad)"/>
+      <circle cx="16" cy="28" r="3.5" fill="url(#brand-grad)"/>
+      <circle cx="16" cy="16" r="5.5" fill="#0b0d12" stroke="url(#brand-grad)" stroke-width="2.5"/>
+    </svg>
+    <span class="title">AgentOrg</span>
+  </span>
+  <span class="topbar-spacer"></span>
+  <button id="reset-btn" class="btn-subtle" type="button" title="Start a new org from scratch">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
+      <path d="M3 3v5h5"/>
+    </svg>
+    <span>Start over</span>
+  </button>
+  <button id="create-btn" class="btn-primary" type="button" disabled>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+    <span>Create Organization</span>
+  </button>
+</header>
+
+<nav id="stage-bar" class="stage-bar" aria-label="Interview progress"></nav>
+
+<dialog id="create-dialog" class="dialog">
+  <form id="create-form" class="dialog-form" method="dialog">
+    <h3>Create Organization</h3>
+    <p class="dialog-lead">Render <code id="create-org-name">your org</code> as a downloadable zip.</p>
+    <p class="dialog-hint">
+      Click Create — your browser will download <code id="create-zip-name">org.zip</code>.
+      Extract it, then follow the <code>README.md</code> inside for setup (env vars, deps, run).
+    </p>
+    <div id="create-status" class="dialog-status" hidden></div>
+    <div class="dialog-actions">
+      <button type="button" id="create-cancel" class="btn-subtle">Cancel</button>
+      <button type="submit" id="create-confirm" class="btn-primary">Create &amp; download</button>
+    </div>
+  </form>
+</dialog>
+
+<main class="layout">
+  <section class="chat">
+    <div id="chat-log" class="chat-log" aria-live="polite"></div>
+    <form id="chat-form" class="chat-form" autocomplete="off">
+      <textarea id="chat-input" rows="2" placeholder="Tell me about your organization..." required></textarea>
+      <button id="chat-send" type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.5 11.5L20 4l-7 16-2-7-7.5-1.5z"/>
+          <path d="M20 4L10 13"/>
+        </svg>
+      </button>
+    </form>
+    <div id="status" class="status"></div>
+  </section>
+
+  <aside class="spec">
+    <h2>Specification</h2>
+    <div id="spec-root"></div>
+  </aside>
+</main>
+</body>
+</html>

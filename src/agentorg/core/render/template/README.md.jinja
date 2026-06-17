@@ -37,44 +37,142 @@
 
 {% endfor %}
 {% endfor %}
-## Running Locally
+## Getting Started
 
-Prerequisites:
+There are three common ways to land here. Pick the one that matches how you got the
+source, then continue from **Step 2: Configure**.
 
-- Docker Desktop installed
-{% for v in runtime.env_vars.required %}- `{{ v.name }}` set in `.env`
-{% endfor %}
+### Step 1: Get the source
+
+#### A. You downloaded a zip from AgentOrg
+Extract it anywhere; the folder is your project root.
 
 ```sh
-git clone {{ org.repository }}.git
+unzip {{ org.slug }}.zip
 cd {{ org.slug }}
+```
+
+#### B. You cloned an existing repository
+```sh
+git clone {{ org.repository if org.repository and 'TODO' not in org.repository else 'https://github.com/<you>/' ~ org.slug ~ '.git' }}
+cd {{ org.slug }}
+```
+
+#### C. You want to push the zip contents to a new GitHub repository
+After extracting the zip, initialize a repo and push:
+
+```sh
+cd {{ org.slug }}
+git init && git add . && git commit -m "Initial commit"
+gh repo create {{ org.slug }} --private --source=. --remote=origin --push   # or use the GitHub UI
+```
+
+### Step 2: Configure
+
+Copy the example environment file and fill in real values. The required variables
+are listed in [Environment Variables](#environment-variables); the longer-form setup
+walkthroughs for credentialed services (one per external integration) are in
+[Setup Tasks](#setup-tasks).
+
+```sh
 cp example.env .env
+${EDITOR:-vi} .env
+```
+
+After the org boots, you can also see the setup tasks rendered as a checklist at
+`GET /api/v1/setup` or in the dashboard's setup view.
+
+### Step 3: Install and run
+{% if runtime.infra.packaging == 'docker' %}
+The project ships with `docker compose`, which boots the API, database, vector store,
+and (optionally) the AgentField control plane in one go.
+
+Prerequisites: Docker Desktop installed.
+
+```sh
 docker compose up -d --build
 ```
+
+To iterate without Docker (faster reloads on the API), see "Native development" below.
+{% else %}
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management and is
+run directly on your machine.
+
+Prerequisites: Python 3.11+ and `uv` installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+
+```sh
+uv sync                                          # install dependencies into a venv
+uv run nox -s tests                              # smoke-test the rendered package
+uv run python -m {{ org.package_name }}          # run the API node
+```
+
+In a separate terminal, start the dashboard:
+
+```sh
+cd src/frontend && npm install && npm run dev
+```
+{% endif %}
 
 ### Endpoints
 
 - Dashboard: `http://localhost:5173`
 - API (the AgentField node): `http://localhost:8000` — agents are exposed at `/reasoners/{name}`
 - AgentField control plane (optional): `http://localhost:8080` — discovery, execution DAG, audit
+- Setup checklist (live): `http://localhost:8000/api/v1/setup`
+{% if runtime.infra.packaging == 'docker' %}
+### Native development (no Docker)
 
+If you want hot reloads while editing the API:
+
+```sh
+uv sync
+uv run python -m {{ org.package_name }}          # API in this terminal
+cd src/frontend && npm install && npm run dev    # dashboard in another
+```
+
+Postgres + vector DB still need to be running — you can `docker compose up -d db vector` and
+leave only the API native.
+{% endif %}
 ---
 {% if runtime.infra.api == 'railway' and runtime.infra.frontend == 'vercel' %}
 
 ## Cloud Deployment (Railway + Vercel)
+
+After pushing to GitHub (see Step 1.C):
 
 ```sh
 railway login && nox -s deploy   # API + DB
 vercel --prod                    # Frontend
 ```
 
+Set every required variable from [Environment Variables](#environment-variables) in
+both the Railway and Vercel project settings before deploying.
+
 {% elif runtime.infra.api == 'railway' %}
 
 ## Cloud Deployment (Railway)
 
+After pushing to GitHub (see Step 1.C):
+
 ```sh
 railway login && nox -s deploy
 ```
+
+Set every required variable from [Environment Variables](#environment-variables) in
+the Railway project settings before deploying.
+
+{% elif runtime.infra.frontend == 'vercel' %}
+
+## Cloud Deployment (Vercel — frontend only)
+
+After pushing to GitHub (see Step 1.C):
+
+```sh
+vercel --prod
+```
+
+The API needs a separate host (Fly.io, Railway, your own server, etc.).
+Set the dashboard's API URL via the appropriate env var in the Vercel project settings.
 
 {% endif %}
 ## Environment Variables
@@ -95,7 +193,20 @@ railway login && nox -s deploy
 {% for v in runtime.env_vars.optional -%}
 | `{{ v.name }}` | {{ v.required_label }} | {{ v.description }} |
 {% endfor %}
+{% if runtime.setup %}
+## Setup Tasks
 
+Long-form setup walkthroughs for the credentialed services the agents need. The org
+boots without these completed, but the affected tools will only run once the listed
+variables are set.
+
+{% for step in runtime.setup %}### {{ step.title }}
+
+{{ step.description }}
+
+**Variables:** {% for v in step.variables %}`{{ v }}`{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% endfor %}{% endif %}
 ## Learn More
 
 - [AgentField Documentation](https://www.agentfield.ai/docs) — the runtime, control plane, and reasoner model

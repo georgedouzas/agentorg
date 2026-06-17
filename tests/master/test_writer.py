@@ -225,7 +225,11 @@ def test_finalize_spec_renders_a_full_org_with_teams_workflows_parameters_and_kn
 
 def test_finalize_spec_inlines_custom_tools_into_the_rendered_file(tmp_path: Path):
     """A registered custom tool appears verbatim at the top of spec.py and is callable after import."""
-    emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE)
+    emit_custom_tool(
+        name='echo_tool',
+        source=VALID_TOOL_SOURCE,
+        test_cases=[{'input': {'message': 'pong'}, 'expected_contains': 'pong'}],
+    )
     _populate_minimum_viable_spec()
     add_or_update_agent(
         agent_id='echoer',

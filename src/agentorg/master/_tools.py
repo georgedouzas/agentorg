@@ -862,27 +862,29 @@ def remove_overview_block(title: str) -> str:
     return f"Removed overview block '{title}'."
 
 
-def emit_custom_tool(*, name: str, source: str, test_cases: list[dict] | None = None) -> str:
+def emit_custom_tool(*, name: str, source: str, test_cases: list[dict]) -> str:
     """Validate and register a user-defined async tool function.
 
-    The `source` must define a top-level `async def <name>(...)` returning a string. It is
-    validated in a subprocess sandbox: the source is imported with a hard timeout, the named
-    function must be a coroutine function, and (when `test_cases` is supplied) each case is
-    awaited against the function and its result checked.
+    The `source` must define a top-level `async def <name>(...)` returning a string. The
+    sandbox validates the body in four passes: parse, async-def lookup, placeholder-pattern
+    scan (rejects empty bodies, `raise NotImplementedError`, and `TODO`/`placeholder`/etc.
+    string literals), and a subprocess that imports the source and runs every test case
+    against the function. The tool is rejected if any pass fails.
 
-    A test case is a dict like:
+    `test_cases` is required and must be non-empty. Each case is one of:
         {'input': {'message': 'hello'}, 'expected_contains': 'hello'}
         {'input': {}, 'expected_equals': 'pong'}
-
-    Supplying at least one smoke case for any non-trivial tool catches logic bugs that an
-    import-time check cannot.
+        {'input': {'amount': 100}, 'expected_raises': 'STRIPE_SECRET_KEY'}
+    Each case may also include `env={'KEY': 'value'}` (set for the case) or
+    `drop_env=['KEY']` (removed for the case). Tools that need credentials should write the
+    real body that reads `os.environ['VAR']` and use `expected_raises='VAR'` together with
+    `drop_env=['VAR']` to prove the env-var read happens. Then declare the credential via
+    `add_or_update_env_var` and the setup task via `add_or_update_setup_step`.
 
     Arguments:
         name: The function name that must appear in `source` as `async def <name>(...)`.
         source: Complete Python source code defining the function (and any imports it needs).
-        test_cases: Optional list of `{input, expected_contains | expected_equals}` smoke
-            cases the sandbox runs against the imported function. The tool is rejected if any
-            case fails.
+        test_cases: Non-empty list of test cases the sandbox runs against the imported function.
 
     Returns:
         message: `Registered` or `Updated` confirmation, or a validation-error description.

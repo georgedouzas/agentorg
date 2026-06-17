@@ -44,7 +44,11 @@ def _populate_state() -> None:
     )
     add_or_update_team(team_id='team', name='Team', role='r', workflow=['w'], member_ids=['researcher'])
     add_or_update_workflow(workflow_id='wf', name='WF', steps=[{'name': 's', 'agent_id': 'researcher'}])
-    emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE)
+    emit_custom_tool(
+        name='echo_tool',
+        source=VALID_TOOL_SOURCE,
+        test_cases=[{'input': {'message': 'pong'}, 'expected_contains': 'pong'}],
+    )
 
 
 def test_save_draft_writes_a_json_snapshot_of_state(tmp_path: Path):

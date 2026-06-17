@@ -4,6 +4,7 @@ import click
 
 from ._new import new
 from ._render import render
+from ._ui import ui
 
 
 @click.group()
@@ -13,3 +14,4 @@ def main() -> None:
 
 main.add_command(new)
 main.add_command(render)
+main.add_command(ui)

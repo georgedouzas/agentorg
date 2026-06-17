@@ -48,9 +48,9 @@ VALID_TOOL_SOURCE = textwrap.dedent(
         """Return the message unchanged - used as a smoke test for the sandbox."""
         return message
     '''
-
        ,
 ).strip()
+VALID_TEST_CASES = [{'input': {'message': 'pong'}, 'expected_contains': 'pong'}]
 
 
 def _add_basic_agent(agent_id: str = 'researcher') -> str:
@@ -429,7 +429,7 @@ def test_overview_block_add_and_remove():
 
 def test_emit_custom_tool_registers_validated_source():
     """A valid emission appears in `state.custom_tools`."""
-    msg = emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE)
+    msg = emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE, test_cases=VALID_TEST_CASES)
     assert msg.startswith('Registered')
     custom = get_state().custom_tools
     assert len(custom) == 1
@@ -438,9 +438,9 @@ def test_emit_custom_tool_registers_validated_source():
 
 def test_emit_custom_tool_updates_existing_tool_by_name():
     """Re-emitting with the same name replaces the source."""
-    emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE)
+    emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE, test_cases=VALID_TEST_CASES)
     new_source = VALID_TOOL_SOURCE.replace('return message', 'return message + "!"')
-    msg = emit_custom_tool(name='echo_tool', source=new_source)
+    msg = emit_custom_tool(name='echo_tool', source=new_source, test_cases=VALID_TEST_CASES)
     assert msg.startswith('Updated')
     assert '+ "!"' in get_state().custom_tools[0].source
 
@@ -466,14 +466,39 @@ def test_emit_custom_tool_runs_supplied_smoke_test_cases():
 
 def test_emit_custom_tool_returns_a_message_on_validation_failure():
     """A bad source returns an error message; state is not mutated."""
-    msg = emit_custom_tool(name='broken', source='async def broken(:')
+    msg = emit_custom_tool(name='broken', source='async def broken(:', test_cases=VALID_TEST_CASES)
     assert 'Validation failed' in msg
+    assert get_state().custom_tools == []
+
+
+def test_emit_custom_tool_rejects_when_test_cases_omitted_as_empty_list():
+    """The bare emit path without smoke cases is rejected so placeholders cannot sneak through."""
+    msg = emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE, test_cases=[])
+    assert 'requires at least one test case' in msg
+    assert get_state().custom_tools == []
+
+
+def test_emit_custom_tool_rejects_placeholder_body_with_notimplementederror():
+    """A body that raises NotImplementedError is rejected even with a passing-looking test case."""
+    source = textwrap.dedent(
+        '''
+        async def stub_tool() -> str:
+            """Configure later."""
+            raise NotImplementedError("configure foo")
+        ''',
+    ).strip()
+    msg = emit_custom_tool(
+        name='stub_tool',
+        source=source,
+        test_cases=[{'input': {}, 'expected_raises': 'NotImplementedError'}],
+    )
+    assert 'NotImplementedError' in msg  # the validator names the rejected pattern
     assert get_state().custom_tools == []
 
 
 def test_remove_custom_tool_drops_a_registered_tool():
     """Removing by name shrinks the custom tools list."""
-    emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE)
+    emit_custom_tool(name='echo_tool', source=VALID_TOOL_SOURCE, test_cases=VALID_TEST_CASES)
     assert remove_custom_tool('echo_tool').startswith('Removed')
     assert get_state().custom_tools == []
 
