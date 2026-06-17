@@ -47,8 +47,8 @@ def new(resume: bool, draft: Path) -> None:
     else:
         reset_state()
 
-    Console().print(Panel.fit(MASTER_INTRODUCTION, title='Master', border_style='cyan'))
+    Console().print(Panel.fit(MASTER_INTRODUCTION, title='🤖 Master', border_style='cyan'))
 
     agent = build_master_agent()
     agent.post_hooks = [*(agent.post_hooks or []), _make_autosave(draft)]
-    asyncio.run(agent.acli_app(user='You', emoji=':robot:', markdown=True))
+    asyncio.run(agent.acli_app(user='You', emoji=':bust_in_silhouette:', markdown=True))
