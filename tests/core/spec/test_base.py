@@ -42,6 +42,7 @@ _MINIMAL_ORG: dict[str, Any] = {
     'admin_name': '',
     'admin_email': '',
     'visibility': 'private',
+    'budget': 'medium',
 }
 _MINIMAL: dict[str, Any] = {
     'org': _MINIMAL_ORG,

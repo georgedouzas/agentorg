@@ -16,6 +16,7 @@ ORG: dict[str, Any] = {
     'admin_name': 'A. Coyote',
     'admin_email': 'coyote@acme.com',
     'visibility': 'private',
+    'budget': 'medium',
 }
 
 

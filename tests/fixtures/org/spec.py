@@ -155,6 +155,7 @@ spec = Spec(
         admin_name='Agentorg Authors',
         admin_email='agentorg@example.com',
         visibility='private',
+        budget='medium',
     ),
     runtime=Runtime(
         infra=Infra(
