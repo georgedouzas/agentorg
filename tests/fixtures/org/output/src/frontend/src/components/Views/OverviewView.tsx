@@ -38,31 +38,48 @@ function ParameterList({ config, configured }: { config: AppConfig; configured: 
 function PrinciplesSection({ config, configured }: { config: AppConfig; configured: boolean }) {
   const sections = config.principles?.sections ?? [];
   const hasParams = (config.parameters ?? []).length > 0;
-  if (sections.length === 0 && !hasParams) return null;
+  // Always show the section heading even when empty, same as Recent Activity. The
+  // dashboard's structure should be stable across stages - blocks appear/fill in but
+  // don't pop into existence.
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Principles</h2>
       <ParameterList config={config} configured={configured} />
-      {sections.map(s => (
-        <div key={s.id} className={styles.group}>
-          <h3 className={styles.groupLabel}>{s.title}</h3>
-          <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(s.body) as string }} />
-        </div>
-      ))}
+      {sections.length === 0 && !hasParams ? (
+        <div className={styles.muted}>No principles defined yet.</div>
+      ) : (
+        sections.map(s => (
+          <div key={s.id} className={styles.group}>
+            <h3 className={styles.groupLabel}>{s.title}</h3>
+            <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(s.body) as string }} />
+          </div>
+        ))
+      )}
     </section>
   );
 }
 
-function CustomBlocks({ config }: { config: AppConfig }) {
-  if (config.overview.length === 0) return null;
+function DashboardTab({ config }: { config: AppConfig }) {
+  // The Dashboard tab is the high-value work surface. It shows custom overview blocks
+  // emitted by the master agent during Build (org-specific dashboards: pipelines,
+  // inventory views, KPIs, whatever), plus Setup Health as a quick-glance.
+  // Empty state until the org grows past trivial.
+  const hasBlocks = (config.overview ?? []).length > 0;
   return (
     <>
-      {config.overview.map(block => (
+      {!hasBlocks && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Dashboard</h2>
+          <div className={styles.muted}>Your dashboard fills in as your org grows.</div>
+        </section>
+      )}
+      {hasBlocks && config.overview.map(block => (
         <section key={block.title} className={styles.section}>
           <h2 className={styles.sectionTitle}>{block.title}</h2>
           <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(block.body) as string }} />
         </section>
       ))}
+      <SetupHealth />
     </>
   );
 }
@@ -78,7 +95,7 @@ function formatDate(iso?: string): string {
   } catch { return ''; }
 }
 
-function RecentActivity({ config, onPanelOpen }: { config: AppConfig; onPanelOpen: (title: string, endpoint: string) => void }) {
+function RecentActivity({ onPanelOpen }: { onPanelOpen: (title: string, endpoint: string) => void }) {
   const [items, setItems] = useState<KnowledgeItem[] | null>(null);
   useEffect(() => {
     apiFetch<KnowledgeItem[]>('/api/v1/knowledge?limit=5')
@@ -86,16 +103,17 @@ function RecentActivity({ config, onPanelOpen }: { config: AppConfig; onPanelOpe
       .catch(() => setItems([]));
   }, []);
 
-  if (items === null) return null;
+  // Render the heading even before the first fetch resolves so the section is stable.
+  const empty = items === null || items.length === 0;
 
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Recent Activity</h2>
-      {items.length === 0 ? (
-        <div className={styles.muted}>{config.knowledge_empty}</div>
+      {empty ? (
+        <div className={styles.muted}>No recent activity yet.</div>
       ) : (
         <ul className={styles.itemList}>
-          {items.map(it => (
+          {items!.map(it => (
             <li key={`${it.type}/${it.name}`} className={styles.item}>
               <button
                 type="button"
@@ -139,13 +157,47 @@ function SetupHealth() {
   );
 }
 
+type OverviewSectionId = 'dashboard' | 'principles' | 'activity';
+
+const RAIL_ITEMS: { id: OverviewSectionId; label: string; icon: string }[] = [
+  // Lucide-style 16x16 inline SVGs - no external icon font, no per-icon import cost.
+  { id: 'dashboard',  label: 'Dashboard',  icon: 'M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zm10-18v6h8V3h-8z' },
+  { id: 'principles', label: 'Principles', icon: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z' },
+  { id: 'activity',   label: 'Activity',   icon: 'M22 12h-4l-3 9L9 3l-3 9H2' },
+];
+
+function RailIcon({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  );
+}
+
 export function OverviewView({ config, configured, onPanelOpen }: OverviewViewProps) {
+  const [active, setActive] = useState<OverviewSectionId>('dashboard');
   return (
     <div className={styles.view}>
-      <PrinciplesSection config={config} configured={configured} />
-      <CustomBlocks config={config} />
-      <RecentActivity config={config} onPanelOpen={onPanelOpen} />
-      <SetupHealth />
+      <nav className={styles.rail} aria-label="Overview sections">
+        {RAIL_ITEMS.map(it => (
+          <button
+            key={it.id}
+            type="button"
+            aria-current={active === it.id ? 'page' : undefined}
+            className={`${styles.railItem} ${active === it.id ? styles.railItemActive : ''}`}
+            onClick={() => setActive(it.id)}
+          >
+            <span className={styles.railIcon}><RailIcon d={it.icon} /></span>
+            <span>{it.label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className={styles.tabPanel}>
+        {active === 'dashboard' && <DashboardTab config={config} />}
+        {active === 'principles' && <PrinciplesSection config={config} configured={configured} />}
+        {active === 'activity' && <RecentActivity onPanelOpen={onPanelOpen} />}
+      </div>
     </div>
   );
 }

@@ -116,3 +116,34 @@ async def test_delete_knowledge_removes_existing_unit(call):
     assert delete_result == "Deleted disposable 'to-delete'."
     read_result = await call('read_knowledge', knowledge_type='disposable', name='to-delete')
     assert read_result == "No disposable knowledge found for 'to-delete'."
+
+
+async def test_write_knowledge_short_circuits_under_preview_mode(call, monkeypatch):
+    """When `AGENTORG_PREVIEW_MODE=true`, write_knowledge returns a read-only message and does not persist."""
+    monkeypatch.setenv('AGENTORG_PREVIEW_MODE', 'true')
+    msg = await call(
+        'write_knowledge',
+        knowledge_type='disposable',
+        name='preview-blocked',
+        content='Should not land.',
+    )
+    assert 'preview mode' in msg.lower()
+    assert 'disabled' in msg.lower()
+    monkeypatch.setenv('AGENTORG_PREVIEW_MODE', 'false')
+    read_msg = await call('read_knowledge', knowledge_type='disposable', name='preview-blocked')
+    assert read_msg == "No disposable knowledge found for 'preview-blocked'."
+
+
+async def test_delete_knowledge_short_circuits_under_preview_mode(call, monkeypatch):
+    """When in preview mode, delete_knowledge also returns the read-only message."""
+
+    monkeypatch.setenv('AGENTORG_PREVIEW_MODE', 'false')
+    await call('write_knowledge', knowledge_type='disposable', name='preview-survives', content='Stays put.')
+
+    monkeypatch.setenv('AGENTORG_PREVIEW_MODE', 'true')
+    msg = await call('delete_knowledge', knowledge_type='disposable', name='preview-survives')
+    assert 'preview mode' in msg.lower()
+
+    monkeypatch.setenv('AGENTORG_PREVIEW_MODE', 'false')
+    read_msg = await call('read_knowledge', knowledge_type='disposable', name='preview-survives')
+    assert 'Stays put' in read_msg

@@ -1,8 +1,23 @@
 .view {
-  padding: 24px 28px;
+  padding: 24px 28px 80px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* ---- Tag badge (generic; any knowledge item with metadata.tags) ---- */
+.tagBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent, #7aa4ff);
+  padding: 3px 8px;
+  background: rgba(122, 164, 255, 0.10);
+  border: 1px solid rgba(122, 164, 255, 0.25);
+  border-radius: 999px;
 }
 
 .typeSection {

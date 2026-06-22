@@ -124,6 +124,7 @@ function authorLabel(unit: KnowledgeItem): string | undefined {
 function Thumbnail({ unit, onOpen }: { unit: KnowledgeItem; onOpen: () => void }) {
   const author = authorLabel(unit);
   const date = formatDate(unit.created_at);
+  const tags = (unit.metadata?.tags as string[] | undefined) ?? [];
   return (
     <button className={styles.thumb} onClick={onOpen} type="button">
       <div className={styles.thumbTitle}>{extractTitle(unit)}</div>
@@ -134,6 +135,7 @@ function Thumbnail({ unit, onOpen }: { unit: KnowledgeItem; onOpen: () => void }
         />
       )}
       <div className={styles.thumbMeta}>
+        {tags.map(t => <span key={t} className={styles.tagBadge}>{t}</span>)}
         {author && <MetaBadge label="Agent" value={author} />}
         {date && <MetaBadge label="Date" value={date} />}
       </div>
@@ -146,6 +148,7 @@ interface DetailModalProps { unit: KnowledgeItem; onClose: () => void }
 function DetailModal({ unit, onClose }: DetailModalProps) {
   const author = authorLabel(unit);
   const date = formatDate(unit.created_at);
+  const tags = (unit.metadata?.tags as string[] | undefined) ?? [];
   return (
     <div className={styles.modalBackdrop} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -155,6 +158,7 @@ function DetailModal({ unit, onClose }: DetailModalProps) {
         </div>
         <div className={`md ${styles.modalBody}`} dangerouslySetInnerHTML={{ __html: marked.parse(stripFirstHeading(unit.content ?? '')) as string }} />
         <div className={styles.modalFooter}>
+          {tags.map(t => <span key={t} className={styles.tagBadge}>{t}</span>)}
           {author && <MetaBadge label="Agent" value={author} />}
           {date && <MetaBadge label="Date" value={date} />}
         </div>
@@ -185,6 +189,7 @@ function TypeSection({
   );
 }
 
+
 export function KnowledgeView({ config }: { config: AppConfig }) {
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,7 +201,9 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
   const types: KnowledgeType[] = config.types ?? [];
 
   async function refresh() {
-    setLoading(true);
+    // Only the very first mount paints the "Loading…" placeholder. Every later refresh
+    // (WebSocket-driven knowledge change, /reset, etc.) updates `items` silently so the
+    // panel doesn't flicker back to a loading state.
     setError(null);
     try {
       const data = await apiFetch<KnowledgeItem[]>('/api/v1/knowledge');
@@ -242,25 +249,54 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  const visible = useMemo(() => {
-    const base = searchHits ?? items;
-    return agent
-      ? base.filter(u => (u.metadata?.agent_id as string | undefined) === agent)
-      : base;
-  }, [searchHits, items, agent]);
+  // Principles are knowledge with a 'Principles' tag, owned by Knowledge Engineer.
+  // No special rendering - they flow through the same Thumbnail / TypeSection path as
+  // other knowledge. Synthesised on the client from `config.principles.sections` rather
+  // than the spec-bound source, so live updates from the master agent reflect immediately.
+  const principles = useMemo<KnowledgeItem[]>(() => {
+    const sections = config.principles?.sections ?? [];
+    const owner = config.principles_owner ?? 'knowledge-engineer';
+    const ownerName = (config.platform_agents ?? []).find(p => p.id === owner)?.name
+      ?? 'Knowledge Engineer';
+    return sections.map(s => ({
+      name: `principle-${s.id}`,
+      type: 'principle',
+      title: s.title,
+      content: s.body,
+      created_at: '',
+      metadata: { agent_id: owner, agent_name: ownerName, tags: ['Principles'] },
+    } as KnowledgeItem));
+  }, [config.principles, config.principles_owner, config.platform_agents]);
 
-  // Author dropdown is built from agents that actually wrote units, so the filter never offers
-  // a name that would yield zero results.
+  const allItems = useMemo(() => [...principles, ...items], [principles, items]);
+
+  // 'All agents' (empty filter) means NO filter - every item shows, principles included.
+  // When a specific agent is picked, only that agent's items show; principles naturally
+  // appear only when Knowledge Engineer is the active filter, because they're owned by
+  // that agent. No special tag-based hiding.
+  const visible = useMemo(() => {
+    const base = searchHits ?? allItems;
+    if (!agent) return base;
+    return base.filter(u => (u.metadata?.agent_id as string | undefined) === agent);
+  }, [searchHits, allItems, agent]);
+
+  // Author dropdown always includes the platform agents (they're systemic owners of the
+  // knowledge surface even before they've written anything), plus any user-defined agents
+  // that have written units. Platform agents come from /api/v1/config so the list stays
+  // in sync with the rendered org's PLATFORM_AGENTS registry.
   const authors = useMemo<AuthorOption[]>(() => {
     const seen = new Map<string, string>();
+    for (const p of (config.platform_agents ?? [])) {
+      seen.set(p.id, p.name);
+    }
     for (const u of items) {
       const id = u.metadata?.agent_id as string | undefined;
-      if (!id) continue;
+      if (!id || seen.has(id)) continue;
       const name = (u.metadata?.agent_name as string | undefined) ?? formatAgentId(id);
-      if (!seen.has(id)) seen.set(id, name);
+      seen.set(id, name);
     }
     return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [items]);
+  }, [items, config.platform_agents]);
 
   const byType = useMemo(() => {
     const m = new Map<string, KnowledgeItem[]>();
@@ -296,15 +332,22 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
         </div>
       )}
 
-      {!loading && types.length > 0 && types.map(t => (
-        <TypeSection
-          key={t.id}
-          type={t}
-          items={byType.get(t.id) ?? []}
-          emptyMessage={config.knowledge_empty}
-          onOpen={setOpen}
-        />
-      ))}
+      {!loading && types.length > 0 && types.map(t => {
+        const sectionItems = byType.get(t.id) ?? [];
+        // Skip the principles bucket entirely when filtered out. The visible memo
+        // already hides principle items unless Knowledge Engineer is selected, so an
+        // empty 'Principles (0)' section would just be noise.
+        if (t.id === 'principle' && sectionItems.length === 0) return null;
+        return (
+          <TypeSection
+            key={t.id}
+            type={t}
+            items={sectionItems}
+            emptyMessage={config.knowledge_empty}
+            onOpen={setOpen}
+          />
+        );
+      })}
 
       {open && <DetailModal unit={open} onClose={() => setOpen(null)} />}
     </div>

@@ -22,7 +22,10 @@ const DEFAULT_CONFIG: AppConfig = {
   agent_configs: {},
 };
 
-export function useConfig() {
+// In preview mode App.tsx bumps `refreshKey` on a 2s heartbeat so the config re-fetches
+// and the dashboard stays in sync with spec.py mutations from the master agent. In
+// production the prop is omitted and the fetch runs once.
+export function useConfig(refreshKey: number = 0) {
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +34,7 @@ export function useConfig() {
       .then(data => setConfig({ ...DEFAULT_CONFIG, ...data }))
       .catch(() => {/* use defaults */})
       .finally(() => setLoading(false));
-  }, []);
+  }, [refreshKey]);
 
   return { config, loading };
 }

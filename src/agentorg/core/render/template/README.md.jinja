@@ -54,7 +54,7 @@ cd {{ org.slug }}
 
 #### B. You cloned an existing repository
 ```sh
-git clone {{ org.repository if org.repository and 'TODO' not in org.repository else 'https://github.com/<you>/' ~ org.slug ~ '.git' }}
+git clone {{ org.repository if org.repository.startswith('http') and not org.repository.endswith('/TODO') else 'https://github.com/<you>/' ~ org.slug ~ '.git' }}
 cd {{ org.slug }}
 ```
 

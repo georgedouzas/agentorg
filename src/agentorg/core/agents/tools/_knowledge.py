@@ -1,6 +1,7 @@
 """Agent-callable knowledge tools plus the storage primitives they share with the rendered org's routes."""
 
 import contextlib
+import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,7 +12,12 @@ from agentfield.memory import ScopedMemoryClient
 from ._tags import tags
 
 PREFIX = 'kn:'
-LITELLM_PROVIDER_ALIASES = {'google': 'gemini'}
+PREVIEW_WRITE_MSG = '(Preview mode: knowledge writes are disabled. Set `AGENTORG_PREVIEW_MODE=false` to disable it.)'
+
+
+def _preview_read_only() -> bool:
+    """True when the rendered org is running inside the master UI's read-only preview."""
+    return os.environ.get('AGENTORG_PREVIEW_MODE', '').lower() in {'1', 'true', 'yes'}
 
 
 def _key(knowledge_type: str, name: str) -> str:
@@ -40,7 +46,8 @@ async def _embed(text: str, model: str | None) -> list[float] | None:
     if not model:
         return None
     provider, _, leaf = model.partition(':')
-    full = f'{LITELLM_PROVIDER_ALIASES.get(provider, provider)}/{leaf}' if provider and leaf else model
+    aliases = {'google': 'gemini'}
+    full = f'{aliases.get(provider, provider)}/{leaf}' if provider and leaf else model
     resp = await litellm.aembedding(model=full, input=text)
     return list(resp.data[0]['embedding'])
 
@@ -136,6 +143,8 @@ async def write_knowledge(
     Returns:
         message: Confirmation that the unit was saved.
     """
+    if _preview_read_only():
+        return PREVIEW_WRITE_MSG
     scope = _scope()
     md = dict(metadata or {})
     await scope.set(
@@ -240,6 +249,8 @@ async def delete_knowledge(knowledge_type: str, name: str) -> str:
     Returns:
         message: Confirmation of deletion, or a not-found message.
     """
+    if _preview_read_only():
+        return PREVIEW_WRITE_MSG
     scope = _scope()
     k = _key(knowledge_type, name)
     if await scope.get(k) is None:

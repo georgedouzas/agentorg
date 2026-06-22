@@ -96,9 +96,33 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
         runnables[_agent_id(runnable)] = runnable
 
     async def _all_units() -> list[dict[str, Any]]:
-        keys = [k for k in await knowledge.list_keys() if k.startswith(_KN_PREFIX)]
-        units = [await knowledge.get(k) for k in keys]
-        return [u for u in units if u is not None]
+        # In preview mode the control plane is absent, so `list_keys` raises a memory
+        # connection error. Treat that as "no knowledge yet" and return an empty list
+        # so the Knowledge tab shows its empty state instead of a 500.
+        try:
+            keys = [k for k in await knowledge.list_keys() if k.startswith(_KN_PREFIX)]
+        except Exception:
+            return []
+        units = []
+        for k in keys:
+            try:
+                u = await knowledge.get(k)
+            except Exception:
+                continue
+            if u is not None:
+                units.append(u)
+        return units
+
+    # Seed placeholder strings the master agent has not yet replaced. The dashboard
+    # uses this to detect "not configured yet" and render a getting-started state
+    # instead of showing seed text as if it were the user's real content.
+    _PLACEHOLDER_TEXTS = {
+        'Not set yet', 'Untitled org', 'untitled-org', 'untitled_org', 'you@example.com',
+        '🛠', 'You', 'A new agent organisation in progress.',
+        'Nothing here yet', 'Your org is taking shape — keep chatting with AgentOrg.',
+        '✨', 'No knowledge entries yet.',
+        'TODO', 'My Org', 'my-org', 'my_org', 'author@example.com', 'robot',
+    }
 
     # ── Config ──────────────────────────────────────────────────────────────
     @router.get('/config')
@@ -114,6 +138,8 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             'app_name': ui.app.name,
             'app_icon': ui.app.icon,
             'app_description': ui.app.description,
+            'name_is_placeholder': ui.app.name in _PLACEHOLDER_TEXTS,
+            'description_is_placeholder': ui.app.description in _PLACEHOLDER_TEXTS,
             'empty_state': ui.empty_state.model_dump(),
             'knowledge_empty': ui.knowledge_empty,
             'agent_groups': [g.model_dump() for g in ui.agent_groups],
@@ -124,14 +150,33 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             'agent_configs': {k: v.model_dump() for k, v in ui.agent_configs.items()},
             'parameters': [p.model_dump() for p in spec.parameters],
             'principles': {'sections': sections},
-            'types': [t.model_dump() for t in spec.knowledge.types],
+            # Synthesize a 'principle' knowledge type when there ARE sections, so the
+            # React Knowledge view can bucket them like any other knowledge entries.
+            # The frontend filter hides this bucket unless the principles_owner agent
+            # is the active author filter.
+            'types': (
+                [t.model_dump() for t in spec.knowledge.types]
+                + ([{'id': 'principle', 'label': 'Principles', 'metadata_fields': []}] if sections else [])
+            ),
             'platform_agent_groups': [{'label': g['label'], 'ids': list(g['ids'])} for g in PLATFORM_AGENT_GROUPS],
+            # Platform agent metadata for the Knowledge tab's author filter, etc.
+            # Always present in the dropdown regardless of whether they've written units.
+            'platform_agents': [
+                {'id': _agent_id(a), 'name': getattr(a, 'name', None) or _agent_id(a)}
+                for a in PLATFORM_AGENTS
+            ],
+            # Principles owner - clickable badge in the Knowledge tab opens chat with this agent.
+            'principles_owner': 'knowledge-engineer',
         }
 
     # ── Org instance parameters ─────────────────────────────────────────────
     @router.get('/parameters')
     async def get_parameters() -> dict[str, Any]:
-        state = await knowledge.get('org_parameters')
+        # In preview mode the control plane is absent; treat that as 'no parameters set'.
+        try:
+            state = await knowledge.get('org_parameters')
+        except Exception:
+            return {'parameters': {}}
         return {'parameters': state.get('parameters', {}) if state else {}}
 
     @router.post('/parameters')
@@ -268,6 +313,43 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
         if limit > 0:
             units = units[:limit]
         return [_document(u) for u in units]
+
+    # ── Activity summary ────────────────────────────────────────────────────
+    # One-sentence pulse across ALL agents, fed to the always-visible bottom strip in
+    # the dashboard. Computed from recent knowledge units (each unit's metadata carries
+    # `agent_id` and `agent_name`, set by the runtime when a reasoner writes knowledge).
+    @router.get('/activity/summary')
+    async def activity_summary() -> dict[str, Any]:
+        units = [u for u in await _all_units() if u.get('content') is not None]
+        units.sort(key=lambda u: u.get('updated_at', ''), reverse=True)
+        if not units:
+            return {'summary': 'No agent activity yet.', 'level': 'idle',
+                    'count_recent': 0, 'latest_at': None}
+        latest = units[0]
+        meta = latest.get('metadata') or {}
+        agent_name = meta.get('agent_name') or meta.get('agent_id') or 'An agent'
+        title = latest.get('title') or latest.get('name') or 'an item'
+        latest_at = latest.get('updated_at') or latest.get('created_at')
+        # Count activity in the last hour for the level + headline alternation.
+        try:
+            now = datetime.now(tz=UTC)
+            recent = [
+                u for u in units
+                if datetime.fromisoformat(u['updated_at'].replace('Z', '+00:00')) >= now.replace(minute=now.minute, second=0, microsecond=0)
+            ]
+        except Exception:
+            recent = units[:5]
+        count_recent = len(recent)
+        if count_recent >= 6:
+            level = 'busy'
+            summary = f'{count_recent} actions in the last hour - {agent_name} most recent.'
+        elif count_recent >= 2:
+            level = 'active'
+            summary = f'{agent_name} just updated "{title}" (+{count_recent - 1} more recent).'
+        else:
+            level = 'active'
+            summary = f'{agent_name} just updated "{title}".'
+        return {'summary': summary, 'level': level, 'count_recent': count_recent, 'latest_at': latest_at}
 
     # ── Live knowledge events ───────────────────────────────────────────────
     # One in-process queue per WebSocket; AgentField's `on_change` fans events out to all of them.

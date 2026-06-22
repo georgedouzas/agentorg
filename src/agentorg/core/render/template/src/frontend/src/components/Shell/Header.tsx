@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import styles from './Header.module.css';
 
+// In preview mode (master UI iframe), 'switch user' is meaningless - we auto-log-in as
+// 'Preview' and there is no per-user persistence to swap into. Hide the popover entirely.
+const PREVIEW_MODE = import.meta.env.VITE_AGENTORG_PREVIEW_MODE === 'true';
+
 interface HeaderProps {
   appName: string;
   appIcon: string;
@@ -32,7 +36,7 @@ export function Header({ appName, appIcon, appDescription, displayName, onSwitch
           <span className={styles.appDesc}>{appDescription}</span>
         </div>
       </div>
-      {displayName && (
+      {displayName && !PREVIEW_MODE && (
         <div className={styles.right} ref={wrapRef}>
           <button
             className={styles.avatarBtn}

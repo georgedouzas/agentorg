@@ -2,6 +2,8 @@ export interface AppConfig {
   app_name: string;
   app_icon: string;
   app_description: string;
+  name_is_placeholder?: boolean;
+  description_is_placeholder?: boolean;
   empty_state: EmptyState;
   knowledge_empty: string;
   types: KnowledgeType[];
@@ -14,6 +16,8 @@ export interface AppConfig {
   overview: OverviewBlock[];
   agent_configs: Record<string, AgentConfig>;
   platform_agent_groups?: AgentGroup[];
+  platform_agents?: { id: string; name: string }[];
+  principles_owner?: string;
 }
 
 export interface EmptyState { icon: string; title: string; body: string; }

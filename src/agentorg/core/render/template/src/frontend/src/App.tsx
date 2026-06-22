@@ -7,9 +7,10 @@ import { apiFetch } from './api';
 import { LoginScreen } from './components/Login/LoginScreen';
 import { Header } from './components/Shell/Header';
 import { Sidebar } from './components/Shell/Sidebar';
+import { ActivityStrip } from './components/Shell/ActivityStrip';
 import { AgentPanel } from './components/AgentPanel/AgentPanel';
 import { Panel } from './components/Panel/Panel';
-import { OverviewView } from './components/Views/OverviewView';
+import { DashboardView } from './components/Views/DashboardView';
 import { KnowledgeView } from './components/Views/KnowledgeView';
 import { SettingsView } from './components/Views/SettingsView';
 import { PlatformView } from './components/Views/PlatformView';
@@ -17,7 +18,12 @@ import { ParameterSetupModal } from './components/Views/ParameterSetupModal';
 import type { AgentItem, WorkflowItem, SelectedAgent } from './types';
 import styles from './App.module.css';
 
-type Tab = 'overview' | 'knowledge' | 'settings' | 'platform';
+type Tab = 'dashboard' | 'knowledge' | 'settings' | 'platform';
+
+// True when this build is rendered by `agentorg ui` for the live preview iframe. In
+// that mode we skip first-run friction (parameter setup modal, setup-status block) so
+// the user sees the dashboard immediately while iterating on the spec.
+const PREVIEW_MODE = import.meta.env.VITE_AGENTORG_PREVIEW_MODE === 'true';
 
 interface PanelState {
   open: boolean;
@@ -26,13 +32,13 @@ interface PanelState {
   content: string;
 }
 
-function OverviewIcon() {
+function DashboardIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
+      <rect x="3" y="3" width="7" height="9" />
+      <rect x="14" y="3" width="7" height="5" />
+      <rect x="14" y="12" width="7" height="9" />
+      <rect x="3" y="16" width="7" height="5" />
     </svg>
   );
 }
@@ -67,20 +73,32 @@ function PlatformIcon() {
 
 export default function App() {
   const identity = useIdentity();
-  const { config, loading: configLoading } = useConfig();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { config, loading: configLoading } = useConfig(refreshKey);
 
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<SelectedAgent | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [panel, setPanel] = useState<PanelState>({ open: false, title: '', content: '' });
-  const [refreshKey] = useState(0);
   const setupStatus = useSetupStatus(refreshKey);
   const [configured, setConfigured] = useState<boolean | null>(null);
 
-  const setupBlocked = !!setupStatus && setupStatus.total > 0 && !setupStatus.all_done;
+  // In preview mode the master UI mutates the spec on every chat turn. uvicorn `--reload`
+  // picks up the new spec.py, but the React app would happily keep rendering its cached
+  // /api/v1/* responses from initial mount. Bump refreshKey on a 2s heartbeat so the
+  // agent / workflow / config / setup fetches re-run and the dashboard reflects the spec
+  // live. The poll is wasted in production - keep it preview-only.
+  useEffect(() => {
+    if (!PREVIEW_MODE) return;
+    const handle = setInterval(() => setRefreshKey(k => k + 1), 2000);
+    return () => clearInterval(handle);
+  }, []);
+
+  const setupBlocked = !PREVIEW_MODE && !!setupStatus && setupStatus.total > 0 && !setupStatus.all_done;
 
   useEffect(() => {
+    if (PREVIEW_MODE) { setConfigured(true); return; }
     if (!identity.loggedIn) return;
     apiFetch<{ parameters: Record<string, unknown> }>('/api/v1/parameters')
       .then(d => setConfigured(Object.keys(d.parameters ?? {}).length > 0))
@@ -183,10 +201,10 @@ export default function App() {
       <main className={styles.main}>
         <nav className={styles.tabNav}>
           <button
-            className={`${styles.tabBtn} ${activeTab === 'overview' ? styles.tabBtnActive : ''}`}
-            onClick={() => setActiveTab('overview')}
+            className={`${styles.tabBtn} ${activeTab === 'dashboard' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('dashboard')}
           >
-            <OverviewIcon /> Overview
+            <DashboardIcon /> Dashboard
           </button>
           <button
             className={`${styles.tabBtn} ${activeTab === 'platform' ? styles.tabBtnActive : ''}`}
@@ -210,13 +228,7 @@ export default function App() {
         </nav>
 
         <div className={styles.viewArea}>
-          {activeTab === 'overview' && (
-            <OverviewView
-              config={config}
-              configured={configured === true}
-              onPanelOpen={handlePanelOpen}
-            />
-          )}
+          {activeTab === 'dashboard' && <DashboardView config={config} />}
           {activeTab === 'knowledge' && (
             <KnowledgeView config={config} />
           )}
@@ -235,6 +247,8 @@ export default function App() {
           )}
         </div>
       </main>
+
+      <ActivityStrip refreshKey={refreshKey} />
 
       {selectedAgent && (
         <AgentPanel
