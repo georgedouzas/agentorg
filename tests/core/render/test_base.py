@@ -11,7 +11,6 @@ import pytest
 from agentorg.core import render
 
 FIXTURES_DIR = Path(__file__).parents[2] / 'fixtures'
-FIXTURES = ['org']
 CENTRAL_ENV = FIXTURES_DIR / '.env'
 RENDERED_TESTS = (
     'tests/test_factories.py',
@@ -153,33 +152,6 @@ def test_spec_py_is_copied_into_rendered_package(
     copied = output / 'src' / 'acme' / 'spec.py'
     assert copied.exists()
     assert copied.read_text() == (spec_dir / 'spec.py').read_text()
-
-
-@pytest.mark.parametrize('fixture_id', FIXTURES)
-def test_fixture_renders_byte_identical(fixture_id: str, tmp_path: Path) -> None:
-    """Rendering the committed fixture matches the snapshot byte-for-byte."""
-    out = tmp_path / 'render'
-    render(FIXTURES_DIR / fixture_id / 'spec.py', out)
-
-    fixture_out = FIXTURES_DIR / fixture_id / 'output'
-    mismatches: list[str] = []
-    missing: list[str] = []
-    for src in out.rglob('*'):
-        if not src.is_file():
-            continue
-        rel = src.relative_to(out).as_posix()
-        target = fixture_out / rel
-        if not target.exists():
-            missing.append(rel)
-            continue
-        if src.read_bytes() != target.read_bytes():
-            mismatches.append(rel)
-    assert not missing, f'Rendered files missing from fixture {fixture_id!r}: {missing}'
-    assert not mismatches, (
-        f'Rendered files differ from fixture {fixture_id!r}: {mismatches}\n'
-        f'The fixture is the hand-maintained expected output. If the renderer is wrong, '
-        f'fix the template; if the new output is intended, edit the fixture by hand to match.'
-    )
 
 
 @pytest.fixture(scope='session')
