@@ -1,11 +1,21 @@
 """The agentorg master agent that interviews the user to produce a spec.py."""
 
-from ._agent import MASTER_INSTRUCTIONS, MASTER_INTRODUCTION, MASTER_TOOLS, build_master_agent
+from ._agent import (
+    MASTER_INSTRUCTIONS,
+    MASTER_INTRODUCTION,
+    MASTER_TOOLS,
+    STAGE_TOOLS,
+    agent_for_current_stage,
+    build_master_agent,
+    build_master_workflow,
+    reset_workflow_cache,
+)
 from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 from ._persistence import DEFAULT_DRAFT_PATH, load_draft, save_draft
 from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
 from ._seed import PLACEHOLDER, PLACEHOLDER_NAME, PLACEHOLDER_VALUES, default_spec
-from ._state import State, get_state, reset_state
+from ._stages import STAGE_LABELS, STAGES, advance, current_stage, next_blockers, next_enabled, stage_summary
+from ._state import Discovery, Stage, State, get_state, reset_state
 from ._tools import (
     add_or_update_agent,
     add_or_update_agent_group,
@@ -22,6 +32,7 @@ from ._tools import (
     finalize_spec,
     get_current_spec,
     list_placeholders,
+    record_discovery_summary,
     remove_agent,
     remove_agent_group,
     remove_custom_skill,
@@ -53,10 +64,15 @@ __all__ = [
     'PLACEHOLDER',
     'PLACEHOLDER_NAME',
     'PLACEHOLDER_VALUES',
+    'STAGES',
+    'STAGE_LABELS',
+    'STAGE_TOOLS',
     'AgentSpec',
     'CustomSkill',
     'CustomTool',
+    'Discovery',
     'SkillValidationError',
+    'Stage',
     'State',
     'StepSpec',
     'TeamSpec',
@@ -72,7 +88,11 @@ __all__ = [
     'add_or_update_setup_step',
     'add_or_update_team',
     'add_or_update_workflow',
+    'advance',
+    'agent_for_current_stage',
     'build_master_agent',
+    'build_master_workflow',
+    'current_stage',
     'default_spec',
     'emit_custom_skill',
     'emit_custom_tool',
@@ -81,7 +101,10 @@ __all__ = [
     'get_state',
     'list_placeholders',
     'load_draft',
+    'next_blockers',
+    'next_enabled',
     'python_literal',
+    'record_discovery_summary',
     'remove_agent',
     'remove_agent_group',
     'remove_custom_skill',
@@ -96,6 +119,7 @@ __all__ = [
     'remove_workflow',
     'render_spec',
     'reset_state',
+    'reset_workflow_cache',
     'sandbox_agent',
     'save_draft',
     'set_agent_icons',
@@ -105,6 +129,7 @@ __all__ = [
     'set_runtime_infra',
     'set_ui_app',
     'set_ui_empty_state',
+    'stage_summary',
     'validate_skill_source',
     'validate_tool_source',
     'write_spec',

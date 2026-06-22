@@ -64,6 +64,7 @@ def _spec_py(spec_dir: Path, **org_overrides: object) -> None:
         'admin_name': '',
         'admin_email': '',
         'visibility': 'private',
+        'budget': 'medium',
         **org_overrides,
     }
     org_kwargs = ', '.join(f'{k}={v!r}' for k, v in org_fields.items())

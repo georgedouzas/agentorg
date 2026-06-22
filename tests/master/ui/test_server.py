@@ -9,9 +9,17 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from agentorg.master import add_or_update_agent, add_or_update_env_var, reset_state, set_org_identity
+from agentorg.master import add_or_update_agent, get_state, reset_state, set_org_identity
 from agentorg.master.ui import _server as ui_server
 from agentorg.master.ui import build_app
+
+from ..conftest import seed_discovery
+
+_LONG_DESC = (
+    'Research Org is a small team that gathers sources on a topic and writes structured '
+    'weekly reports for internal product squads. It bridges full literature reviews '
+    '(slow) and informal Slack summaries (lossy), with cited claims throughout.'
+)
 
 
 class _FakeAgent:
@@ -49,7 +57,7 @@ def test_get_api_spec_returns_the_seed_state_initially():
     response = client.get('/api/spec')
     assert response.status_code == 200
     body = response.json()
-    assert body['spec']['org']['name'] == 'My Org'
+    assert body['spec']['org']['name'] == 'Untitled org'
     assert body['spec']['ai']['agents'] == []
     assert body['custom_tools'] == []
     assert body['custom_skills'] == []
@@ -57,7 +65,8 @@ def test_get_api_spec_returns_the_seed_state_initially():
 
 def test_get_api_spec_reflects_state_mutations_between_requests():
     """After an org-identity patch + an agent add, `/api/spec` shows the new values."""
-    set_org_identity(name='Research Org', description='Reads papers, writes reports.')
+    get_state().stage = 'configure'  # name belongs to Stage 2
+    set_org_identity(name='Research Org', description=_LONG_DESC)
     add_or_update_agent(
         agent_id='researcher',
         name='Researcher',
@@ -100,6 +109,7 @@ def test_post_api_chat_reuses_the_same_agent_instance_across_requests():
 
 def test_post_api_reset_drops_state_and_agent(tmp_path):
     """`POST /api/reset` resets the singleton state; a subsequent chat builds a fresh agent."""
+    get_state().stage = 'configure'
     set_org_identity(name='To Be Reset')
     fakes: list[_FakeAgent] = []
 
@@ -116,7 +126,7 @@ def test_post_api_reset_drops_state_and_agent(tmp_path):
     response = client.post('/api/reset')
     assert response.status_code == 200
     body = client.get('/api/spec').json()
-    assert body['spec']['org']['name'] == 'My Org'  # back to seed
+    assert body['spec']['org']['name'] == 'Untitled org'  # back to seed
 
     client.post('/api/chat', json={'message': 'second'})
     assert len(fakes) == 2  # a fresh agent was built after reset
@@ -134,13 +144,18 @@ def test_post_api_chat_writes_a_draft_when_autosave_is_enabled(tmp_path):
 
 
 def _make_spec_ready() -> None:
-    """Mutate the singleton state so readiness passes - real org identity + one fully-defined agent."""
+    """Mutate the singleton state so render-readiness AND Stage 1 / Stage 2 thresholds all pass."""
+    seed_discovery()  # opens the Stage-1 gate
+    get_state().stage = 'configure'  # identity fields belong to Stage 2
     set_org_identity(
         name='Research Org',
         slug='research-org',
         package_name='research_org',
-        description='A small team that gathers sources and writes structured reports.',
+        description=_LONG_DESC,
+        admin_name='Maintainer',
+        admin_email='maintainer@example.com',
     )
+    get_state().stage = 'discover'  # let the test exercise /api/advance from Stage 1
     add_or_update_agent(
         agent_id='researcher',
         name='Researcher',
@@ -152,18 +167,16 @@ def _make_spec_ready() -> None:
 
 
 def test_api_spec_includes_readiness_with_blockers_on_seed():
-    """Fresh seed state is not ready and reports blockers naming the missing fields."""
+    """Fresh seed state is not render-ready; blockers name the placeholder org fields."""
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
     readiness = client.get('/api/spec').json()['readiness']
     assert readiness['ready'] is False
-    joined = ' '.join(readiness['blockers']).lower()
-    assert 'agent' in joined  # seed has zero agents
-    assert any('name' in b.lower() for b in readiness['blockers'])  # placeholder org name
+    assert readiness['blockers']  # any blocker is fine - render-readiness is a separate gate from staging
 
 
-def test_api_spec_readiness_is_true_after_filling_required_fields():
-    """Once org identity + a named agent are in place, readiness flips to True."""
+def test_api_spec_readiness_is_true_after_filling_org_identity():
+    """Render readiness now only gates on org identity - agents are a Stage 4 concern."""
     _make_spec_ready()
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
@@ -171,94 +184,149 @@ def test_api_spec_readiness_is_true_after_filling_required_fields():
     assert readiness['ready'] is True
     assert readiness['blockers'] == []
     assert readiness['org_slug'] == 'research-org'
-    assert readiness['stage'] in {'audit', 'review'}  # see stage-detection tests below
 
 
-# ---------- stage detection ----------
+# ---------- stage machine (explicit, advanced by /api/advance) ----------
 
 
-def test_stage_detection_on_seed_is_discover():
-    """Fresh seed state is in the 'discover' stage - org name still placeholder."""
+def test_api_spec_includes_stage_summary_on_seed():
+    """Fresh seed state starts in Stage 1 (discover) with low-threshold blockers."""
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
-    assert client.get('/api/spec').json()['readiness']['stage'] == 'discover'
+    summary = client.get('/api/spec').json()['stage_summary']
+    assert summary['stage'] == 'discover'
+    assert summary['stage_label'] == 'Discover'
+    assert summary['next_enabled'] is False
+    assert summary['next_blockers']  # need a name + a mission
 
 
-def test_stage_detection_advances_to_propose_when_org_identity_is_real():
-    """Org identity + description filled but no agents yet -> 'propose'."""
-    set_org_identity(
-        name='Research Org',
-        slug='research-org',
-        package_name='research_org',
-        description='A small team that gathers sources and writes structured reports.',
-    )
+def test_api_spec_stage_summary_reports_next_enabled_after_recording_discovery():
+    """Recording the discovery summary satisfies Stage 1's threshold."""
+    seed_discovery()
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
-    assert client.get('/api/spec').json()['readiness']['stage'] == 'propose'
+    summary = client.get('/api/spec').json()['stage_summary']
+    assert summary['stage'] == 'discover'
+    assert summary['next_enabled'] is True
+    assert summary['next_blockers'] == []
 
 
-def test_stage_detection_advances_to_build_when_an_agent_is_partial():
-    """An agent without tools/skills is mid-build."""
-    set_org_identity(
-        name='Research Org',
-        slug='research-org',
-        package_name='research_org',
-        description='A small team that gathers sources and writes structured reports.',
-    )
-    add_or_update_agent(
-        agent_id='researcher',
-        name='Researcher',
-        role='Gather sources.',
-        in_scope=['Sources'],
-        workflow=['Restate.', 'Cite.'],
-    )  # no tools or skills yet
+def test_post_api_advance_advances_when_threshold_satisfied():
+    """`POST /api/advance` moves the cursor when the current stage's threshold is satisfied."""
+    seed_discovery()
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
-    assert client.get('/api/spec').json()['readiness']['stage'] == 'build'
+    response = client.post('/api/advance')
+    assert response.status_code == 200
+    assert response.json()['stage'] == 'configure'
 
 
-def test_stage_detection_lands_on_audit_after_agents_are_fully_defined():
-    """Fully-formed agents + no env vars yet -> 'audit'."""
-    _make_spec_ready()
+def test_post_api_advance_returns_agent_narration_for_the_new_stage():
+    """The advance handler invokes the agent so the UI can show stage-specific instructions."""
+    seed_discovery()
+    fake = _FakeAgent(response='## Stage 2 - Configure\n\nLet me know the slug and admin info.')
+    app = build_app(agent_factory=lambda: fake)
+    client = TestClient(app)
+    response = client.post('/api/advance')
+    assert response.status_code == 200
+    body = response.json()
+    assert body['stage'] == 'configure'
+    assert 'Stage 2' in body['response']
+    # The agent was invoked with a transition prompt naming both stages so it can branch.
+    assert any('Discover' in c and 'Configure' in c for c in fake.calls)
+
+
+def test_post_api_advance_returns_silent_advance_when_agent_fails():
+    """If the agent raises while narrating, the stage still advances and the UI sees an empty response."""
+    seed_discovery()
+
+    boom = RuntimeError('model down')
+
+    class _BoomAgent:
+        async def arun(self, _message: str, *_a: object, **_kw: object) -> Any:
+            raise boom
+
+    app = build_app(agent_factory=_BoomAgent)
+    client = TestClient(app)
+    response = client.post('/api/advance')
+    assert response.status_code == 200
+    body = response.json()
+    assert body['stage'] == 'configure'
+    assert body['response'] == ''
+
+
+def test_post_api_advance_returns_409_with_blockers_when_threshold_not_met():
+    """A premature advance is rejected with the blocker list."""
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
-    assert client.get('/api/spec').json()['readiness']['stage'] == 'audit'
-
-
-def test_stage_detection_reaches_review_when_env_vars_or_setup_are_declared():
-    """Once env vars or setup steps are declared, stage advances to 'review'."""
-    _make_spec_ready()
-    add_or_update_env_var(name='GEMINI_API_KEY', description='LLM key.', required_label='Prod', required=True)
-    app = build_app(agent_factory=_FakeAgent)
-    client = TestClient(app)
-    assert client.get('/api/spec').json()['readiness']['stage'] == 'review'
-
-
-def test_post_api_render_returns_409_when_not_ready():
-    """Render rejects with 409 and surfaces the same blockers shown to the UI."""
-    app = build_app(agent_factory=_FakeAgent)
-    client = TestClient(app)
-    response = client.post('/api/render', json={})
+    response = client.post('/api/advance')
     assert response.status_code == 409
+    assert response.json()['detail']['stage'] == 'discover'
     assert response.json()['detail']['blockers']
 
 
-def test_post_api_render_returns_zip_with_spec_and_invokes_render_when_ready(monkeypatch):
-    """When ready, /api/render returns a zip whose tree includes spec.py and was produced by render()."""
+def test_get_api_render_serves_the_zip_for_anchor_clicks(monkeypatch):
+    """Plain `<a href="/api/render">` anchor clicks (GET) trigger the download in Stage 3+."""
     _make_spec_ready()
-    calls: list[tuple[Path, Path]] = []
 
     def fake_render(spec_path, output_dir) -> None:
-        # The default `render` would walk the template. Stub it so the test stays fast and
-        # deterministic, but still record what it would have been called with.
-        calls.append((Path(spec_path), Path(output_dir)))
-        # Plant a marker file so we can assert the renderer's output is bundled into the zip.
         (Path(output_dir) / 'README.md').write_text('rendered marker\n')
 
     monkeypatch.setattr(ui_server, 'render_project', fake_render)
 
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
+    _advance_to_generate_stage(client)
+    response = client.get('/api/render')
+    assert response.status_code == 200
+    assert response.headers['content-type'] == 'application/zip'
+    assert response.headers['x-agentorg-slug'] == 'research-org'
+
+
+def test_get_api_render_returns_409_when_not_in_generate_or_later():
+    """GET, like POST, gates the download to Stage 3+ so early link-clicks fail clearly."""
+    app = build_app(agent_factory=_FakeAgent)
+    client = TestClient(app)
+    response = client.get('/api/render')
+    assert response.status_code == 409
+
+
+def test_post_api_render_returns_409_when_not_in_generate_stage():
+    """Create Organization (render + zip) is only available in Stage 3."""
+    _make_spec_ready()  # ready by every other measure, but stage is still 'discover'
+    app = build_app(agent_factory=_FakeAgent)
+    client = TestClient(app)
+    response = client.post('/api/render', json={})
+    assert response.status_code == 409
+    detail = response.json()['detail']
+    assert any('Stage 3' in b for b in detail['blockers'])
+
+
+def _advance_to_generate_stage(client: TestClient) -> None:
+    """Walk the stage cursor from `discover` to `generate` via /api/advance."""
+    # Discover -> Configure
+    r = client.post('/api/advance')
+    assert r.status_code == 200, r.text
+    # Configure -> Generate (requires admin name/email; we've already set them in _make_spec_ready)
+    r = client.post('/api/advance')
+    assert r.status_code == 200, r.text
+
+
+def test_post_api_render_returns_zip_with_spec_and_invokes_render_when_ready(monkeypatch):
+    """In Stage 3, /api/render returns a zip whose tree includes spec.py and was produced by render()."""
+    _make_spec_ready()
+    calls: list[tuple[Path, Path]] = []
+
+    def fake_render(spec_path, output_dir) -> None:
+        calls.append((Path(spec_path), Path(output_dir)))
+        (Path(output_dir) / 'README.md').write_text('rendered marker\n')
+
+    monkeypatch.setattr(ui_server, 'render_project', fake_render)
+
+    app = build_app(agent_factory=_FakeAgent)
+    client = TestClient(app)
+    _advance_to_generate_stage(client)
+
     response = client.post('/api/render', json={})
     assert response.status_code == 200, response.text
     assert response.headers['content-type'] == 'application/zip'
@@ -333,6 +401,7 @@ def test_post_api_render_returns_500_when_render_raises(monkeypatch):
     monkeypatch.setattr(ui_server, 'render_project', lambda *_a: (_ for _ in ()).throw(RuntimeError('boom')))
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
+    _advance_to_generate_stage(client)
     response = client.post('/api/render', json={})
     assert response.status_code == 500
     assert 'boom' in response.json()['detail']

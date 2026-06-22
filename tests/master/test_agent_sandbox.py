@@ -40,10 +40,13 @@ VALID_TOOL_SOURCE = textwrap.dedent(
 # ---- Tool resolver ----
 
 
-def test_resolve_tool_returns_the_builtin_callable_for_a_known_name():
-    """A built-in catalog name resolves to the real function object."""
+def test_resolve_tool_returns_the_sandbox_stub_for_knowledge_tools():
+    """Knowledge tools are swapped for sandbox stubs - the real ones need a reasoner context."""
     resolved = resolve_tool('read_knowledge', custom_tools=[])
-    assert resolved is read_knowledge
+    # NOT the real `read_knowledge` (which would fail in sandbox), but a stub coroutine.
+    assert resolved is not read_knowledge
+    assert callable(resolved)
+    assert resolved.__name__.startswith('_stub_')
 
 
 def test_resolve_tool_exec_s_a_custom_tools_source_and_returns_the_function():
@@ -110,13 +113,17 @@ def _tool_agent_spec() -> AgentSpec:
 
 
 def test_build_agent_from_spec_returns_an_agno_agent_with_resolved_tools():
-    """A spec with built-in tools instantiates into a real agno.Agent."""
+    """A spec with built-in tools instantiates into a real agno.Agent.
+
+    Knowledge tools are resolved to sandbox stubs (`_stub_read_knowledge`,
+    `_stub_write_knowledge`) so the run isn't blocked by the reasoner-context check.
+    """
     agent = build_agent_from_spec(_tool_agent_spec(), custom_tools=[], custom_skills=[])
     assert isinstance(agent, Agent)
     assert agent.id == 'librarian'
     tool_names = {getattr(t, '__name__', None) for t in agent.tools}
-    assert 'read_knowledge' in tool_names
-    assert 'write_knowledge' in tool_names
+    assert '_stub_read_knowledge' in tool_names
+    assert '_stub_write_knowledge' in tool_names
 
 
 def test_build_agent_from_spec_raises_when_custom_skill_root_is_missing():

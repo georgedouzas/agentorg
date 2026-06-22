@@ -1,38 +1,50 @@
-/* AgentOrg UI - chat client + live spec view */
+/* AgentOrg UI - canvas iframe + draggable popup chat + stage progress */
 
+// ---------- handles ----------
 const chatLog = document.getElementById('chat-log');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
 const status = document.getElementById('status');
-const specRoot = document.getElementById('spec-root');
 const resetBtn = document.getElementById('reset-btn');
-const createBtn = document.getElementById('create-btn');
 const stageBar = document.getElementById('stage-bar');
+const previewFrame = document.getElementById('preview-frame');
+const previewPlaceholder = document.getElementById('preview-placeholder');
+const previewMessage = document.getElementById('preview-message');
+const previewSub = document.getElementById('preview-sub');
+const chatPopup = document.getElementById('chat-popup');
+const chatPopupHeader = document.getElementById('chat-popup-header');
 
-const STAGES = [
-  { id: 'discover', label: 'Discover' },
-  { id: 'propose',  label: 'Propose'  },
-  { id: 'build',    label: 'Build'    },
-  { id: 'audit',    label: 'Audit'    },
-  { id: 'review',   label: 'Review'   },
-];
-const createDialog = document.getElementById('create-dialog');
-const createForm = document.getElementById('create-form');
-const createOrgName = document.getElementById('create-org-name');
-const createZipName = document.getElementById('create-zip-name');
-const createStatus = document.getElementById('create-status');
-const createCancel = document.getElementById('create-cancel');
-const createConfirm = document.getElementById('create-confirm');
-
-let lastReadiness = { ready: false, blockers: [], org_slug: '' };
-let lastOrgName = '';
-
-const PLACEHOLDER_VALUES = new Set(['TODO', 'My Org', 'my-org', 'my_org', 'author@example.com', 'robot']);
+// ---------- placeholder detection (kept; still used by chat empty hero etc) ----------
+const PLACEHOLDER_VALUES = new Set([
+  'Not set yet', 'Untitled org', 'untitled-org', 'untitled_org',
+  'you@example.com', '🛠', 'You',
+  'A new agent organisation in progress.',
+  'Nothing here yet', 'Your org is taking shape — keep chatting with AgentOrg.', '✨',
+  'No knowledge entries yet.',
+  // Legacy values - keep so old draft files still register as placeholders.
+  'TODO', 'My Org', 'my-org', 'my_org', 'author@example.com', 'robot',
+]);
 const isPlaceholder = (v) => typeof v === 'string' && PLACEHOLDER_VALUES.has(v);
 
-// ---------- helpers ----------
+// ---------- stage progress bar ----------
+const FALLBACK_STAGES = [
+  { id: 'discover',  label: 'Discover'  },
+  { id: 'configure', label: 'Configure' },
+  { id: 'build',     label: 'Build'     },
+  { id: 'refine',    label: 'Refine'    },
+  { id: 'handoff',   label: 'Handoff'   },
+];
 
+let lastStageSummary = {
+  stage: 'discover',
+  stage_label: 'Discover',
+  stages: FALLBACK_STAGES.map(s => s.id),
+  next_enabled: false,
+  next_blockers: [],
+};
+
+// ---------- DOM helpers ----------
 const el = (tag, attrs = {}, ...children) => {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -47,20 +59,47 @@ const el = (tag, attrs = {}, ...children) => {
   return node;
 };
 
-const chip = (text, cls = '') => el('span', { className: `chip ${cls}` }, text);
-
 const renderMarkdown = (text) => {
   if (window.marked) return window.marked.parse(text, { breaks: true });
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 };
 
-// ---------- chat rendering ----------
+const labelFor = (id) => id.charAt(0).toUpperCase() + id.slice(1);
 
+// ---------- stage bar render ----------
+const renderStageBar = (summary) => {
+  stageBar.innerHTML = '';
+  const stages = summary?.stages?.length
+    ? summary.stages.map(id => ({ id, label: labelFor(id) }))
+    : FALLBACK_STAGES;
+  const currentStage = summary?.stage || stages[0].id;
+  const currentIdx = stages.findIndex(s => s.id === currentStage);
+  stages.forEach((s, i) => {
+    const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : '';
+    stageBar.appendChild(el('div', { className: `stage ${cls}`.trim() },
+      el('div', { className: 'stage-dot' }, String(i + 1)),
+      el('div', { className: 'stage-label' }, s.label),
+    ));
+    if (i < stages.length - 1) {
+      stageBar.appendChild(el('div', { className: `stage-line ${i < currentIdx ? 'done' : ''}`.trim() }));
+    }
+  });
+};
+
+const applyStageSummary = (summary) => {
+  // No Next button to wire up - the master agent owns stage transitions via the
+  // `advance_to_next_stage` tool after user confirmation in chat. The stage bar still
+  // updates to show progress.
+  lastStageSummary = summary || lastStageSummary;
+  renderStageBar(lastStageSummary);
+};
+
+// ---------- chat rendering ----------
 const showEmptyHero = () => {
   chatLog.innerHTML = '';
   chatLog.appendChild(el('div', { className: 'empty-hero' },
     el('div', { className: 'lead' }, "Hi, I'm AgentOrg."),
-    el('div', {}, 'Describe what your organization should do and I will sketch a plan, build it out, and write the spec.'),
+    el('div', {}, 'Tell me what you want to build and watch your organziation take shape as we go.'),
   ));
 };
 
@@ -75,9 +114,6 @@ const appendMessage = (role, content) => {
     body,
   );
   chatLog.appendChild(bubble);
-  // Pin the user's question to the top of the visible chat area so a long master reply
-  // does not drag the viewport away. Master + tool-call bubbles append below without
-  // scrolling - the user reads top-down and scrolls themselves.
   if (role === 'user') bubble.scrollIntoView({ block: 'start', behavior: 'smooth' });
 };
 
@@ -95,349 +131,152 @@ const setBusy = (busy) => {
     status.appendChild(el('span', { className: 'dots' },
       el('span', {}), el('span', {}), el('span', {}),
     ));
-    status.appendChild(document.createTextNode(' thinking…'));
+    status.appendChild(document.createTextNode(' Thinking…'));
   } else {
     status.textContent = '';
   }
 };
 
-// ---------- spec rendering ----------
-
-const valueOrPlaceholder = (v) => {
-  if (v == null || v === '' || isPlaceholder(v)) return el('span', { className: 'placeholder' }, '—');
-  return document.createTextNode(String(v));
+// ---------- preview placeholder ----------
+const updatePreviewPlaceholder = (spec) => {
+  if (!spec) return;
+  const orgName = isPlaceholder(spec.org?.name) ? 'your org' : spec.org.name;
+  if (!previewFrame.src) previewMessage.textContent = `Preview for ${orgName} is starting…`;
 };
 
-const renderOrgCard = (org) => {
-  const card = el('div', { className: 'card org-card' });
-  card.appendChild(el('h3', {},
-    isPlaceholder(org.name) ? el('span', { className: 'placeholder' }, '—') : org.name,
-    el('span', { className: 'id' }, isPlaceholder(org.slug) ? '—' : (org.slug || '—')),
-  ));
-  if (org.description) card.appendChild(el('div', { className: 'role-line' }, valueOrPlaceholder(org.description)));
-  const meta = el('div', { className: 'org-meta' });
-  const cell = (label, value) => {
-    meta.appendChild(el('span', { className: 'k' }, label));
-    meta.appendChild(el('span', {}, valueOrPlaceholder(value)));
+// ---------- preview status polling ----------
+//
+// We keep polling at a low cadence even after the iframe has loaded, so that if the
+// master UI restarts (and the rendered org's subprocesses get fresh ports), the iframe
+// auto-swaps to the new URL. Without this, the browser keeps a stale iframe src pointed
+// at a dead port and shows "connection refused" until the user does a full reload.
+const POLL_FAST_MS = 1200;   // before the preview is ready
+const POLL_SLOW_MS = 10000;  // after - just enough to catch URL changes on restart
+let previewPollHandle = null;
+let previewState = 'unknown';
+let previewCurrentUrl = null;
+
+const swapToIframe = (url) => {
+  if (previewCurrentUrl === url) return;
+  previewCurrentUrl = url;
+  previewFrame.src = url;
+  previewFrame.hidden = false;
+  previewPlaceholder.style.display = 'none';
+};
+const showPreviewError = (detail) => {
+  previewMessage.textContent = 'Preview failed to start';
+  previewSub.textContent = detail || 'Check the master UI logs for details.';
+  previewPlaceholder.style.display = 'flex';
+  previewFrame.hidden = true;
+};
+const showPreviewDisabled = () => {
+  previewMessage.textContent = 'Preview is disabled';
+  previewSub.textContent = 'The master UI was started without the live preview subprocess.';
+};
+
+const setPollCadence = (ms) => {
+  if (previewPollHandle) clearInterval(previewPollHandle);
+  previewPollHandle = setInterval(pollPreview, ms);
+};
+
+async function pollPreview() {
+  try {
+    const r = await fetch('/api/preview');
+    const data = await r.json();
+    const wasReady = previewState === 'ready';
+    previewState = data.status;
+    if (data.status === 'ready' && data.frontend_url) {
+      swapToIframe(data.frontend_url);
+      if (!wasReady) setPollCadence(POLL_SLOW_MS);
+    } else if (data.status === 'error') {
+      showPreviewError(data.detail);
+      if (previewPollHandle) { clearInterval(previewPollHandle); previewPollHandle = null; }
+    } else if (data.status === 'disabled') {
+      showPreviewDisabled();
+      if (previewPollHandle) { clearInterval(previewPollHandle); previewPollHandle = null; }
+    } else if (wasReady) {
+      // Status went backwards (master UI restart, preview re-booting). Switch back to
+      // fast polling so we catch the new URL as soon as it's announced.
+      setPollCadence(POLL_FAST_MS);
+    }
+  } catch (e) {
+    console.warn('preview poll failed', e);
+  }
+}
+
+const startPreviewPolling = () => {
+  pollPreview();
+  setPollCadence(POLL_FAST_MS);
+};
+
+// ---------- popup chat: drag-to-move (always visible, no hide/show) ----------
+const POPUP_POS_KEY = 'agentorg.chat.popup.pos';
+
+const savePopupPos = () => {
+  const rect = chatPopup.getBoundingClientRect();
+  localStorage.setItem(POPUP_POS_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
+};
+const restorePopupPos = () => {
+  try {
+    const pos = JSON.parse(localStorage.getItem(POPUP_POS_KEY) || 'null');
+    if (pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
+      // Clamp the saved position to the current viewport so a stale drag from a
+      // larger window doesn't park the popup off-screen.
+      const w = chatPopup.offsetWidth || 340;
+      const h = chatPopup.offsetHeight || 440;
+      const maxLeft = Math.max(4, window.innerWidth - w - 4);
+      const maxTop = Math.max(4, window.innerHeight - h - 4);
+      const left = Math.max(4, Math.min(maxLeft, pos.left));
+      const top = Math.max(4, Math.min(maxTop, pos.top));
+      chatPopup.style.right = 'auto';
+      chatPopup.style.bottom = 'auto';
+      chatPopup.style.left = `${left}px`;
+      chatPopup.style.top = `${top}px`;
+    }
+  } catch { /* ignore */ }
+};
+
+// Drag handling
+let dragState = null;
+chatPopupHeader.addEventListener('pointerdown', (ev) => {
+  if (ev.target.closest('.chat-popup-btn')) return;
+  const rect = chatPopup.getBoundingClientRect();
+  dragState = {
+    offsetX: ev.clientX - rect.left,
+    offsetY: ev.clientY - rect.top,
+    pointerId: ev.pointerId,
   };
-  cell('package', org.package_name);
-  cell('visibility', org.visibility);
-  cell('admin', org.admin_name);
-  cell('email', org.admin_email);
-  cell('repository', org.repository);
-  card.appendChild(meta);
-  return card;
-};
+  chatPopupHeader.setPointerCapture(ev.pointerId);
+  // Switch to absolute positioning if not already.
+  chatPopup.style.right = 'auto';
+  chatPopup.style.bottom = 'auto';
+});
+chatPopupHeader.addEventListener('pointermove', (ev) => {
+  if (!dragState || ev.pointerId !== dragState.pointerId) return;
+  const maxLeft = window.innerWidth - chatPopup.offsetWidth - 4;
+  const maxTop = window.innerHeight - chatPopup.offsetHeight - 4;
+  const left = Math.max(4, Math.min(maxLeft, ev.clientX - dragState.offsetX));
+  const top = Math.max(4, Math.min(maxTop, ev.clientY - dragState.offsetY));
+  chatPopup.style.left = `${left}px`;
+  chatPopup.style.top = `${top}px`;
+});
+chatPopupHeader.addEventListener('pointerup', (ev) => {
+  if (!dragState || ev.pointerId !== dragState.pointerId) return;
+  chatPopupHeader.releasePointerCapture(ev.pointerId);
+  savePopupPos();
+  dragState = null;
+});
 
-const renderAgentCard = (agent) => {
-  const card = el('div', { className: 'card' });
-  card.appendChild(el('h3', {},
-    agent.name || '(unnamed agent)',
-    el('span', { className: 'id' }, agent.agent_id),
-  ));
-  if (agent.role) card.appendChild(el('div', { className: 'role-line' }, agent.role));
-
-  if (agent.tools?.length || agent.skills?.length) {
-    const row = el('div', { className: 'row' });
-    if (agent.tools?.length) {
-      row.appendChild(el('span', { className: 'label' }, 'tools'));
-      const chips = el('div', { className: 'chips' });
-      agent.tools.forEach(t => chips.appendChild(chip(t)));
-      row.appendChild(chips);
-    }
-    if (agent.skills?.length) {
-      row.appendChild(el('span', { className: 'label' }, 'skills'));
-      const chips = el('div', { className: 'chips' });
-      agent.skills.forEach(s => chips.appendChild(chip(s, 'skill')));
-      row.appendChild(chips);
-    }
-    card.appendChild(row);
-  }
-
-  if (agent.in_scope?.length) {
-    card.appendChild(el('span', { className: 'label' }, 'in scope'));
-    const ul = el('ul', { className: 'list-tight' });
-    agent.in_scope.forEach(s => ul.appendChild(el('li', {}, s)));
-    card.appendChild(ul);
-  }
-
-  if (agent.workflow?.length) {
-    card.appendChild(el('span', { className: 'label' }, 'workflow'));
-    const steps = el('ol', { className: 'steps' });
-    agent.workflow.forEach(s => steps.appendChild(el('li', {}, s)));
-    card.appendChild(steps);
-  }
-  return card;
-};
-
-const renderTeamCard = (team) => {
-  const card = el('div', { className: 'card' });
-  card.appendChild(el('h3', {},
-    team.name || '(unnamed team)',
-    el('span', { className: 'id' }, team.team_id),
-  ));
-  if (team.role) card.appendChild(el('div', { className: 'role-line' }, team.role));
-  if (team.member_ids?.length) {
-    card.appendChild(el('span', { className: 'label' }, 'members'));
-    const chips = el('div', { className: 'chips' });
-    team.member_ids.forEach(m => chips.appendChild(chip(m, 'member')));
-    card.appendChild(chips);
-  }
-  if (team.workflow?.length) {
-    card.appendChild(el('span', { className: 'label' }, 'coordination'));
-    const steps = el('ol', { className: 'steps' });
-    team.workflow.forEach(s => steps.appendChild(el('li', {}, s)));
-    card.appendChild(steps);
-  }
-  return card;
-};
-
-const renderWorkflowCard = (wf) => {
-  const card = el('div', { className: 'card' });
-  card.appendChild(el('h3', {},
-    wf.name || '(unnamed workflow)',
-    el('span', { className: 'id' }, wf.workflow_id),
-  ));
-  if (wf.description) card.appendChild(el('div', { className: 'role-line' }, wf.description));
-  if (wf.steps?.length) {
-    card.appendChild(el('span', { className: 'label' }, 'steps'));
-    const steps = el('ol', { className: 'steps' });
-    wf.steps.forEach(step => {
-      const li = el('li', {}, step.name + ' ');
-      li.appendChild(chip(step.agent_id, 'member'));
-      if (step.requires_output_review) li.appendChild(chip('review', 'tag'));
-      steps.appendChild(li);
-    });
-    card.appendChild(steps);
-  }
-  return card;
-};
-
-const renderKnowledgeSection = (knowledge) => {
-  const wrap = document.createDocumentFragment();
-  if (knowledge.types?.length) {
-    knowledge.types.forEach(t => {
-      const card = el('div', { className: 'card' });
-      card.appendChild(el('h3', {},
-        t.label || t.id,
-        el('span', { className: 'id' }, t.id),
-      ));
-      if (t.metadata_fields?.length) {
-        const chips = el('div', { className: 'chips' });
-        t.metadata_fields.forEach(f => chips.appendChild(chip(`${f.name}:${f.type}`, 'tag')));
-        card.appendChild(chips);
-      }
-      wrap.appendChild(card);
-    });
-  }
-  if (knowledge.principles?.sections?.length) {
-    knowledge.principles.sections.forEach(s => {
-      const card = el('div', { className: 'card' });
-      card.appendChild(el('h3', {}, s.title || s.id, el('span', { className: 'id' }, 'principle')));
-      const body = el('div', { className: 'role-line', innerHTML: renderMarkdown(s.body || '') });
-      card.appendChild(body);
-      wrap.appendChild(card);
-    });
-  }
-  return wrap;
-};
-
-const renderParameter = (p) => {
-  const card = el('div', { className: 'card' });
-  card.appendChild(el('h3', {}, p.label || p.name, el('span', { className: 'id' }, `${p.type} = ${JSON.stringify(p.default)}`)));
-  return card;
-};
-
-const renderSetupStep = (step) => {
-  const card = el('div', { className: 'card setup-card' });
-  card.appendChild(el('h3', {},
-    step.title || step.id,
-    el('span', { className: 'id' }, step.id),
-  ));
-  if (step.description) {
-    const body = el('div', { className: 'role-line', innerHTML: renderMarkdown(step.description) });
-    card.appendChild(body);
-  }
-  if (step.variables?.length) {
-    card.appendChild(el('span', { className: 'label' }, 'env vars'));
-    const chips = el('div', { className: 'chips' });
-    step.variables.forEach(v => chips.appendChild(chip(v, 'env')));
-    card.appendChild(chips);
-  }
-  return card;
-};
-
-const renderEnvVar = (envVar, required) => {
-  const card = el('div', { className: 'card env-card' });
-  card.appendChild(el('h3', {},
-    envVar.name,
-    el('span', { className: 'id' }, required ? 'required' : 'optional'),
-  ));
-  if (envVar.description) card.appendChild(el('div', { className: 'role-line' }, envVar.description));
-  return card;
-};
-
-// Extract env-var names referenced by `os.environ['VAR']` / `os.environ["VAR"]` /
-// `os.getenv('VAR'...)`. Distinguishes runs-now from setup-debt custom tools at a glance.
-const extractEnvVars = (source) => {
-  const vars = new Set();
-  const patterns = [
-    /os\.environ\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g,
-    /os\.environ\.get\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g,
-    /os\.getenv\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g,
-  ];
-  for (const re of patterns) {
-    let m;
-    while ((m = re.exec(source)) !== null) vars.add(m[1]);
-  }
-  return [...vars];
-};
-
-const renderCustomTool = (t) => {
-  const card = el('div', { className: 'card' });
-  const envVars = extractEnvVars(t.source);
-  const status = envVars.length ? 'setup-debt' : 'runs-now';
-  card.appendChild(el('h3', {},
-    t.name,
-    el('span', { className: 'id' }, 'custom tool'),
-    el('span', { className: `tool-status ${status}` }, status),
-  ));
-  if (envVars.length) {
-    card.appendChild(el('span', { className: 'label' }, 'needs env vars'));
-    const chips = el('div', { className: 'chips' });
-    envVars.forEach(v => chips.appendChild(chip(v, 'env')));
-    card.appendChild(chips);
-  }
-  const details = el('details', { className: 'collapsible' },
-    el('summary', {}, 'source'),
-    el('pre', {}, t.source),
-  );
-  card.appendChild(details);
-  return card;
-};
-
-const renderCustomSkill = (s) => {
-  const card = el('div', { className: 'card' });
-  card.appendChild(el('h3', {}, s.name, el('span', { className: 'id' }, 'custom skill')));
-  const details = el('details', { className: 'collapsible' },
-    el('summary', {}, 'SKILL.md'),
-    el('pre', {}, s.skill_md),
-  );
-  card.appendChild(details);
-  return card;
-};
-
-const sectionTitle = (title, count) => {
-  const h = el('div', { className: 'section-title' }, title);
-  if (count != null) h.appendChild(el('span', { className: 'count' }, String(count)));
-  return h;
-};
-
-const renderStageBar = (currentStage) => {
-  stageBar.innerHTML = '';
-  const currentIdx = STAGES.findIndex(s => s.id === currentStage);
-  STAGES.forEach((s, i) => {
-    const status = i < currentIdx ? 'done' : i === currentIdx ? 'current' : '';
-    stageBar.appendChild(el('div', { className: `stage ${status}`.trim() },
-      el('div', { className: 'stage-dot' }, String(i + 1)),
-      el('div', { className: 'stage-label' }, s.label),
-    ));
-    if (i < STAGES.length - 1) {
-      stageBar.appendChild(el('div', { className: `stage-line ${i < currentIdx ? 'done' : ''}`.trim() }));
-    }
-  });
-};
-
-const applyReadiness = (readiness, orgName) => {
-  lastReadiness = readiness || { ready: false, blockers: [], org_slug: '', stage: 'discover' };
-  lastOrgName = orgName || '';
-  createBtn.disabled = !lastReadiness.ready;
-  if (lastReadiness.ready) {
-    createBtn.title = 'Render the project tree';
-  } else if (lastReadiness.blockers?.length) {
-    createBtn.title = 'Cannot create yet:\n• ' + lastReadiness.blockers.join('\n• ');
-  } else {
-    createBtn.title = 'Not ready yet';
-  }
-  renderStageBar(lastReadiness.stage || 'discover');
-};
-
-const renderSpec = (payload) => {
-  specRoot.innerHTML = '';
-  const { spec, custom_tools, custom_skills, readiness } = payload;
-  applyReadiness(readiness, isPlaceholder(spec.org.name) ? '' : spec.org.name);
-
-  const header = el('div', { className: 'spec-header' });
-  const unset = isPlaceholder(spec.org.name);
-  header.appendChild(el('div', { className: `org-name${unset ? ' unset' : ''}` },
-    unset ? 'No name provided yet' : spec.org.name,
-  ));
-  specRoot.appendChild(header);
-
-  specRoot.appendChild(renderOrgCard(spec.org));
-
-  // agents
-  specRoot.appendChild(sectionTitle('agents', spec.ai.agents.length));
-  if (spec.ai.agents.length) spec.ai.agents.forEach(a => specRoot.appendChild(renderAgentCard(a)));
-  else specRoot.appendChild(el('div', { className: 'empty' }, 'No agents yet.'));
-
-  // teams
-  specRoot.appendChild(sectionTitle('teams', spec.ai.teams.length));
-  if (spec.ai.teams.length) spec.ai.teams.forEach(t => specRoot.appendChild(renderTeamCard(t)));
-  else specRoot.appendChild(el('div', { className: 'empty' }, 'No teams yet.'));
-
-  // workflows
-  specRoot.appendChild(sectionTitle('workflows', spec.ai.workflows.length));
-  if (spec.ai.workflows.length) spec.ai.workflows.forEach(w => specRoot.appendChild(renderWorkflowCard(w)));
-  else specRoot.appendChild(el('div', { className: 'empty' }, 'No workflows yet.'));
-
-  // knowledge
-  const knowledgeCount =
-    (spec.knowledge.types?.length || 0) + (spec.knowledge.principles?.sections?.length || 0);
-  specRoot.appendChild(sectionTitle('knowledge', knowledgeCount));
-  if (knowledgeCount) specRoot.appendChild(renderKnowledgeSection(spec.knowledge));
-  else specRoot.appendChild(el('div', { className: 'empty' }, 'No knowledge types or principles yet.'));
-
-  // parameters
-  specRoot.appendChild(sectionTitle('parameters', spec.parameters.length));
-  if (spec.parameters.length) spec.parameters.forEach(p => specRoot.appendChild(renderParameter(p)));
-  else specRoot.appendChild(el('div', { className: 'empty' }, 'No parameters yet.'));
-
-  // setup tasks (the operator's punch list after `agentorg render`)
-  const setupSteps = spec.runtime?.setup || [];
-  specRoot.appendChild(sectionTitle('setup tasks', setupSteps.length));
-  if (setupSteps.length) setupSteps.forEach(s => specRoot.appendChild(renderSetupStep(s)));
-  else specRoot.appendChild(el('div', { className: 'empty' }, 'No setup tasks yet.'));
-
-  // env vars (required + optional)
-  const required = spec.runtime?.env_vars?.required || [];
-  const optional = spec.runtime?.env_vars?.optional || [];
-  const envCount = required.length + optional.length;
-  if (envCount) {
-    specRoot.appendChild(sectionTitle('env vars', envCount));
-    required.forEach(v => specRoot.appendChild(renderEnvVar(v, true)));
-    optional.forEach(v => specRoot.appendChild(renderEnvVar(v, false)));
-  }
-
-  // custom tools
-  if (custom_tools?.length) {
-    specRoot.appendChild(sectionTitle('custom tools', custom_tools.length));
-    custom_tools.forEach(t => specRoot.appendChild(renderCustomTool(t)));
-  }
-  // custom skills
-  if (custom_skills?.length) {
-    specRoot.appendChild(sectionTitle('custom skills', custom_skills.length));
-    custom_skills.forEach(s => specRoot.appendChild(renderCustomSkill(s)));
-  }
-};
+// Restore position on load
+restorePopupPos();
 
 // ---------- API ----------
-
 const fetchSpec = async () => {
   try {
     const r = await fetch('/api/spec');
     const data = await r.json();
-    renderSpec(data);
+    applyStageSummary(data.stage_summary);
+    updatePreviewPlaceholder(data.spec);
   } catch (e) {
     console.error('failed to fetch spec', e);
   }
@@ -460,87 +299,24 @@ const sendChat = async (message) => {
   return body;
 };
 
-const postRender = async () => {
-  const r = await fetch('/api/render', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
-  });
-  if (!r.ok) {
-    let detail = null;
-    try { detail = (await r.json()).detail; } catch { /* not JSON */ }
-    if (detail?.blockers?.length) throw new Error('Not ready: ' + detail.blockers.join('; '));
-    if (typeof detail === 'string') throw new Error(detail);
-    throw new Error(`render ${r.status}`);
-  }
-  const slug = r.headers.get('X-AgentOrg-Slug') || lastReadiness.org_slug || 'org';
-  return { blob: await r.blob(), filename: `${slug}.zip`, slug };
-};
-
-const triggerBlobDownload = (blob, filename) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-};
-
-// ---------- create-organization dialog ----------
-
-const setDialogStatus = (kind, html) => {
-  if (!kind) {
-    createStatus.hidden = true;
-    createStatus.className = 'dialog-status';
-    createStatus.textContent = '';
-    return;
-  }
-  createStatus.hidden = false;
-  createStatus.className = `dialog-status ${kind}`;
-  createStatus.innerHTML = html;
-};
-
-const openCreateDialog = () => {
-  if (!lastReadiness.ready) return;
-  createOrgName.textContent = lastOrgName || 'your org';
-  createZipName.textContent = `${lastReadiness.org_slug || 'org'}.zip`;
-  setDialogStatus(null);
-  createConfirm.disabled = false;
-  if (typeof createDialog.showModal === 'function') createDialog.showModal();
-  else createDialog.setAttribute('open', '');
-  setTimeout(() => createConfirm.focus(), 0);
-};
-
-const closeCreateDialog = () => {
-  if (typeof createDialog.close === 'function') createDialog.close();
-  else createDialog.removeAttribute('open');
-};
-
-const submitCreate = async (ev) => {
-  ev.preventDefault();
-  createConfirm.disabled = true;
-  setDialogStatus('busy', 'Rendering project tree and packaging zip…');
+const doReset = async () => {
+  if (!confirm('Start over from scratch? The current draft will be discarded.')) return;
   try {
-    const { blob, filename, slug } = await postRender();
-    triggerBlobDownload(blob, filename);
-    const kb = Math.max(1, Math.round(blob.size / 1024));
-    setDialogStatus('success', `Downloaded <code>${filename}</code> (${kb} KB). Extract it and open the README.`);
-    appendMessage(
-      'master',
-      `Your org **${slug}** is ready — downloaded as \`${filename}\`. ` +
-      `Extract the zip, then follow \`README.md\` inside for env vars, dependencies, and how to run it.`,
-    );
-    setTimeout(closeCreateDialog, 1400);
+    await fetch('/api/reset', { method: 'POST' });
+    showEmptyHero();
+    // The preview URL didn't change (same subprocesses) but the rendered spec did, so the
+    // iframe is now showing stale React state. Force a reload by re-assigning the src.
+    if (previewCurrentUrl) {
+      previewFrame.src = previewCurrentUrl;
+    }
+    await fetchSpec();
+    chatInput.focus();
   } catch (e) {
-    setDialogStatus('error', e.message);
-    createConfirm.disabled = false;
+    appendMessage('master', `**Error resetting:** ${e.message}`);
   }
 };
 
 // ---------- wiring ----------
-
 chatForm.addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const msg = chatInput.value.trim();
@@ -555,10 +331,10 @@ chatForm.addEventListener('submit', async (ev) => {
     await fetchSpec();
   } catch (e) {
     const hint = e.transient
-      ? "\n\n_Your message is still in the input — press Enter to retry once Gemini comes back._"
+      ? "\n\n_Your message is still in the input — press Enter to retry once the model comes back._"
       : '';
     appendMessage('master', `**Error:** ${e.message}${hint}`);
-    chatInput.value = msg;  // restore so user can retry without retyping
+    chatInput.value = msg;
   } finally {
     setBusy(false);
     chatInput.focus();
@@ -572,23 +348,9 @@ chatInput.addEventListener('keydown', (ev) => {
   }
 });
 
-const doReset = async () => {
-  if (!confirm('Start over from scratch? The current draft will be discarded.')) return;
-  try {
-    await fetch('/api/reset', { method: 'POST' });
-    showEmptyHero();
-    await fetchSpec();
-    chatInput.focus();
-  } catch (e) {
-    appendMessage('master', `**Error resetting:** ${e.message}`);
-  }
-};
-
 resetBtn.addEventListener('click', doReset);
-createBtn.addEventListener('click', openCreateDialog);
-createCancel.addEventListener('click', closeCreateDialog);
-createForm.addEventListener('submit', submitCreate);
 
 showEmptyHero();
 fetchSpec();
+startPreviewPolling();
 chatInput.focus();

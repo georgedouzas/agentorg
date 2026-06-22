@@ -30,7 +30,8 @@ from agentorg.core.spec import (
 from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
 from ._seed import PLACEHOLDER_VALUES
-from ._state import get_state
+from ._stages import STAGE_LABELS, STAGES, advance
+from ._state import Discovery, get_state
 from ._writer import write_spec
 
 ItemT = TypeVar('ItemT', bound=BaseModel)
@@ -181,6 +182,7 @@ def set_org_identity(
     admin_name: str | None = None,
     admin_email: str | None = None,
     visibility: Literal['public', 'private'] | None = None,
+    budget: Literal['low', 'medium', 'high'] | None = None,
 ) -> str:
     """Update fields on `spec.org`.
 
@@ -197,6 +199,7 @@ def set_org_identity(
         admin_name: Admin / maintainer name.
         admin_email: Admin / maintainer email.
         visibility: `public` or `private`.
+        budget: Guidance tier for fleet size and tool depth (`low` / `medium` / `high`).
 
     Returns:
         message: Confirmation listing the fields that changed, or a validation-error
@@ -211,6 +214,10 @@ def set_org_identity(
     if admin_email is not None and not _is_valid_email(admin_email):
         return f"Admin email {admin_email!r} doesn't look like an email. Ask the user again (format: name@host.tld)."
 
+    desc_gate = _check_description_length(description)
+    if desc_gate is not None:
+        return desc_gate
+
     state = get_state()
     updates = {
         'name': name,
@@ -221,11 +228,22 @@ def set_org_identity(
         'admin_name': admin_name,
         'admin_email': admin_email,
         'visibility': visibility,
+        'budget': budget,
     }
     changed = {k: v for k, v in updates.items() if v is not None}
     if not changed:
         return 'No changes - all arguments were omitted.'
     state.spec.org = Org(**{**state.spec.org.model_dump(), **changed})
+
+    # Cascade name → ui.app.name when the dashboard header is still at its seed default.
+    # Without this, the user sets the org name but the rendered dashboard keeps showing
+    # "Untitled org" because `app_name` reads from `ui.app.name`, not `org.name`. We only
+    # cascade when ui.app.name is still a placeholder so we don't trample explicit choices.
+    if 'name' in changed and _is_placeholder(state.spec.ui.app.name):
+        state.spec.ui = state.spec.ui.model_copy(update={
+            'app': state.spec.ui.app.model_copy(update={'name': changed['name']}),
+        })
+
     return f"Updated org fields: {', '.join(sorted(changed))}."
 
 
@@ -269,12 +287,17 @@ def add_or_update_agent(
     Returns:
         message: `Added` or `Updated` confirmation.
     """
+    # Tools use BARE names (`run_sqlite_query`), not the `custom:` prefix (that's for
+    # skills only). Normalise at the entry point so the LLM can't break the rendered
+    # spec.py with `tools=['custom:foo']` (which would emit `import custom:foo` and
+    # syntax-error on reload).
+    normalised_tools = [t.removeprefix('custom:') for t in (tools or [])]
     spec = AgentSpec(
         agent_id=agent_id,
         name=name,
         role=role,
         model=model,
-        tools=tools or [],
+        tools=normalised_tools,
         skills=skills or [],
         in_scope=in_scope,
         workflow=workflow,
@@ -354,6 +377,7 @@ def add_or_update_team(
     Returns:
         message: `Added` or `Updated` confirmation.
     """
+    normalised_tools = [t.removeprefix('custom:') for t in (tools or [])]
     spec = TeamSpec(
         team_id=team_id,
         name=name,
@@ -361,7 +385,7 @@ def add_or_update_team(
         model=model,
         member_ids=member_ids,
         mode=mode,
-        tools=tools or [],
+        tools=normalised_tools,
         skills=skills or [],
         workflow=workflow,
         in_scope=in_scope or [],
@@ -520,8 +544,139 @@ def remove_knowledge_type(knowledge_type_id: str) -> str:
     return f"Removed knowledge type '{knowledge_type_id}'."
 
 
+_DISCOVERY_MIN_LEN = 100
+_STAGE1_MIN_PRINCIPLE_BODY_LEN = 200
+_STAGE2_DESCRIPTION_MIN_LEN = 200
+
+
+def record_discovery_summary(
+    *,
+    what_the_group_does: str,
+    who_serves: str,
+    concrete_tasks_owned: str,
+    typical_flow: str,
+    business_context: str,
+    current_pain_or_alternative: str,
+    user_confirmed: bool,
+) -> str:
+    """Record your understanding of the business before drafting principles, description, or budget.
+
+    Call this during Stage 1 once you have probed enough that you can describe the
+    business specifically. "Pharma company designing longevity drugs" is NOT enough -
+    you need to know what KIND of drugs, what stage of development, what the agents
+    will actually do, who the customers are. Each text field must be 100+ characters
+    and reference real specifics from what the user told you, not generic placeholders.
+
+    `add_or_update_principle_section`, `set_org_identity(budget=...)`, and
+    `set_org_identity(description=...)` are blocked in Stage 1 until this tool succeeds.
+
+    Arguments:
+        what_the_group_does: 100+ chars. The concrete activity. "Designs small-molecule
+            drugs that target senescent cell pathways; runs pre-clinical screening
+            in-house and partners with CROs for trials." NOT "designs longevity drugs".
+        who_serves: 100+ chars. Specific audience with demographics or role. "Patients
+            with age-related diseases, prescribed via specialist physicians at academic
+            medical centres; secondary audience is biotech investors evaluating pipeline."
+            NOT "people who want to live longer".
+        concrete_tasks_owned: 100+ chars. List 3-5 specific tasks/processes the group
+            owns end-to-end, separated by semicolons. "Literature review for novel
+            targets; in-vitro compound screening; IND-enabling tox studies; clinical
+            trial protocol design; FDA submission preparation." NOT "drug development".
+        typical_flow: 100+ chars. A specific end-to-end walkthrough. "Scientist
+            proposes a target -> agents survey the literature and competitor pipelines ->
+            shortlist compounds -> design assays -> external lab runs them -> agents
+            summarise results into a go/no-go report." NOT "we develop drugs".
+        business_context: 100+ chars. Market segment + differentiator, or the
+            organisational context for an internal team. "Pre-clinical longevity biotech,
+            seed-stage, competing with Altos and Retro Bio on aging biology but
+            differentiating on small-molecule modality vs cellular reprogramming."
+        current_pain_or_alternative: 100+ chars. What's happening today (or would
+            happen without this group), and the gap. "Today a single PhD spends 2-3
+            weeks doing the target review manually; we want agents to compress that to
+            48 hours so we can survey 10x more targets per quarter."
+        user_confirmed: Set True ONLY if you have asked the user some variant of "does
+            this capture what you have in mind?" in this conversation AND received an
+            affirmative reply. Otherwise set False; the tool refuses.
+
+    Returns:
+        message: `Recorded` confirmation, or a rejection naming the specific field(s)
+            that are too short / not yet user-confirmed.
+    """
+    blockers: list[str] = []
+    if not user_confirmed:
+        blockers.append(
+            "user_confirmed is False - ask the user 'does this capture what you have in "
+            "mind?' first, get an affirmative reply, then call this tool with user_confirmed=True.",
+        )
+    fields = {
+        'what_the_group_does': what_the_group_does,
+        'who_serves': who_serves,
+        'concrete_tasks_owned': concrete_tasks_owned,
+        'typical_flow': typical_flow,
+        'business_context': business_context,
+        'current_pain_or_alternative': current_pain_or_alternative,
+    }
+    for name, value in fields.items():
+        n = len(value.strip())
+        if n < _DISCOVERY_MIN_LEN:
+            blockers.append(
+                f"{name!r} is only {n} chars (need at least {_DISCOVERY_MIN_LEN}) - "
+                f"keep probing the user, then retry with specifics from their answers.",
+            )
+    if blockers:
+        return 'REJECTED - discovery is not specific enough yet:\n  - ' + '\n  - '.join(blockers)
+
+    state = get_state()
+    state.discovery = Discovery(
+        what_the_group_does=what_the_group_does.strip(),
+        who_serves=who_serves.strip(),
+        concrete_tasks_owned=concrete_tasks_owned.strip(),
+        typical_flow=typical_flow.strip(),
+        business_context=business_context.strip(),
+        current_pain_or_alternative=current_pain_or_alternative.strip(),
+    )
+    return (
+        'Recorded. You may now draft principle sections via add_or_update_principle_section, '
+        'set a substantive description via set_org_identity(description=...), and pick a '
+        'budget via set_org_identity(budget=...).'
+    )
+
+
+def _stage1_discovery_gate_message() -> str:
+    """Error returned by Stage-1 tools that require `record_discovery_summary` first."""
+    return (
+        "Blocked: in Stage 1 (Discover), you must call `record_discovery_summary` BEFORE "
+        "drafting principles. Ask the user follow-up questions until you can describe the "
+        "business specifically across all six fields, get their confirmation, then call "
+        "`record_discovery_summary(...)`."
+    )
+
+
+def _check_description_length(description: str | None) -> str | None:
+    """Quality gate: when Configure writes a description, demand 200+ chars.
+
+    The cross-stage leak gate that used to live here is gone: `set_org_identity` is only
+    in the Configure agent's tool slice, so the Discover agent literally can't call it.
+    All that remains is the description-length quality check.
+    """
+    if description is None:
+        return None
+    desc = description.strip()
+    if len(desc) < _STAGE2_DESCRIPTION_MIN_LEN:
+        return (
+            f"Description too short ({len(desc)} chars). Write at least "
+            f"{_STAGE2_DESCRIPTION_MIN_LEN} characters - 2-4 sentences covering "
+            "mission, audience, and what makes this group distinctive. You have the "
+            "discovery summary from Stage 1; draft from it and ask the user to confirm."
+        )
+    return None
+
+
 def add_or_update_principle_section(*, section_id: str, title: str, body: str) -> str:
     """Add or update one section of the org's principles.
+
+    Stage 1 gate: blocked until `record_discovery_summary` is called. In later stages
+    (refine, etc.) this gate is off - the assumption is that discovery happened.
 
     Arguments:
         section_id: Stable identifier; matching an existing section triggers an update.
@@ -529,9 +684,21 @@ def add_or_update_principle_section(*, section_id: str, title: str, body: str) -
         body: Markdown body, may reference parameters as `{param_name}`.
 
     Returns:
-        message: `Added` or `Updated` confirmation.
+        message: `Added` or `Updated` confirmation, or the Stage-1 gate message.
     """
     state = get_state()
+    if state.stage == 'discover' and state.discovery is None:
+        return _stage1_discovery_gate_message()
+    if state.stage == 'discover' and len(body.strip()) < _STAGE1_MIN_PRINCIPLE_BODY_LEN:
+        return (
+            f"Stage-1 principle body too short ({len(body.strip())} chars). Write at "
+            f"least {_STAGE1_MIN_PRINCIPLE_BODY_LEN} characters - a real paragraph that "
+            "explains the principle in context (what it means in day-to-day decisions, "
+            "what trade-offs it implies). One-line slogans like 'Quality matters' are "
+            "not principles - they're labels. If the user said 'you decide', go back and "
+            "ask them 2-3 specific multiple-choice questions to ground the principle in "
+            "their business, then write the paragraph."
+        )
     section = PrincipleSection(id=section_id, title=title, body=body)
     new_sections, existed = _upsert(list(state.spec.knowledge.principles.sections), 'id', section_id, section)
     state.spec.knowledge = Knowledge(
@@ -999,6 +1166,34 @@ def get_current_spec() -> Spec:
         spec: The current in-memory `Spec`.
     """
     return get_state().spec
+
+
+def advance_to_next_stage() -> str:
+    """Move the interview from the current stage to the next one.
+
+    Call this tool *only* when the user has explicitly confirmed they want to advance
+    (e.g. "yes let's move on", "ready", "next stage"). Do NOT call it pre-emptively.
+    The tool checks the stage's blockers; if any are unmet the call is rejected and the
+    blockers are returned so you can tell the user what's missing.
+
+    Returns:
+        message: A short string describing the outcome - either "Advanced to Stage N -
+            Label." (success) or "Cannot advance: ..." with the blocker list.
+    """
+    state = get_state()
+    prev_stage = state.stage
+    ok, new_stage, blockers = advance(state)
+    if not ok:
+        if blockers and blockers[0] == 'Already on the final stage.':
+            return 'Already on the final stage; nothing to advance to.'
+        bullets = '\n'.join(f'- {b}' for b in blockers)
+        return f"Cannot advance from {STAGE_LABELS[prev_stage]} yet:\n{bullets}"
+    prev_idx = STAGES.index(prev_stage) + 1
+    new_idx = STAGES.index(new_stage) + 1
+    return (
+        f'Advanced from Stage {prev_idx} ({STAGE_LABELS[prev_stage]}) '
+        f'to Stage {new_idx} ({STAGE_LABELS[new_stage]}).'
+    )
 
 
 def finalize_spec(output_path: str | Path) -> str:

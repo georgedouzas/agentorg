@@ -19,6 +19,22 @@ def _runnable_name(obj: object) -> str:
     return str(name) if name else ''
 
 
+def _file_matches_text(path: Path, content: str) -> bool:
+    """True if `path` already exists with text equal to `content`."""
+    try:
+        return path.read_text() == content
+    except (FileNotFoundError, OSError, UnicodeDecodeError):
+        return False
+
+
+def _file_matches_bytes(dest: Path, source: Path) -> bool:
+    """True if `dest` already exists with bytes equal to `source`."""
+    try:
+        return dest.read_bytes() == source.read_bytes()
+    except (FileNotFoundError, OSError):
+        return False
+
+
 def _agent_summary(agent: object) -> dict[str, Any]:
     name = _runnable_name(agent)
     return {'id': name, 'name': getattr(agent, 'name', None) or name, 'role': getattr(agent, 'role', '') or ''}
@@ -116,14 +132,23 @@ def render(spec_path: Path, output_dir: Path, template_dir: Path | None = None) 
                 output_path.mkdir(exist_ok=True, parents=True)
             else:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
+                # Skip the write when the file already matches. Live preview re-renders
+                # the whole tree on every chat turn; idempotent writes avoid touching
+                # files whose content didn't actually change. Without this Vite's file
+                # watcher fires for every template-derived file on every turn (hundreds
+                # of events) and the dev server eventually crashes mid-interview.
                 if rendered_path.endswith('.jinja'):
-                    output_path.write_text(env.get_template(raw_relative_path).render(**data))
-                else:
+                    new_content = env.get_template(raw_relative_path).render(**data)
+                    if not _file_matches_text(output_path, new_content):
+                        output_path.write_text(new_content)
+                elif not _file_matches_bytes(output_path, path):
                     shutil.copy(path, output_path)
 
     # Drop the user's spec.py into the rendered project at <package>/spec.py so
-    # the runtime can `from <package>.spec import spec` at boot.
+    # the runtime can `from <package>.spec import spec` at boot. Idempotent so the
+    # live preview's rerender loop doesn't touch the file on no-op turns.
     package_name = spec.org.package_name
     spec_dest = output_dir / 'src' / package_name / 'spec.py'
     spec_dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(spec_path, spec_dest)
+    if not _file_matches_bytes(spec_dest, spec_path):
+        shutil.copyfile(spec_path, spec_dest)

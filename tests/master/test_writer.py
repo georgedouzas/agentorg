@@ -25,6 +25,8 @@ from agentorg.master import (
     set_org_identity,
 )
 
+from .conftest import advance_to_configure_stage, seed_discovery
+
 VALID_TOOL_SOURCE = textwrap.dedent(
     '''
     """A simple custom tool that echoes its input."""
@@ -39,11 +41,16 @@ VALID_TOOL_SOURCE = textwrap.dedent(
 
 
 def _populate_minimum_viable_spec() -> None:
+    advance_to_configure_stage()  # identity fields belong to Stage 2
     set_org_identity(
         name='Research Org',
         slug='research-org',
         package_name='research_org',
-        description='Reads papers, writes reports.',
+        description=(
+            'Test fixture: a substantive multi-sentence description clearing the '
+            'Stage-2 200-char minimum so the writer + finalize_spec tests can drive '
+            'a complete spec round-trip without tripping the description gate.'
+        ),
         repository='https://github.com/example/research-org',
         admin_name='Research Authors',
         admin_email='authors@example.com',
@@ -89,6 +96,7 @@ def test_python_literal_renders_pydantic_models_as_constructor_calls():
         admin_name='a',
         admin_email='a@b.c',
         visibility='private',
+        budget='medium',
     )
     source = python_literal(org)
     assert source.startswith('Org(')
@@ -201,10 +209,15 @@ def _populate_full_spec() -> None:
     )
     add_or_update_parameter(name='min_sources', param_type='int', default=3, label='Minimum Sources')
     add_or_update_knowledge_type(knowledge_type_id='research', label='Research Docs')
+    seed_discovery()  # bypass the Stage-1 discovery gate before drafting principles
     add_or_update_principle_section(
         section_id='mission',
         title='Mission',
-        body='Cite at least {min_sources} sources.',
+        body=(
+            'Test fixture: principle body long enough to clear the 200-char Stage-1 minimum. '
+            'Cite at least {min_sources} sources per claim; when no source supports a claim, '
+            'flag it as inference rather than fact so the reviewer can verify quickly.'
+        ),
     )
 
 

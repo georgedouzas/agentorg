@@ -18,7 +18,7 @@ def test_reset_state_replaces_the_singleton_with_a_fresh_spec():
     state = get_state()
     state.spec.org.name = 'Changed Name'
     reset_state()
-    assert get_state().spec.org.name == 'My Org'
+    assert get_state().spec.org.name == 'Untitled org'
 
 
 def test_state_spec_assignment_validates():

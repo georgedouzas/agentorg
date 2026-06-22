@@ -33,6 +33,55 @@ BUILTIN_TOOL_NAMES = (
 )
 
 
+# Sandbox stubs for the knowledge tools. The real tools require an active reasoner
+# execution context to reach `app.memory`, which the sandbox doesn't have (the agent
+# runs from a plain `agno.Agent.arun` call, not from inside a node). The stubs return
+# canned responses so the LLM sees "the tool worked" and the run completes - good enough
+# for validating that the agent CALLS the right tools and HANDLES their output, which is
+# what the sandbox is for.
+
+async def _stub_read_knowledge(knowledge_type: str, name: str) -> str:
+    """Sandbox stub for `read_knowledge`."""
+    return f'[sandbox stub] would read knowledge unit ({knowledge_type!r}, {name!r}).'
+
+
+async def _stub_write_knowledge(
+    knowledge_type: str,
+    name: str,
+    title: str,
+    content: str,
+    metadata: dict | None = None,
+) -> str:
+    """Sandbox stub for `write_knowledge`."""
+    _ = (content, metadata)  # accept the args without using them; LLM still sees a success
+    return f'[sandbox stub] would write knowledge unit ({knowledge_type!r}, {name!r}, title={title!r}).'
+
+
+async def _stub_list_knowledge(knowledge_type: str, metadata_filter: dict | None = None) -> str:
+    """Sandbox stub for `list_knowledge`."""
+    _ = metadata_filter
+    return f'[sandbox stub] would list knowledge units of type {knowledge_type!r} (none in sandbox).'
+
+
+async def _stub_search_knowledge(knowledge_type: str, query: str, k: int = 5) -> str:
+    """Sandbox stub for `search_knowledge`."""
+    return f'[sandbox stub] would search {knowledge_type!r} for {query!r} (top-{k}).'
+
+
+async def _stub_delete_knowledge(knowledge_type: str, name: str) -> str:
+    """Sandbox stub for `delete_knowledge`."""
+    return f'[sandbox stub] would delete knowledge unit ({knowledge_type!r}, {name!r}).'
+
+
+_SANDBOX_KNOWLEDGE_STUBS: dict[str, Any] = {
+    'read_knowledge':   _stub_read_knowledge,
+    'write_knowledge':  _stub_write_knowledge,
+    'list_knowledge':   _stub_list_knowledge,
+    'search_knowledge': _stub_search_knowledge,
+    'delete_knowledge': _stub_delete_knowledge,
+}
+
+
 class AgentSandboxError(Exception):
     """Raised when an agent cannot be built (tool/skill resolution failed)."""
 
@@ -40,20 +89,27 @@ class AgentSandboxError(Exception):
 def resolve_tool(name: str, custom_tools: list[CustomTool]) -> Any:  # noqa: ANN401 (returns a callable; agno is permissive)
     """Resolve a tool ref string to its real callable.
 
-    Built-in catalog names come from `agentorg.core.agents.tools`. Custom tools are
-    exec'd in a fresh namespace and the named function is returned. Custom source is
-    expected to have already passed `validate_tool_source` at emit time.
+    Built-in catalog names come from `agentorg.core.agents.tools`. The knowledge tools
+    specifically are swapped for sandbox stubs (the real ones need an active reasoner
+    execution context to reach `app.memory`). Custom tools are exec'd in a fresh
+    namespace and the named function is returned. Custom source is expected to have
+    already passed `validate_tool_source` at emit time.
 
     Arguments:
         name: Tool ref string from `AgentSpec.tools`.
         custom_tools: The current state's `custom_tools` list.
 
     Returns:
-        callable: The resolved tool function.
+        callable: The resolved tool function (real or sandbox-stub).
 
     Raises:
         AgentSandboxError: If the name is neither a known built-in nor a registered custom tool.
     """
+    # Tools use BARE names; the LLM sometimes prefixes `custom:` (it confuses the skill
+    # format for the tool format). Strip the prefix so both forms resolve.
+    name = name.removeprefix('custom:')
+    if name in _SANDBOX_KNOWLEDGE_STUBS:
+        return _SANDBOX_KNOWLEDGE_STUBS[name]
     if name in BUILTIN_TOOL_NAMES:
         return getattr(builtin_tools, name)
     for custom in custom_tools:

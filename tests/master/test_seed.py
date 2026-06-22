@@ -1,7 +1,7 @@
 """Tests for the seed module."""
 
 from agentorg.core.spec import Spec
-from agentorg.master import PLACEHOLDER, PLACEHOLDER_NAME, default_spec
+from agentorg.master import PLACEHOLDER, PLACEHOLDER_NAME, PLACEHOLDER_VALUES, default_spec
 
 
 def test_default_spec_is_a_validated_spec():
@@ -14,9 +14,11 @@ def test_default_spec_uses_recognisable_placeholders():
     """Required text fields carry placeholders the interview can later identify and replace."""
     spec = default_spec()
     assert spec.org.name == PLACEHOLDER_NAME
-    assert spec.org.description == PLACEHOLDER
+    # Description, admin_name etc carry friendlier seed strings now, but they all still
+    # belong to PLACEHOLDER_VALUES so the interview's gate predicates still recognise them.
+    assert spec.org.description in PLACEHOLDER_VALUES
     assert spec.org.repository == PLACEHOLDER
-    assert spec.org.admin_name == PLACEHOLDER
+    assert spec.org.admin_name in PLACEHOLDER_VALUES
 
 
 def test_default_spec_starts_with_no_agents():

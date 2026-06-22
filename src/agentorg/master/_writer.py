@@ -60,7 +60,15 @@ def render_spec(
 
     custom_tool_names = {c.name for c in custom_tool_list}
     custom_skill_names = {s.name for s in custom_skill_list}
-    all_tool_refs = {t for a in agent_specs for t in a.tools} | {t for tm in team_specs for t in tm.tools}
+    # Tool refs may arrive prefixed with `custom:` (the LLM sometimes overgeneralises the
+    # skill-ref format). Strip the prefix here so classification works regardless.
+    all_tool_refs = {
+        t.removeprefix('custom:')
+        for a in agent_specs for t in a.tools
+    } | {
+        t.removeprefix('custom:')
+        for tm in team_specs for t in tm.tools
+    }
     builtin_tool_names = sorted(t for t in all_tool_refs if t not in custom_tool_names)
     all_skill_refs = {s for a in agent_specs for s in a.skills} | {s for tm in team_specs for s in tm.skills}
     github_skill_refs = sorted(r for r in all_skill_refs if not r.startswith('custom:'))
@@ -183,7 +191,10 @@ def _render_make_agent_call(agent: AgentSpec) -> str:
         f'role={python_literal(agent.role, 1)}',
     ]
     if agent.tools:
-        fields.append(f'tools=[{", ".join(agent.tools)}]')
+        # Strip the `custom:` prefix when the LLM included it - the writer imports the
+        # bare callable, so the spec.py reference must match the import.
+        tool_refs = [t.removeprefix('custom:') for t in agent.tools]
+        fields.append(f'tools=[{", ".join(tool_refs)}]')
     if agent.skills:
         fields.append(_render_skills_field(agent.skills))
     fields.extend(
@@ -208,7 +219,8 @@ def _render_make_team_call(team: TeamSpec) -> str:
         f'mode={python_literal(team.mode, 1)}',
     ]
     if team.tools:
-        fields.append(f'tools=[{", ".join(team.tools)}]')
+        tool_refs = [t.removeprefix('custom:') for t in team.tools]
+        fields.append(f'tools=[{", ".join(tool_refs)}]')
     if team.skills:
         fields.append(_render_skills_field(team.skills))
     fields.extend(

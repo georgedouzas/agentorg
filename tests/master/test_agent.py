@@ -23,30 +23,38 @@ from agentorg.master import (
 from agentorg.master._agent import (
     ALL_PLACEHOLDERS_FILLED,
     QUESTION_TEMPLATES,
+    STAGE_TOOLS,
     _next_question,
     _placeholders_dependency,
     _working_spec_dependency,
 )
 
+from .conftest import advance_to_configure_stage, seed_discovery
+
 
 def test_build_master_agent_returns_a_raw_agno_agent():
-    """The master agent is a bare `agno.Agent` (no `make_agent` curation)."""
+    """`build_master_agent` returns whichever per-stage agent is active (compat shim)."""
     agent = build_master_agent()
     assert isinstance(agent, Agent)
-    assert agent.id == 'master'
+    # The interview always starts on `discover`, so the shim returns the Discover agent.
+    assert agent.id == 'master-discover'
 
 
 def test_build_master_agent_carries_every_patch_tool():
-    """Every entry in `MASTER_TOOLS` reaches the agent's `tools` list verbatim."""
+    """The Discover agent only carries the Discover slice, not the full MASTER_TOOLS list."""
     agent = build_master_agent()
-    assert list(agent.tools) == MASTER_TOOLS
+    # Sanity: it has its narrow slice, NOT the full union of tools.
+    assert list(agent.tools) == STAGE_TOOLS['discover']
+    # And MASTER_TOOLS still exists as the legacy union (other modules may reference it).
+    assert set(STAGE_TOOLS['discover']).issubset(set(MASTER_TOOLS))
 
 
 def test_master_instructions_reference_the_interview_workflow():
-    """The persona instructions cite `placeholders`, `working_spec`, and the workflow."""
+    """The persona instructions cite live context, the staged flow, and the lifecycle tools."""
     assert 'placeholders' in MASTER_INSTRUCTIONS
     assert 'working_spec' in MASTER_INSTRUCTIONS
-    assert 'Workflow' in MASTER_INSTRUCTIONS
+    assert 'Stage 1' in MASTER_INSTRUCTIONS
+    assert 'Stage 2' in MASTER_INSTRUCTIONS
     assert 'finalize_spec' in MASTER_INSTRUCTIONS
 
 
@@ -60,8 +68,8 @@ def test_master_tools_include_finalize_and_emit_custom_tool():
 
 def test_master_introduction_greets_and_explains_purpose():
     """The opening message names the agent and tells the user what's coming."""
-    assert 'master agent' in MASTER_INTRODUCTION.lower()
-    assert 'spec.py' in MASTER_INTRODUCTION
+    assert 'AgentOrg' in MASTER_INTRODUCTION
+    assert 'five stages' in MASTER_INTRODUCTION.lower()
 
 
 def test_build_master_agent_enables_conversation_history_and_live_context():
@@ -72,16 +80,16 @@ def test_build_master_agent_enables_conversation_history_and_live_context():
     assert agent.add_dependencies_to_context is True
     assert agent.add_datetime_to_context is True
     assert agent.dependencies is not None
-    assert set(agent.dependencies) == {'working_spec', 'placeholders', 'next_question'}
+    assert set(agent.dependencies) == {'working_spec', 'placeholders', 'next_question', 'stage'}
 
 
 def test_working_spec_dependency_reflects_current_state():
     """The `working_spec` callable returns a dict snapshot of the live spec on every call."""
     reset_state()
-    set_org_identity(name='Dependency Org', description='Live snapshot.')
+    advance_to_configure_stage()
+    set_org_identity(name='Dependency Org')
     snapshot = _working_spec_dependency()
     assert snapshot['org']['name'] == 'Dependency Org'
-    assert snapshot['org']['description'] == 'Live snapshot.'
 
 
 def test_placeholders_dependency_reflects_current_state():
@@ -90,7 +98,13 @@ def test_placeholders_dependency_reflects_current_state():
     paths_before = {p for p, _ in _placeholders_dependency()}
     assert 'org.description' in paths_before
 
-    set_org_identity(description='Now set.')
+    advance_to_configure_stage()
+    long_desc = (
+        'Test fixture: a substantive multi-sentence description that clears the Stage-2 '
+        'minimum of 200 characters. It explains what the group does, who it serves, and '
+        'how it differs from the alternatives so the rendered README has substance.'
+    )
+    set_org_identity(description=long_desc)
     add_or_update_agent(
         agent_id='r',
         name='R',
@@ -116,11 +130,16 @@ def test_next_question_picks_an_org_field_first_on_seed():
 def test_next_question_advances_as_fields_are_filled():
     """As org placeholders get set, `_next_question` moves on to the agents section."""
     reset_state()
+    advance_to_configure_stage()
     set_org_identity(
         name='Org',
         slug='org',
         package_name='org',
-        description='Does things.',
+        description=(
+            'Test fixture description long enough to clear the Stage-2 200-char minimum, '
+            'so the underlying _next_question priority test can advance past the org '
+            'identity fields into the AI section as designed by the placeholder flow.'
+        ),
         repository='https://example.com/org',
         admin_name='Maintainer',
         admin_email='m@example.com',
@@ -138,11 +157,16 @@ def test_next_question_advances_as_fields_are_filled():
 def test_next_question_returns_finalize_prompt_when_nothing_left():
     """When every section is filled (or explicitly populated), the fallback nudges toward finalising."""
     reset_state()
+    advance_to_configure_stage()
     set_org_identity(
         name='Org',
         slug='org',
         package_name='org',
-        description='Does things.',
+        description=(
+            'Test fixture description long enough to clear the Stage-2 200-char minimum, '
+            'so the underlying _next_question priority test can advance past the org '
+            'identity fields into the AI section as designed by the placeholder flow.'
+        ),
         repository='https://example.com/org',
         admin_name='Maintainer',
         admin_email='m@example.com',
@@ -161,7 +185,16 @@ def test_next_question_returns_finalize_prompt_when_nothing_left():
     add_or_update_team(team_id='t', name='T', role='r', workflow=['Coordinate.'], member_ids=['r'])
     add_or_update_workflow(workflow_id='w', name='W', steps=[{'name': 's', 'agent_id': 'r'}])
     add_or_update_knowledge_type(knowledge_type_id='note', label='Notes')
-    add_or_update_principle_section(section_id='p1', title='Mission', body='Be helpful.')
+    seed_discovery()
+    add_or_update_principle_section(
+        section_id='p1',
+        title='Mission',
+        body=(
+            'Test fixture: principle body long enough to clear the 200-char Stage-1 '
+            'minimum. The principle explains the rule and the trade-off it implies, '
+            'with concrete examples of when it applies and when it does not.'
+        ),
+    )
     add_or_update_parameter(name='param', param_type='string', default='x', label='Param')
     add_or_update_agent_group(label='All', ids=['r'])
 

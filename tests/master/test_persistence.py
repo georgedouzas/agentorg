@@ -34,7 +34,9 @@ VALID_TOOL_SOURCE = textwrap.dedent(
 
 
 def _populate_state() -> None:
-    set_org_identity(name='Persisted Org', description='Saved.')
+    # set_org_identity name/description are gated to Stage 2; jump the cursor for the unit test.
+    get_state().stage = 'configure'
+    set_org_identity(name='Persisted Org')
     add_or_update_agent(
         agent_id='researcher',
         name='Researcher',
@@ -86,7 +88,7 @@ def test_save_then_load_round_trips_the_spec(tmp_path: Path):
     saved_dump = get_state().spec.model_dump(mode='json')
 
     reset_state()
-    assert get_state().spec.org.name == 'My Org'  # confirm reset worked
+    assert get_state().spec.org.name == 'Untitled org'  # confirm reset worked
 
     load_draft(target)
     assert get_state().spec.model_dump(mode='json') == saved_dump

@@ -211,12 +211,30 @@ _SKILL_NAME_PATTERN = '^[a-z][a-z0-9-]*$'
 
 
 def validate_skill_source(name: str, skill_md: str) -> None:
-    """Validate a custom skill's SKILL.md before registering it.
+    r"""Validate a custom skill's SKILL.md before registering it.
 
-    Skills are filesystem-shaped (a folder containing SKILL.md and optional supporting files),
-    so they cannot be subprocess-imported like tools. Validation is purely structural here:
-    the skill name must be a lowercase-with-hyphens identifier, and the SKILL.md body must
-    begin with a markdown H1 heading and contain at least one non-heading line of content.
+    agno's `LocalSkills` loader requires the file to START with a YAML frontmatter
+    block delimited by `---` lines, carrying at minimum a `name` and a `description`.
+    The body after the frontmatter is the skill's instructions in markdown.
+
+    Example of a valid SKILL.md:
+
+        ---
+        name: negotiation-playbook
+        description: Steps for negotiating with a counterparty.
+        ---
+
+        # Negotiation playbook
+
+        1. Open with the high anchor.
+        2. ...
+
+    Validation checks:
+      - `name` matches the lowercase-with-hyphens pattern (folder-name shape).
+      - The body starts with `---\n` (YAML frontmatter delimiter).
+      - There IS a closing `---\n` for the frontmatter.
+      - The frontmatter contains both a `name:` and a `description:` line.
+      - There is at least one non-empty line of content after the frontmatter.
 
     Arguments:
         name: Folder name for the skill (lowercase-with-hyphens).
@@ -231,12 +249,37 @@ def validate_skill_source(name: str, skill_md: str) -> None:
         msg = f"skill name {name!r} must be lowercase-with-hyphens (e.g. 'negotiation-playbook')"
         raise SkillValidationError(msg)
 
-    stripped = skill_md.strip()
-    if not stripped.startswith('# '):
-        msg = 'SKILL.md must start with a level-1 markdown heading (`# Skill name`)'
+    stripped = skill_md.lstrip()
+    if not stripped.startswith('---'):
+        msg = (
+            'SKILL.md must start with a YAML frontmatter block delimited by `---`. '
+            'Example:\n\n---\nname: my-skill\ndescription: One-line summary.\n---\n\n'
+            '# My skill\n\n...body...'
+        )
         raise SkillValidationError(msg)
 
-    non_heading = [line for line in stripped.splitlines()[1:] if line.strip() and not line.startswith('#')]
-    if not non_heading:
-        msg = 'SKILL.md must contain at least one non-heading line of content'
+    # Split off the frontmatter: lines until the second `---`.
+    lines = stripped.splitlines()
+    # `lines[0]` is the opening `---`. Find the next standalone `---`.
+    closing_idx = None
+    for i, ln in enumerate(lines[1:], start=1):
+        if ln.strip() == '---':
+            closing_idx = i
+            break
+    if closing_idx is None:
+        msg = 'SKILL.md frontmatter is not closed - add a `---` line after the metadata.'
+        raise SkillValidationError(msg)
+
+    frontmatter_lines = lines[1:closing_idx]
+    frontmatter_text = '\n'.join(frontmatter_lines).lower()
+    if 'name:' not in frontmatter_text:
+        msg = 'SKILL.md frontmatter must declare a `name:` field.'
+        raise SkillValidationError(msg)
+    if 'description:' not in frontmatter_text:
+        msg = 'SKILL.md frontmatter must declare a `description:` field.'
+        raise SkillValidationError(msg)
+
+    body_lines = lines[closing_idx + 1:]
+    if not any(ln.strip() for ln in body_lines):
+        msg = 'SKILL.md must contain at least one non-empty line of content after the frontmatter.'
         raise SkillValidationError(msg)

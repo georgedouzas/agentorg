@@ -44,7 +44,16 @@ from agentorg.master.ui._server import serve
     default=True,
     help='Open the default browser to the UI on startup.',
 )
-def ui(host: str, port: int, resume: bool, draft: Path, open_browser: bool) -> None:
+@click.option(
+    '--preview/--no-preview',
+    default=True,
+    help=(
+        'Boot the live preview subprocesses (rendered org API + Vite dev server) '
+        'alongside the master UI. Disable for CI/headless smoke runs that do not '
+        'have uv or npm available.'
+    ),
+)
+def ui(host: str, port: int, resume: bool, draft: Path, open_browser: bool, preview: bool) -> None:
     """Run the browser-based master interview UI."""
     if resume and draft.exists():
         load_draft(draft)
@@ -56,4 +65,4 @@ def ui(host: str, port: int, resume: bool, draft: Path, open_browser: bool) -> N
     click.echo(f'AgentOrg UI: {url}  (Ctrl-C to stop)')
     if open_browser:
         Timer(0.8, lambda: webbrowser.open(url)).start()
-    serve(host=host, port=port, draft_path=draft)
+    serve(host=host, port=port, draft_path=draft, preview_enabled=preview)

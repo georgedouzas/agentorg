@@ -20,6 +20,7 @@ from agentorg.master import (
     emit_custom_tool,
     get_state,
     list_placeholders,
+    record_discovery_summary,
     remove_agent,
     remove_agent_group,
     remove_custom_tool,
@@ -38,6 +39,16 @@ from agentorg.master import (
     set_runtime_infra,
     set_ui_app,
     set_ui_empty_state,
+)
+from agentorg.master._agent import STAGE_TOOLS
+
+from .conftest import advance_to_configure_stage, seed_discovery
+
+# Long description used in tests that need a Stage-2-grade `org.description`.
+_LONG_DESC = (
+    'Research Org gathers sources on a topic, distils the findings into structured '
+    'weekly briefs, and ships them to internal product teams. The group bridges the '
+    'gap between full literature reviews (slow) and informal Slack summaries (lossy).'
 )
 
 VALID_TOOL_SOURCE = textwrap.dedent(
@@ -80,11 +91,12 @@ def test_list_placeholders_on_seed_reports_org_fields_and_empty_agents():
 
 def test_set_org_identity_clears_only_provided_fields():
     """Only fields passed to `set_org_identity` are updated; unmentioned fields stay as placeholders."""
-    set_org_identity(name='Research Org', description='Reads papers, writes reports.')
+    advance_to_configure_stage()  # set_org_identity identity fields belong to Stage 2
+    set_org_identity(name='Research Org', description=_LONG_DESC)
     spec = get_state().spec
     assert spec.org.name == 'Research Org'
-    assert spec.org.description == 'Reads papers, writes reports.'
-    assert spec.org.repository == 'TODO'  # untouched
+    assert spec.org.description == _LONG_DESC
+    assert spec.org.repository == 'Not set yet'  # untouched
     paths = {path for path, _ in list_placeholders()}
     assert 'org.repository' in paths
     assert 'org.description' not in paths
@@ -92,50 +104,58 @@ def test_set_org_identity_clears_only_provided_fields():
 
 def test_set_org_identity_rejects_invalid_visibility():
     """`visibility` outside the literal union is rejected by Pydantic validation."""
+    advance_to_configure_stage()
     with pytest.raises(ValidationError):
         set_org_identity(visibility='internal')  # type: ignore[arg-type]
 
 
 def test_set_org_identity_with_no_args_is_a_noop():
     """Calling with no arguments returns a no-op message and changes nothing."""
+    advance_to_configure_stage()
     result = set_org_identity()
     assert 'No changes' in result
 
 
 def test_set_org_identity_rejects_malformed_repository_url():
     """A bare word for `repository` is rejected with a guidance message; state is not mutated."""
+    advance_to_configure_stage()
     result = set_org_identity(repository='not-a-url')
     assert "doesn't look right" in result
-    assert get_state().spec.org.repository == 'TODO'  # unchanged
+    assert get_state().spec.org.repository == 'Not set yet'  # unchanged
 
 
 def test_set_org_identity_accepts_https_github_repository():
     """A well-formed GitHub HTTPS URL is accepted."""
+    advance_to_configure_stage()
     set_org_identity(repository='https://github.com/example/research-org')
     assert get_state().spec.org.repository == 'https://github.com/example/research-org'
 
 
 def test_set_org_identity_accepts_git_ssh_repository():
     """A `git@host:owner/repo.git` URL is accepted."""
+    advance_to_configure_stage()
     set_org_identity(repository='git@github.com:example/research-org.git')
     assert get_state().spec.org.repository.startswith('git@')
 
 
 def test_set_org_identity_accepts_example_com_todo_placeholder():
     """`https://example.com/TODO` (the master's "skip" placeholder) is accepted."""
+    advance_to_configure_stage()
     set_org_identity(repository='https://example.com/TODO')
     assert get_state().spec.org.repository == 'https://example.com/TODO'
 
 
 def test_set_org_identity_rejects_malformed_admin_email():
     """A junk string for `admin_email` is rejected with a guidance message; state is not mutated."""
+    advance_to_configure_stage()
     result = set_org_identity(admin_email='qwfe')
     assert "doesn't look like an email" in result
-    assert get_state().spec.org.admin_email == 'author@example.com'  # unchanged seed
+    assert get_state().spec.org.admin_email == 'you@example.com'  # unchanged seed
 
 
 def test_set_org_identity_accepts_well_formed_admin_email():
     """A reasonable email is accepted."""
+    advance_to_configure_stage()
     set_org_identity(admin_email='admin@example.com')
     assert get_state().spec.org.admin_email == 'admin@example.com'
 
@@ -316,9 +336,18 @@ def test_remove_knowledge_type_drops_it():
     assert 'Removed' in msg
 
 
+_FIXTURE_PRINCIPLE_BODY = (
+    'Test fixture: principle paragraph long enough to satisfy the 200-char Stage-1 '
+    'minimum. It explains the concrete trade-offs the principle implies for day-to-day '
+    'decisions, references parameters as {min_sources}, and grounds the rule in the '
+    'actual work the group does.'
+)
+
+
 def test_add_or_update_principle_section_adds_a_section():
     """A new principle section appears under `knowledge.principles.sections`."""
-    add_or_update_principle_section(section_id='mission', title='Mission', body='Cite at least {min_sources} sources.')
+    seed_discovery()  # bypass the Stage-1 discovery gate
+    add_or_update_principle_section(section_id='mission', title='Mission', body=_FIXTURE_PRINCIPLE_BODY)
     sections = get_state().spec.knowledge.principles.sections
     assert sections[0].id == 'mission'
     assert '{min_sources}' in sections[0].body
@@ -326,7 +355,8 @@ def test_add_or_update_principle_section_adds_a_section():
 
 def test_remove_principle_section_drops_it():
     """Removing by `id` shrinks the sections list."""
-    add_or_update_principle_section(section_id='s1', title='T', body='B')
+    seed_discovery()
+    add_or_update_principle_section(section_id='s1', title='T', body=_FIXTURE_PRINCIPLE_BODY)
     msg = remove_principle_section('s1')
     assert 'Removed' in msg
 
@@ -506,3 +536,132 @@ def test_remove_custom_tool_drops_a_registered_tool():
 def test_remove_custom_tool_returns_not_found_for_unknown_name():
     """Removing a tool that was never registered is a safe no-op."""
     assert 'No custom tool' in remove_custom_tool('never_registered')
+
+
+# ---- Stage-1 discovery gate ----
+
+
+_LONG_DISCOVERY = {
+    'what_the_group_does': (
+        'Curates research on transformer interpretability and ships weekly briefs to '
+        'product teams. Runs literature surveys + structured digests every Monday.'
+    ),
+    'who_serves': (
+        'Internal product teams (4 squads on the model-evaluation side) and external '
+        'ML researchers who follow the public briefs published each quarter.'
+    ),
+    'concrete_tasks_owned': (
+        'Survey new papers + preprints; classify by sub-domain; distil 5-bullet '
+        'takeaways; cite-check claims against sources; assemble the weekly brief.'
+    ),
+    'typical_flow': (
+        'Topic arrives via Slack -> agents search arXiv + Semantic Scholar -> shortlist '
+        '5-8 papers -> distil -> brief drafted -> reviewer signs off -> publish.'
+    ),
+    'business_context': (
+        'Internal research-ops team inside a model-evaluation org, funded by the '
+        'evaluation program; competes with manual literature reviews done by PhDs.'
+    ),
+    'current_pain_or_alternative': (
+        'Today a single PhD spends 2-3 weeks per topic; we want to compress this to 48 '
+        'hours so the team can cover 10x more topics per quarter without hiring.'
+    ),
+}
+
+_LONG_PRINCIPLE_BODY = (
+    'Test fixture: This principle states that every brief is grounded in cited sources, '
+    'not the agent\'s own paraphrase, so reviewers can verify claims in under five '
+    'minutes. In practice it means every bullet links to a paper or report; when no '
+    'source supports a claim, the agent flags it as inference rather than fact.'
+)
+
+
+def test_record_discovery_summary_unlocks_principle_section_drafting():
+    """A successful `record_discovery_summary` call lets the agent draft principle sections."""
+    msg = record_discovery_summary(**_LONG_DISCOVERY, user_confirmed=True)
+    assert 'Recorded' in msg
+    # Now the principle gate is open. Body must be 200+ chars too.
+    ack = add_or_update_principle_section(section_id='mission', title='Mission', body=_LONG_PRINCIPLE_BODY)
+    assert ack.startswith('Added')
+
+
+def test_record_discovery_summary_rejects_short_fields():
+    """Each text field needs at least 100 characters; thin content is rejected."""
+    msg = record_discovery_summary(
+        what_the_group_does='Sells stuff.',
+        who_serves='People online.',
+        concrete_tasks_owned='Things.',
+        typical_flow='They buy.',
+        business_context='Online.',
+        current_pain_or_alternative='Nothing.',
+        user_confirmed=True,
+    )
+    assert 'REJECTED' in msg
+    assert "'what_the_group_does'" in msg
+    assert "'who_serves'" in msg
+    assert "'concrete_tasks_owned'" in msg
+    assert "'current_pain_or_alternative'" in msg
+
+
+def test_record_discovery_summary_rejects_when_user_not_confirmed():
+    """Without `user_confirmed=True`, the tool refuses and tells the agent to ask first."""
+    msg = record_discovery_summary(**_LONG_DISCOVERY, user_confirmed=False)
+    assert 'REJECTED' in msg
+    assert 'user_confirmed' in msg
+
+
+def test_add_or_update_principle_section_rejects_short_body_in_stage1():
+    """Stage-1 principle bodies must be 200+ chars - one-line slogans are blocked."""
+    seed_discovery()
+    msg = add_or_update_principle_section(section_id='m', title='Mission', body='Quality matters.')
+    assert 'too short' in msg
+    assert 'paragraph' in msg
+
+
+def test_set_org_identity_not_in_discover_agent_toolset():
+    """The Discover agent's narrow tool slice excludes `set_org_identity` entirely.
+
+    The cross-stage gate that used to live in `_check_stage_gates_for_org_identity` is
+    gone: with per-stage agents, drift is impossible at the *tool* layer. Discover's agent
+    cannot invoke a tool it does not have.
+    """
+    assert set_org_identity not in STAGE_TOOLS['discover']
+    assert set_org_identity in STAGE_TOOLS['configure']
+
+
+def test_set_org_identity_short_description_in_stage2_is_rejected():
+    """In Stage 2 a too-short description is rejected with a length hint."""
+    advance_to_configure_stage()
+    msg = set_org_identity(description='Too short.')
+    assert 'too short' in msg
+    assert '200' in msg
+
+
+def test_set_org_identity_long_description_in_stage2_is_accepted():
+    """In Stage 2 a 200+-char description is accepted."""
+    advance_to_configure_stage()
+    msg = set_org_identity(description=_LONG_DESC)
+    assert msg.startswith('Updated')
+    assert get_state().spec.org.description == _LONG_DESC
+
+
+def test_add_or_update_principle_section_blocked_in_stage1_without_discovery():
+    """The gate returns an instructive error instead of silently drafting."""
+    msg = add_or_update_principle_section(section_id='mission', title='Mission', body='Anything')
+    assert 'Blocked' in msg
+    assert 'record_discovery_summary' in msg
+    # And the spec is unchanged.
+    assert get_state().spec.knowledge.principles.sections == []
+
+
+def test_set_org_identity_budget_works_in_configure():
+    """`set_org_identity(budget=...)` works in Stage 2 (Configure), no gate.
+
+    The old budget-blocked-in-Stage-1 check is gone: Discover doesn't have the tool, so
+    the gate has nothing to gate. In Configure (where the tool actually lives) budget is
+    just another field on the org card.
+    """
+    advance_to_configure_stage()
+    msg = set_org_identity(budget='low')
+    assert msg.startswith('Updated')
+    assert get_state().spec.org.budget == 'low'

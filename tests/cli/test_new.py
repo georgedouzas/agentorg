@@ -10,6 +10,11 @@ from agentorg.cli import new
 from agentorg.master import add_or_update_agent, get_state, reset_state, save_draft, set_org_identity
 
 
+def _advance_to_configure() -> None:
+    """Stage 1 forbids name/description in set_org_identity; advance the cursor so tests can use them."""
+    get_state().stage = 'configure'
+
+
 @pytest.fixture(autouse=True)
 def _reset() -> None:
     reset_state()
@@ -35,18 +40,20 @@ def test_new_help_documents_the_command():
 @pytest.mark.usefixtures('_skip_cli_app')
 def test_new_without_resume_starts_from_a_fresh_seed(tmp_path: Path):
     """Without `--resume`, the working spec is reset to the placeholder seed before the chat starts."""
-    set_org_identity(name='Previous Session Org', description='leftover')
+    _advance_to_configure()
+    set_org_identity(name='Previous Session Org')
     assert get_state().spec.org.name == 'Previous Session Org'
 
     result = CliRunner().invoke(new, ['--draft', str(tmp_path / 'draft.json')])
     assert result.exit_code == 0
-    assert get_state().spec.org.name == 'My Org'  # back to seed
+    assert get_state().spec.org.name == 'Untitled org'  # back to seed
 
 
 @pytest.mark.usefixtures('_skip_cli_app')
 def test_new_resume_loads_an_existing_draft(tmp_path: Path):
     """`--resume` reads the draft file before the chat loop starts."""
-    set_org_identity(name='Resumed Org', description='From draft.')
+    _advance_to_configure()
+    set_org_identity(name='Resumed Org')
     add_or_update_agent(
         agent_id='researcher',
         name='Researcher',
@@ -57,7 +64,7 @@ def test_new_resume_loads_an_existing_draft(tmp_path: Path):
     draft = tmp_path / 'draft.json'
     save_draft(draft)
     reset_state()
-    assert get_state().spec.org.name == 'My Org'  # confirm fresh
+    assert get_state().spec.org.name == 'Untitled org'  # confirm fresh
 
     result = CliRunner().invoke(new, ['--resume', '--draft', str(draft)])
     assert result.exit_code == 0
