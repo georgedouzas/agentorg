@@ -136,7 +136,6 @@ async def test_write_knowledge_short_circuits_under_preview_mode(call, monkeypat
 
 async def test_delete_knowledge_short_circuits_under_preview_mode(call, monkeypatch):
     """When in preview mode, delete_knowledge also returns the read-only message."""
-
     monkeypatch.setenv('AGENTORG_PREVIEW_MODE', 'false')
     await call('write_knowledge', knowledge_type='disposable', name='preview-survives', content='Stays put.')
 
