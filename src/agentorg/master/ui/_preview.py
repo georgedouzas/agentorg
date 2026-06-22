@@ -116,12 +116,12 @@ class PreviewManager:
         )
 
     async def boot(self) -> None:
-        """Render the current spec + spawn uvicorn + spawn Vite. Idempotent.
+        """Render the current spec + spawn uvicorn + spawn Vite.
 
-        Called once at master-UI startup. If anything fails, `status` flips to 'error'
-        with the reason in `detail` so the frontend can show the failure mode instead of
-        an indefinite spinner.
+        Idempotent.         Called once at master-UI startup. If anything fails, `status` flips to 'error'         with
+        the reason in `detail` so the frontend can show the failure mode instead of         an indefinite spinner.
         """
+
         async with self._lock:
             if self.status in {'booting', 'ready'}:
                 return
@@ -171,8 +171,7 @@ class PreviewManager:
                     'preview can install the rendered frontend dependencies.'
                 )
                 raise RuntimeError(msg)
-            await self._run_sync(['npm', 'install', '--no-fund', '--no-audit'],
-                                 cwd=frontend_dir, label='npm install')
+            await self._run_sync(['npm', 'install', '--no-fund', '--no-audit'], cwd=frontend_dir, label='npm install')
 
         # 4. Spawn uvicorn --reload on the rendered API
         self.api_port = _pick_port()
@@ -187,19 +186,22 @@ class PreviewManager:
         # AND the uvicorn child it spawns. Without this, uv exits but uvicorn keeps running
         # bound to its port - the next master-UI launch then can't claim the same port.
         self.api_proc = await asyncio.create_subprocess_exec(
-            'uv', 'run', 'uvicorn',
+            'uv',
+            'run',
+            'uvicorn',
             f'{package}.app.main:app',
             '--reload',
-            '--host', '127.0.0.1',
-            '--port', str(self.api_port),
+            '--host',
+            '127.0.0.1',
+            '--port',
+            str(self.api_port),
             cwd=str(self.work_dir),
             env=api_env,
             stdout=api_log.open('wb'),
             stderr=asyncio.subprocess.STDOUT,
             start_new_session=True,
         )
-        logger.info('preview: uvicorn started on :%d (pid=%s), log=%s',
-                    self.api_port, self.api_proc.pid, api_log)
+        logger.info('preview: uvicorn started on :%d (pid=%s), log=%s', self.api_port, self.api_proc.pid, api_log)
 
         # 5. Spawn Vite dev server, pointing its API proxy at our uvicorn port.
         # `VITE_AGENTORG_PREVIEW_MODE` is baked into the served bundle and tells the
@@ -214,9 +216,14 @@ class PreviewManager:
             }
             vite_log = self.work_dir / '.preview-vite.log'
             self.frontend_proc = await asyncio.create_subprocess_exec(
-                'npm', 'run', 'dev', '--',
-                '--host', '127.0.0.1',
-                '--port', str(self.frontend_port),
+                'npm',
+                'run',
+                'dev',
+                '--',
+                '--host',
+                '127.0.0.1',
+                '--port',
+                str(self.frontend_port),
                 '--strictPort',
                 cwd=str(frontend_dir),
                 env=vite_env,
@@ -224,8 +231,9 @@ class PreviewManager:
                 stderr=asyncio.subprocess.STDOUT,
                 start_new_session=True,
             )
-            logger.info('preview: vite started on :%d (pid=%s), log=%s',
-                        self.frontend_port, self.frontend_proc.pid, vite_log)
+            logger.info(
+                'preview: vite started on :%d (pid=%s), log=%s', self.frontend_port, self.frontend_proc.pid, vite_log,
+            )
 
         # 6. Wait until the frontend (and API) actually serve HTTP. If we flip to 'ready'
         #    before that, the iframe loads while the port is still unbound and Firefox /
@@ -246,10 +254,7 @@ class PreviewManager:
             url = f'http://127.0.0.1:{port}/'
             while time.monotonic() < deadline:
                 if not self._all_subprocesses_alive():
-                    msg = (
-                        f'preview subprocess died while waiting for {label}; '
-                        f'see logs in {self.work_dir}'
-                    )
+                    msg = f'preview subprocess died while waiting for {label}; see logs in {self.work_dir}'
                     raise RuntimeError(msg)
                 if await asyncio.to_thread(_probe_http, url):
                     logger.info('preview: %s on :%d is serving HTTP', label, port)
@@ -314,8 +319,8 @@ class PreviewManager:
     def schedule_rerender(self, *, debounce: float = 1.0) -> None:
         """Schedule a re-render after `debounce` seconds; coalesces multiple rapid calls.
 
-        Called every chat turn. uvicorn's `--reload` watches the spec.py file and restarts
-        the API process within a second; Vite HMRs any rendered frontend file that changed.
+        Called every chat turn. uvicorn's `--reload` watches the spec.py file and restarts the API process within a
+        second; Vite HMRs any rendered frontend file that changed.
         """
         if self.status != 'ready':
             return  # nothing useful to re-render against yet

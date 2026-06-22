@@ -166,7 +166,10 @@ def _is_valid_email(value: str) -> bool:
 
 
 def _is_valid_repository(value: str) -> bool:
-    """Validate a repository URL. Recognises the seed placeholder and `https://example.com/TODO`."""
+    """Validate a repository URL.
+
+    Recognises the seed placeholder and `https://example.com/TODO`.
+    """
     if value in PLACEHOLDER_VALUES or value.endswith(_REPO_PLACEHOLDER_SUFFIX):
         return True
     return bool(_GIT_HTTPS_RE.match(value) or _GIT_SSH_RE.match(value))
@@ -240,9 +243,11 @@ def set_org_identity(
     # "Untitled org" because `app_name` reads from `ui.app.name`, not `org.name`. We only
     # cascade when ui.app.name is still a placeholder so we don't trample explicit choices.
     if 'name' in changed and _is_placeholder(state.spec.ui.app.name):
-        state.spec.ui = state.spec.ui.model_copy(update={
-            'app': state.spec.ui.app.model_copy(update={'name': changed['name']}),
-        })
+        state.spec.ui = state.spec.ui.model_copy(
+            update={
+                'app': state.spec.ui.app.model_copy(update={'name': changed['name']}),
+            },
+        )
 
     return f"Updated org fields: {', '.join(sorted(changed))}."
 

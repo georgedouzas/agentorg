@@ -14,6 +14,7 @@ VALID_TOOL_SOURCE = textwrap.dedent(
         """Return the message unchanged - used as a smoke test for the sandbox."""
         return message
     '''
+
        ,
 ).strip()
 VALID_CASES = [{'input': {'message': 'pong'}, 'expected_contains': 'pong'}]
@@ -101,7 +102,8 @@ def test_validate_tool_source_rejects_raise_not_implemented_error():
         async def stub_tool() -> str:
             """Will be filled in later."""
             raise NotImplementedError("configure foo")
-        ''',
+        '''
+           ,
     ).strip()
     with pytest.raises(ToolValidationError, match='NotImplementedError'):
         validate_tool_source('stub_tool', source, test_cases=VALID_CASES)
@@ -116,10 +118,7 @@ def test_validate_tool_source_rejects_todo_string_literal():
 
 def test_validate_tool_source_rejects_in_a_real_scenario_comment_as_return():
     """A return value containing the common 'in a real scenario' lie is rejected."""
-    source = (
-        'async def stub_tool() -> str:\n'
-        '    return "In a real scenario this would call the API."\n'
-    )
+    source = 'async def stub_tool() -> str:\n    return "In a real scenario this would call the API."\n'
     with pytest.raises(ToolValidationError, match='placeholder marker'):
         validate_tool_source('stub_tool', source, test_cases=VALID_CASES)
 
@@ -154,11 +153,13 @@ def test_validate_tool_source_expected_raises_passes_when_env_var_missing():
     validate_tool_source(
         'stripe_charge',
         source,
-        test_cases=[{
-            'input': {'amount': 100},
-            'drop_env': ['STRIPE_SECRET_KEY'],
-            'expected_raises': 'STRIPE_SECRET_KEY',
-        }],
+        test_cases=[
+            {
+                'input': {'amount': 100},
+                'drop_env': ['STRIPE_SECRET_KEY'],
+                'expected_raises': 'STRIPE_SECRET_KEY',
+            },
+        ],
     )
 
 
@@ -169,11 +170,13 @@ def test_validate_tool_source_expected_raises_fails_when_function_does_not_raise
         validate_tool_source(
             'stub_tool',
             source,
-            test_cases=[{
-                'input': {},
-                'drop_env': ['STRIPE_SECRET_KEY'],
-                'expected_raises': 'STRIPE_SECRET_KEY',
-            }],
+            test_cases=[
+                {
+                    'input': {},
+                    'drop_env': ['STRIPE_SECRET_KEY'],
+                    'expected_raises': 'STRIPE_SECRET_KEY',
+                },
+            ],
         )
 
 
@@ -186,14 +189,17 @@ def test_validate_tool_source_env_override_lets_a_real_call_succeed():
         async def env_echo() -> str:
             """Return the configured echo prefix."""
             return os.environ.get("ECHO_PREFIX", "missing") + ":ok"
-        ''',
+        '''
+           ,
     ).strip()
     validate_tool_source(
         'env_echo',
         source,
-        test_cases=[{
-            'input': {},
-            'env': {'ECHO_PREFIX': 'hello'},
-            'expected_equals': 'hello:ok',
-        }],
+        test_cases=[
+            {
+                'input': {},
+                'env': {'ECHO_PREFIX': 'hello'},
+                'expected_equals': 'hello:ok',
+            },
+        ],
     )

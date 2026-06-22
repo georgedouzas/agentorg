@@ -59,6 +59,7 @@ VALID_TOOL_SOURCE = textwrap.dedent(
         """Return the message unchanged - used as a smoke test for the sandbox."""
         return message
     '''
+
        ,
 ).strip()
 VALID_TEST_CASES = [{'input': {'message': 'pong'}, 'expected_contains': 'pong'}]
@@ -515,7 +516,8 @@ def test_emit_custom_tool_rejects_placeholder_body_with_notimplementederror():
         async def stub_tool() -> str:
             """Configure later."""
             raise NotImplementedError("configure foo")
-        ''',
+        '''
+           ,
     ).strip()
     msg = emit_custom_tool(
         name='stub_tool',

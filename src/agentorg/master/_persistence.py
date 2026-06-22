@@ -9,7 +9,11 @@ from ._models import AgentSpec, CustomTool, TeamSpec, WorkflowSpec
 from ._state import Discovery, Stage, State, get_state
 
 _VALID_STAGES: tuple[Stage, ...] = (
-    'discover', 'configure', 'build', 'refine', 'handoff',
+    'discover',
+    'configure',
+    'build',
+    'refine',
+    'handoff',
 )
 # Legacy drafts saved before the Generate stage was removed will appear as 'generate';
 # migrate them forward to 'build' on load so the user lands somewhere coherent.

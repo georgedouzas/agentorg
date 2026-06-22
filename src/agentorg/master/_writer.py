@@ -62,12 +62,8 @@ def render_spec(
     custom_skill_names = {s.name for s in custom_skill_list}
     # Tool refs may arrive prefixed with `custom:` (the LLM sometimes overgeneralises the
     # skill-ref format). Strip the prefix here so classification works regardless.
-    all_tool_refs = {
-        t.removeprefix('custom:')
-        for a in agent_specs for t in a.tools
-    } | {
-        t.removeprefix('custom:')
-        for tm in team_specs for t in tm.tools
+    all_tool_refs = {t.removeprefix('custom:') for a in agent_specs for t in a.tools} | {
+        t.removeprefix('custom:') for tm in team_specs for t in tm.tools
     }
     builtin_tool_names = sorted(t for t in all_tool_refs if t not in custom_tool_names)
     all_skill_refs = {s for a in agent_specs for s in a.skills} | {s for tm in team_specs for s in tm.skills}

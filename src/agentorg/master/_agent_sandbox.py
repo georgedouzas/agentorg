@@ -40,6 +40,7 @@ BUILTIN_TOOL_NAMES = (
 # for validating that the agent CALLS the right tools and HANDLES their output, which is
 # what the sandbox is for.
 
+
 async def _stub_read_knowledge(knowledge_type: str, name: str) -> str:
     """Sandbox stub for `read_knowledge`."""
     return f'[sandbox stub] would read knowledge unit ({knowledge_type!r}, {name!r}).'
@@ -74,9 +75,9 @@ async def _stub_delete_knowledge(knowledge_type: str, name: str) -> str:
 
 
 _SANDBOX_KNOWLEDGE_STUBS: dict[str, Any] = {
-    'read_knowledge':   _stub_read_knowledge,
-    'write_knowledge':  _stub_write_knowledge,
-    'list_knowledge':   _stub_list_knowledge,
+    'read_knowledge': _stub_read_knowledge,
+    'write_knowledge': _stub_write_knowledge,
+    'list_knowledge': _stub_list_knowledge,
     'search_knowledge': _stub_search_knowledge,
     'delete_knowledge': _stub_delete_knowledge,
 }
@@ -86,7 +87,9 @@ class AgentSandboxError(Exception):
     """Raised when an agent cannot be built (tool/skill resolution failed)."""
 
 
-def resolve_tool(name: str, custom_tools: list[CustomTool]) -> Any:  # noqa: ANN401 (returns a callable; agno is permissive)
+def resolve_tool(
+    name: str, custom_tools: list[CustomTool],
+) -> Any:  # noqa: ANN401 (returns a callable; agno is permissive)
     """Resolve a tool ref string to its real callable.
 
     Built-in catalog names come from `agentorg.core.agents.tools`. The knowledge tools

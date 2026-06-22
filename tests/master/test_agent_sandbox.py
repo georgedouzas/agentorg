@@ -33,7 +33,9 @@ VALID_TOOL_SOURCE = textwrap.dedent(
     async def echo_tool(message: str) -> str:
         """Return the message verbatim."""
         return f'echo: {message}'
-    ''',
+    '''
+
+       ,
 ).strip()
 
 
@@ -115,8 +117,8 @@ def _tool_agent_spec() -> AgentSpec:
 def test_build_agent_from_spec_returns_an_agno_agent_with_resolved_tools():
     """A spec with built-in tools instantiates into a real agno.Agent.
 
-    Knowledge tools are resolved to sandbox stubs (`_stub_read_knowledge`,
-    `_stub_write_knowledge`) so the run isn't blocked by the reasoner-context check.
+    Knowledge tools are resolved to sandbox stubs (`_stub_read_knowledge`, `_stub_write_knowledge`) so the run isn't
+    blocked by the reasoner-context check.
     """
     agent = build_agent_from_spec(_tool_agent_spec(), custom_tools=[], custom_skills=[])
     assert isinstance(agent, Agent)

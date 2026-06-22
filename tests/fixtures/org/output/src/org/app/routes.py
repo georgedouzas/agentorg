@@ -33,7 +33,7 @@ def _parameters_model(spec: Spec) -> type[BaseModel]:
     for p in spec.parameters:
         py = _py_type(p.type)
         fields[p.name] = (py, Field(default=p.default))
-    return create_model('OrgParameters', **fields)
+    return create_model('OrgParameters', **fields)  # type: ignore[call-overload]
 
 
 def _document(unit: dict[str, Any]) -> dict[str, Any]:
@@ -253,7 +253,7 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             # the classmethod itself (not the contextvar) because agno may iterate the stream
             # in a task whose context doesn't see the contextvar update.
             original_get_current = _AfAgent.get_current
-            _AfAgent.get_current = staticmethod(lambda: app)
+            _AfAgent.get_current = staticmethod(lambda: app)  # type: ignore[method-assign]
             try:
                 arun = getattr(runnable, 'arun', None)
                 if arun is None:
@@ -275,7 +275,7 @@ def build_router(app: Any, spec: Spec) -> APIRouter:  # noqa: C901
             except Exception as exc:  # noqa: BLE001 — surface to the client
                 yield {'event': 'RunError', 'data': json.dumps({'error': str(exc)})}
             finally:
-                _AfAgent.get_current = original_get_current
+                _AfAgent.get_current = original_get_current  # type: ignore[method-assign]
 
         return EventSourceResponse(event_gen())
 

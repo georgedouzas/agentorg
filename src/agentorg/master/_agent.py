@@ -118,7 +118,9 @@ MASTER_INTRODUCTION = dedent(
 
     Anything you tell me is editable at any time - just say "change X to Y". To start:
     what kind of group are we building, and what does it do?
-    """,
+    """
+
+       ,
 ).strip()
 
 
@@ -136,9 +138,9 @@ MASTER_INTRODUCTION = dedent(
 
 
 BASE_INSTRUCTIONS = dedent(
-    """
-    You are AgentOrg, the master agent that interviews the user to design and build a
-    coordinated group of agents (`spec.py` plus a working project tree). The "group" can
+    """You are AgentOrg, the master agent that interviews the user to design and build a coordinated group of agents
+    (`spec.py` plus a working project tree). The "group" can.
+
     be a full organization, a team inside one, a department, a workflow owner, or a
     capability that plugs into something bigger - same machinery for every shape. The
     spec's `org.*` fields are the storage location for "this group" regardless of how
@@ -212,12 +214,11 @@ BASE_INSTRUCTIONS = dedent(
       Calls to any other tool will fail with "function not found". If you think you need
       one outside that list, the user is on the wrong stage - they need to advance or
       go back, not have you reach for tools you don't have.
-    """,
-).strip()
-
-DISCOVER_INSTRUCTIONS = dedent(
     """
-    ### Stage 1 instructions (DISCOVER)
+       ,
+).strip()
+DISCOVER_INSTRUCTIONS = dedent(
+    """### Stage 1 instructions (DISCOVER)
 
     Your only job in this stage is to understand the work the user wants automated and
     capture it as a discovery summary + drafted principles. Identity (name, slug, admin,
@@ -316,7 +317,9 @@ DISCOVER_INSTRUCTIONS = dedent(
     - `add_or_update_principle_section`, `remove_principle_section`
     - `get_current_spec`, `list_placeholders`
     - `advance_to_next_stage`
-    """,
+    """
+
+       ,
 ).strip()
 
 
@@ -589,10 +592,8 @@ BUILD_INSTRUCTIONS = dedent(
     """,
 ).strip()
 
-
 REFINE_INSTRUCTIONS = dedent(
-    """
-    ### Stage 4 instructions (REFINE)
+    """### Stage 4 instructions (REFINE)
 
     The agents are in and working. Now we polish: knowledge types the agents read /
     write, tunable parameters, the dashboard's UI shape, and a final pass on the org's
@@ -627,13 +628,13 @@ REFINE_INSTRUCTIONS = dedent(
       `set_agent_icons`, `add_or_update_overview_block`, `remove_overview_block`
     - `get_current_spec`, `list_placeholders`
     - `advance_to_next_stage`
-    """,
+    """
+       ,
 ).strip()
 
 
 HANDOFF_INSTRUCTIONS = dedent(
-    """
-    ### Stage 5 instructions (HANDOFF)
+    """### Stage 5 instructions (HANDOFF)
 
     The org is fully assembled in the live preview. Help the operator take it out of
     the preview and into a real environment.
@@ -688,16 +689,18 @@ HANDOFF_INSTRUCTIONS = dedent(
     ------------------------
     - `finalize_spec` - write the assembled `spec.py` to disk.
     - `get_current_spec` - JSON snapshot for status / summary turns.
-    """,
+    """
+
+       ,
 ).strip()
 
 
 STAGE_INSTRUCTIONS: dict[str, str] = {
-    'discover':  DISCOVER_INSTRUCTIONS,
+    'discover': DISCOVER_INSTRUCTIONS,
     'configure': CONFIGURE_INSTRUCTIONS,
-    'build':     BUILD_INSTRUCTIONS,
-    'refine':    REFINE_INSTRUCTIONS,
-    'handoff':   HANDOFF_INSTRUCTIONS,
+    'build': BUILD_INSTRUCTIONS,
+    'refine': REFINE_INSTRUCTIONS,
+    'handoff': HANDOFF_INSTRUCTIONS,
 }
 
 
@@ -756,8 +759,6 @@ def _working_spec_dependency() -> dict[str, Any]:
 def _placeholders_dependency() -> list[tuple[str, str]]:
     """Live dependency: fields still holding seed placeholders, refreshed at every turn."""
     return list_placeholders()
-
-
 def _next_question_dependency() -> str:
     """Live dependency: a stage-aware hint about what to ask next.
 
@@ -790,9 +791,8 @@ def _next_question_dependency() -> str:
 def _stage_dependency() -> dict[str, object]:
     """Live dependency: the current stage + its threshold blockers.
 
-    The master uses `stage` to decide which per-stage instructions in MASTER_INSTRUCTIONS
-    apply. `next_enabled` + `next_blockers` tell it whether it can ask the user to confirm
-    advancing yet, and what is still missing if not.
+    The master uses `stage` to decide which per-stage instructions in MASTER_INSTRUCTIONS apply. `next_enabled` +
+    `next_blockers` tell it whether it can ask the user to confirm advancing yet, and what is still missing if not.
     """
     state = get_state()
     return {
@@ -800,8 +800,6 @@ def _stage_dependency() -> dict[str, object]:
         'next_enabled': next_enabled(state),
         'next_blockers': next_blockers(state),
     }
-
-
 def _next_question() -> str:
     """Pick the next placeholder by priority and return its human-friendly question."""
     placeholders = list_placeholders()
@@ -900,11 +898,11 @@ _REFINE_TOOLS: list[Callable[..., object]] = [
 _HANDOFF_TOOLS: list[Callable[..., object]] = [get_current_spec, finalize_spec]
 
 STAGE_TOOLS: dict[str, list[Callable[..., object]]] = {
-    'discover':  _DISCOVER_TOOLS,
+    'discover': _DISCOVER_TOOLS,
     'configure': _CONFIGURE_TOOLS,
-    'build':     _BUILD_TOOLS,
-    'refine':    _REFINE_TOOLS,
-    'handoff':   _HANDOFF_TOOLS,
+    'build': _BUILD_TOOLS,
+    'refine': _REFINE_TOOLS,
+    'handoff': _HANDOFF_TOOLS,
 }
 
 
@@ -952,15 +950,12 @@ def build_master_workflow() -> dict[str, Agent]:
     `workflow.arun()` semantics that don't fit a conversational UI.
     """
     return {stage: _build_stage_agent(stage, tools) for stage, tools in STAGE_TOOLS.items()}
-
-
 def build_master_agent() -> Agent:
     """Compatibility shim: return the agent for the *current* stage.
 
-    Older callers ask for "the master agent"; the workflow refactor splits that into one
-    agent per stage. We honour the call by looking up the active stage and returning the
-    corresponding per-stage agent. Most callers (the FastAPI server, the CLI loop) should
-    move to `agent_for_current_stage()` directly.
+    Older callers ask for "the master agent"; the workflow refactor splits that into one agent per stage. We honour the
+    call by looking up the active stage and returning the corresponding per-stage agent. Most callers (the FastAPI
+    server, the CLI loop) should move to `agent_for_current_stage()` directly.
     """
     return agent_for_current_stage()
 
@@ -974,14 +969,10 @@ def _ensure_workflow_built() -> dict[str, Agent]:
     if _STAGE_AGENTS is None:
         _STAGE_AGENTS = build_master_workflow()
     return _STAGE_AGENTS
-
-
 def reset_workflow_cache() -> None:
     """Drop the cached per-stage agents (used by tests that monkeypatch env vars)."""
     global _STAGE_AGENTS  # noqa: PLW0603
     _STAGE_AGENTS = None
-
-
 def agent_for_current_stage() -> Agent:
     """Return the per-stage agent that should handle the next chat turn."""
     state = get_state()

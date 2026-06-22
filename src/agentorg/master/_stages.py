@@ -29,11 +29,11 @@ from ._state import Stage, State
 STAGES: tuple[Stage, ...] = get_args(Stage)
 
 STAGE_LABELS: dict[Stage, str] = {
-    'discover':  'Discover',
+    'discover': 'Discover',
     'configure': 'Configure',
-    'build':     'Build',
-    'refine':    'Refine',
-    'handoff':   'Handoff',
+    'build': 'Build',
+    'refine': 'Refine',
+    'handoff': 'Handoff',
 }
 
 
@@ -90,8 +90,7 @@ def _configure_blockers(state: State) -> list[str]:
     desc = (org.description or '').strip()
     if (not _real(org.description)) or len(desc) < _STAGE2_DESCRIPTION_MIN_LEN:
         blockers.append(
-            f'A substantive description (>= {_STAGE2_DESCRIPTION_MIN_LEN} chars) '
-            'covering mission + audience.',
+            f'A substantive description (>= {_STAGE2_DESCRIPTION_MIN_LEN} chars) covering mission + audience.',
         )
     # Cloud targets need their access tokens declared before we can advance.
     infra = state.spec.runtime.infra
@@ -107,8 +106,7 @@ def _build_blockers(state: State) -> list[str]:
     blockers: list[str] = []
     if not state.spec.ai.agents:
         blockers.append(
-            'Design at least one agent, sandbox-test it, commit it, and confirm it '
-            'works in the live preview.',
+            'Design at least one agent, sandbox-test it, commit it, and confirm it works in the live preview.',
         )
     return blockers
 
@@ -128,11 +126,11 @@ def _handoff_blockers(state: State) -> list[str]:
 
 
 _BLOCKER_FNS: dict[Stage, Callable[[State], list[str]]] = {
-    'discover':  _discover_blockers,
+    'discover': _discover_blockers,
     'configure': _configure_blockers,
-    'build':     _build_blockers,
-    'refine':    _refine_blockers,
-    'handoff':   _handoff_blockers,
+    'build': _build_blockers,
+    'refine': _refine_blockers,
+    'handoff': _handoff_blockers,
 }
 
 
@@ -164,8 +162,8 @@ def next_enabled(state: State) -> bool:
 def advance(state: State) -> tuple[bool, Stage, list[str]]:
     """Try to move `state` to the next stage.
 
-    Returns `(advanced, new_stage, blockers)`. When `advanced` is False, the stage is
-    unchanged and `blockers` lists why.
+    Returns `(advanced, new_stage, blockers)`. When `advanced` is False, the stage is unchanged and `blockers` lists
+    why.
     """
     blockers = next_blockers(state)
     if blockers:
@@ -180,9 +178,9 @@ def advance(state: State) -> tuple[bool, Stage, list[str]]:
 def stage_summary(state: State) -> dict[str, object]:
     """Compact payload used by `/api/spec` to drive the Next button + stage bar."""
     return {
-        'stage':          state.stage,
-        'stage_label':    STAGE_LABELS[state.stage],
-        'stages':         list(STAGES),
-        'next_enabled':   next_enabled(state),
-        'next_blockers':  next_blockers(state),
+        'stage': state.stage,
+        'stage_label': STAGE_LABELS[state.stage],
+        'stages': list(STAGES),
+        'next_enabled': next_enabled(state),
+        'next_blockers': next_blockers(state),
     }

@@ -279,7 +279,7 @@ def validate_skill_source(name: str, skill_md: str) -> None:
         msg = 'SKILL.md frontmatter must declare a `description:` field.'
         raise SkillValidationError(msg)
 
-    body_lines = lines[closing_idx + 1:]
+    body_lines = lines[closing_idx + 1 :]
     if not any(ln.strip() for ln in body_lines):
         msg = 'SKILL.md must contain at least one non-empty line of content after the frontmatter.'
         raise SkillValidationError(msg)

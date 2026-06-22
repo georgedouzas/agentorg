@@ -1,10 +1,9 @@
 """FastAPI app exposing the master interview agent over HTTP for a browser client.
 
-The server holds a single agent instance for the process lifetime. `/api/chat` accepts the
-user's message and returns the master's reply plus the tool calls it made; `/api/spec`
-returns a JSON snapshot of the working spec (org + agents + teams + workflows + knowledge +
-parameters, plus any custom tools/skills) so the browser can render a live view that updates
-after every turn. `/api/render` writes spec.py + materialises the full project tree.
+The server holds a single agent instance for the process lifetime. `/api/chat` accepts the user's message and returns
+the master's reply plus the tool calls it made; `/api/spec` returns a JSON snapshot of the working spec (org + agents +
+teams + workflows + knowledge + parameters, plus any custom tools/skills) so the browser can render a live view that
+updates after every turn. `/api/render` writes spec.py + materialises the full project tree.
 """
 
 import asyncio
@@ -165,9 +164,9 @@ def _is_transient(exc: BaseException) -> bool:
 async def _arun_with_retry(agent: Any, message: str) -> Any:  # noqa: ANN401
     """Run `agent.arun(message)` with exponential backoff on transient upstream errors.
 
-    Non-transient exceptions propagate immediately. Transient ones are retried up to
-    `_CHAT_RETRY_ATTEMPTS` total times with `_CHAT_RETRY_BASE_DELAY * 2**attempt` second pauses;
-    the last failure is re-raised so the caller can surface it.
+    Non-transient exceptions propagate immediately. Transient ones are retried up to `_CHAT_RETRY_ATTEMPTS` total times
+    with `_CHAT_RETRY_BASE_DELAY * 2**attempt` second pauses; the last failure is re-raised so the caller can surface
+    it.
     """
     last_exc: BaseException | None = None
     for attempt in range(_CHAT_RETRY_ATTEMPTS):
@@ -178,8 +177,13 @@ async def _arun_with_retry(agent: Any, message: str) -> Any:  # noqa: ANN401
             if not _is_transient(exc) or attempt == _CHAT_RETRY_ATTEMPTS - 1:
                 raise
             delay = _CHAT_RETRY_BASE_DELAY * (2**attempt)
-            logger.warning('chat: transient upstream error (attempt %d/%d), retrying in %.1fs: %s',
-                           attempt + 1, _CHAT_RETRY_ATTEMPTS, delay, exc)
+            logger.warning(
+                'chat: transient upstream error (attempt %d/%d), retrying in %.1fs: %s',
+                attempt + 1,
+                _CHAT_RETRY_ATTEMPTS,
+                delay,
+                exc,
+            )
             await asyncio.sleep(delay)
     assert last_exc is not None  # the loop above always returns or raises - this satisfies the type-checker
     raise last_exc
@@ -211,6 +215,7 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
 
     boot_task_holder: dict[str, asyncio.Task[None]] = {}
     if preview is not None:
+
         @app.on_event('startup')
         async def _boot_preview() -> None:
             # Fire-and-forget: the master UI starts serving immediately; the canvas shows
@@ -242,17 +247,22 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
     @app.get('/api/preview')
     async def get_preview() -> dict[str, Any]:
         if preview is None:
-            return {'status': 'disabled', 'api_url': None, 'frontend_url': None,
-                    'slug': None, 'detail': 'Preview is not enabled for this app.',
-                    'started_at': None}
+            return {
+                'status': 'disabled',
+                'api_url': None,
+                'frontend_url': None,
+                'slug': None,
+                'detail': 'Preview is not enabled for this app.',
+                'started_at': None,
+            }
         snap = preview.snapshot()
         return {
-            'status':       snap.status,
-            'api_url':      snap.api_url,
+            'status': snap.status,
+            'api_url': snap.api_url,
             'frontend_url': snap.frontend_url,
-            'slug':         snap.slug,
-            'detail':       snap.detail,
-            'started_at':   snap.started_at,
+            'slug': snap.slug,
+            'detail': snap.detail,
+            'started_at': snap.started_at,
         }
 
     @app.post('/api/chat', response_model=ChatResponse)
@@ -335,8 +345,10 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
             raise HTTPException(
                 status_code=409,
                 detail={
-                    'blockers': [f"The project download is available from Stage 3 onward; "
-                                 f"you're currently in Stage '{state.stage}'."],
+                    'blockers': [
+                        f"The project download is available from Stage 3 onward; "
+                        f"you're currently in Stage '{state.stage}'.",
+                    ],
                 },
             )
         readiness = _readiness(state)
@@ -379,14 +391,16 @@ def serve(
     draft_path: Path | None = None,
     preview_enabled: bool = True,
 ) -> None:
-    """Run the UI server with uvicorn. Blocks until interrupted.
+    """Run the UI server with uvicorn.
+
+    Blocks until interrupted.
 
     Arguments:
-        host: Bind address.
-        port: Bind port.
-        draft_path: Where the autosave hook writes the in-progress draft.
-        preview_enabled: When True (default), boot the live preview subprocesses on
-            startup. Disable for tests or for environments without uv/npm available.
+            host: Bind address.
+            port: Bind port.
+            draft_path: Where the autosave hook writes the in-progress draft.
+            preview_enabled: When True (default), boot the live preview subprocesses on
+                startup. Disable for tests or for environments without uv/npm available.
     """
     import uvicorn  # noqa: PLC0415  (defer import - uvicorn is heavy)
 

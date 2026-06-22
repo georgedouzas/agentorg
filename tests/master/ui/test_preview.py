@@ -85,9 +85,8 @@ def test_schedule_rerender_is_a_noop_until_status_is_ready(tmp_path: Path):
 def test_patch_pyproject_appends_local_agentorg_source(tmp_path: Path):
     """The rendered pyproject gets a `[tool.uv.sources]` block pointing at this repo.
 
-    Required because the rendered org declares `agentorg` as a dependency, and `agentorg`
-    is not published to PyPI. Without this patch `uv sync` would fail with `No solution
-    found when resolving dependencies`.
+    Required because the rendered org declares `agentorg` as a dependency, and `agentorg` is not published to PyPI.
+    Without this patch `uv sync` would fail with `No solution found when resolving dependencies`.
     """
     pm = PreviewManager(cache_root=tmp_path)
     pm.work_dir = tmp_path / 'rendered'

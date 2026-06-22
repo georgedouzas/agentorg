@@ -17,4 +17,3 @@ class Org(SpecModel):
     admin_email: str
     visibility: Literal['public', 'private']
     budget: Literal['low', 'medium', 'high']
-

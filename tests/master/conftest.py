@@ -14,10 +14,9 @@ def _reset_state() -> None:
 def advance_to_configure_stage() -> None:
     """Bypass Stage 1's identity gate for tests by jumping the cursor to 'configure'.
 
-    Most pre-existing `set_org_identity` tests are unit tests of the underlying tool;
-    they predate the staged interview machinery and treat the tool as stage-agnostic.
-    Calling this in the test body lets them keep doing so without dragging the rest of
-    the conftest through a fake interview.
+    Most pre-existing `set_org_identity` tests are unit tests of the underlying tool; they predate the staged interview
+    machinery and treat the tool as stage-agnostic. Calling this in the test body lets them keep doing so without
+    dragging the rest of the conftest through a fake interview.
     """
     get_state().stage = 'configure'
 
@@ -26,9 +25,9 @@ def seed_discovery() -> None:
     """Pre-fill `state.discovery` so tests can call principle / budget tools directly.
 
     Bypasses the full Stage-1 Phase-A interview gate. Use this in tests that need to drive
-    `add_or_update_principle_section` or `set_org_identity(budget=...)` without conducting
-    a fake interview first. Field values are deliberately long enough to pass the per-
-    field minimum-length validation enforced by `record_discovery_summary`.
+    `add_or_update_principle_section` or `set_org_identity(budget=...)` without conducting a fake interview first. Field
+    values are deliberately long enough to pass the per- field minimum-length validation enforced by
+    `record_discovery_summary`.
     """
     get_state().discovery = Discovery(
         what_the_group_does=(
