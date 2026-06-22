@@ -118,9 +118,7 @@ MASTER_INTRODUCTION = dedent(
 
     Anything you tell me is editable at any time - just say "change X to Y". To start:
     what kind of group are we building, and what does it do?
-    """
-
-       ,
+    """,
 ).strip()
 
 
@@ -214,8 +212,7 @@ BASE_INSTRUCTIONS = dedent(
       Calls to any other tool will fail with "function not found". If you think you need
       one outside that list, the user is on the wrong stage - they need to advance or
       go back, not have you reach for tools you don't have.
-    """
-       ,
+    """,
 ).strip()
 DISCOVER_INSTRUCTIONS = dedent(
     """### Stage 1 instructions (DISCOVER)
@@ -317,9 +314,7 @@ DISCOVER_INSTRUCTIONS = dedent(
     - `add_or_update_principle_section`, `remove_principle_section`
     - `get_current_spec`, `list_placeholders`
     - `advance_to_next_stage`
-    """
-
-       ,
+    """,
 ).strip()
 
 
@@ -628,8 +623,7 @@ REFINE_INSTRUCTIONS = dedent(
       `set_agent_icons`, `add_or_update_overview_block`, `remove_overview_block`
     - `get_current_spec`, `list_placeholders`
     - `advance_to_next_stage`
-    """
-       ,
+    """,
 ).strip()
 
 
@@ -689,9 +683,7 @@ HANDOFF_INSTRUCTIONS = dedent(
     ------------------------
     - `finalize_spec` - write the assembled `spec.py` to disk.
     - `get_current_spec` - JSON snapshot for status / summary turns.
-    """
-
-       ,
+    """,
 ).strip()
 
 
@@ -759,6 +751,8 @@ def _working_spec_dependency() -> dict[str, Any]:
 def _placeholders_dependency() -> list[tuple[str, str]]:
     """Live dependency: fields still holding seed placeholders, refreshed at every turn."""
     return list_placeholders()
+
+
 def _next_question_dependency() -> str:
     """Live dependency: a stage-aware hint about what to ask next.
 
@@ -800,6 +794,8 @@ def _stage_dependency() -> dict[str, object]:
         'next_enabled': next_enabled(state),
         'next_blockers': next_blockers(state),
     }
+
+
 def _next_question() -> str:
     """Pick the next placeholder by priority and return its human-friendly question."""
     placeholders = list_placeholders()
@@ -950,6 +946,8 @@ def build_master_workflow() -> dict[str, Agent]:
     `workflow.arun()` semantics that don't fit a conversational UI.
     """
     return {stage: _build_stage_agent(stage, tools) for stage, tools in STAGE_TOOLS.items()}
+
+
 def build_master_agent() -> Agent:
     """Compatibility shim: return the agent for the *current* stage.
 
@@ -969,10 +967,14 @@ def _ensure_workflow_built() -> dict[str, Agent]:
     if _STAGE_AGENTS is None:
         _STAGE_AGENTS = build_master_workflow()
     return _STAGE_AGENTS
+
+
 def reset_workflow_cache() -> None:
     """Drop the cached per-stage agents (used by tests that monkeypatch env vars)."""
     global _STAGE_AGENTS  # noqa: PLW0603
     _STAGE_AGENTS = None
+
+
 def agent_for_current_stage() -> Agent:
     """Return the per-stage agent that should handle the next chat turn."""
     state = get_state()

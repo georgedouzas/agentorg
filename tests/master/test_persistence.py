@@ -1,7 +1,6 @@
 """Tests for the persistence module."""
 
 import json
-import textwrap
 from pathlib import Path
 
 from agentorg.master import (
@@ -20,17 +19,15 @@ from agentorg.master import (
     set_org_identity,
 )
 
-VALID_TOOL_SOURCE = textwrap.dedent(
-    '''
-    """Echo tool for persistence tests."""
-
-    async def echo_tool(message: str) -> str:
-        """Return the message unchanged."""
-        return message
-    '''
-
-       ,
-).strip()
+VALID_TOOL_SOURCE = '\n'.join(
+    [
+        '"""Echo tool for persistence tests."""',
+        '',
+        'async def echo_tool(message: str) -> str:',
+        '    """Return the message unchanged."""',
+        '    return message',
+    ],
+)
 
 
 def _populate_state() -> None:

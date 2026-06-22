@@ -88,7 +88,8 @@ class AgentSandboxError(Exception):
 
 
 def resolve_tool(
-    name: str, custom_tools: list[CustomTool],
+    name: str,
+    custom_tools: list[CustomTool],
 ) -> Any:  # noqa: ANN401 (returns a callable; agno is permissive)
     """Resolve a tool ref string to its real callable.
 

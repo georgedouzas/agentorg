@@ -1,5 +1,6 @@
 """Tests for the parameters module."""
 
+
 async def test_get_org_parameters_default(call):
     """Getting parameters before the org is set up returns an empty `parameters` dict."""
     result = await call('get_org_parameters')

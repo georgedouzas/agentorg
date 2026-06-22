@@ -232,7 +232,10 @@ class PreviewManager:
                 start_new_session=True,
             )
             logger.info(
-                'preview: vite started on :%d (pid=%s), log=%s', self.frontend_port, self.frontend_proc.pid, vite_log,
+                'preview: vite started on :%d (pid=%s), log=%s',
+                self.frontend_port,
+                self.frontend_proc.pid,
+                vite_log,
             )
 
         # 6. Wait until the frontend (and API) actually serve HTTP. If we flip to 'ready'

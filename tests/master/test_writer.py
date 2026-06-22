@@ -3,7 +3,6 @@
 import ast
 import importlib.util
 import sys
-import textwrap
 from pathlib import Path
 from types import ModuleType
 
@@ -27,17 +26,15 @@ from agentorg.master import (
 
 from .conftest import advance_to_configure_stage, seed_discovery
 
-VALID_TOOL_SOURCE = textwrap.dedent(
-    '''
-    """A simple custom tool that echoes its input."""
-
-    async def echo_tool(message: str) -> str:
-        """Return the message unchanged - used as a smoke test for the sandbox."""
-        return message
-    '''
-
-       ,
-).strip()
+VALID_TOOL_SOURCE = '\n'.join(
+    [
+        '"""A simple custom tool that echoes its input."""',
+        '',
+        'async def echo_tool(message: str) -> str:',
+        '    """Return the message unchanged - used as a smoke test for the sandbox."""',
+        '    return message',
+    ],
+)
 
 
 def _populate_minimum_viable_spec() -> None:

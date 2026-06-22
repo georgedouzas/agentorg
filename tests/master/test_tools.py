@@ -1,7 +1,5 @@
 """Tests for the tools module."""
 
-import textwrap
-
 import pytest
 from pydantic import ValidationError
 
@@ -51,17 +49,15 @@ _LONG_DESC = (
     'gap between full literature reviews (slow) and informal Slack summaries (lossy).'
 )
 
-VALID_TOOL_SOURCE = textwrap.dedent(
-    '''
-    """A simple custom tool that echoes its input."""
-
-    async def echo_tool(message: str) -> str:
-        """Return the message unchanged - used as a smoke test for the sandbox."""
-        return message
-    '''
-
-       ,
-).strip()
+VALID_TOOL_SOURCE = '\n'.join(
+    [
+        '"""A simple custom tool that echoes its input."""',
+        '',
+        'async def echo_tool(message: str) -> str:',
+        '    """Return the message unchanged - used as a smoke test for the sandbox."""',
+        '    return message',
+    ],
+)
 VALID_TEST_CASES = [{'input': {'message': 'pong'}, 'expected_contains': 'pong'}]
 
 
@@ -511,14 +507,13 @@ def test_emit_custom_tool_rejects_when_test_cases_omitted_as_empty_list():
 
 def test_emit_custom_tool_rejects_placeholder_body_with_notimplementederror():
     """A body that raises NotImplementedError is rejected even with a passing-looking test case."""
-    source = textwrap.dedent(
-        '''
-        async def stub_tool() -> str:
-            """Configure later."""
-            raise NotImplementedError("configure foo")
-        '''
-           ,
-    ).strip()
+    source = '\n'.join(
+        [
+            'async def stub_tool() -> str:',
+            '    """Configure later."""',
+            '    raise NotImplementedError("configure foo")',
+        ],
+    )
     msg = emit_custom_tool(
         name='stub_tool',
         source=source,

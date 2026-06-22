@@ -1,6 +1,5 @@
 """Tests for the agent_sandbox module."""
 
-import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,17 +25,15 @@ from agentorg.master._agent_sandbox import (
     resolve_tool,
 )
 
-VALID_TOOL_SOURCE = textwrap.dedent(
-    '''
-    """A simple custom tool that echoes its input."""
-
-    async def echo_tool(message: str) -> str:
-        """Return the message verbatim."""
-        return f'echo: {message}'
-    '''
-
-       ,
-).strip()
+VALID_TOOL_SOURCE = '\n'.join(
+    [
+        '"""A simple custom tool that echoes its input."""',
+        '',
+        'async def echo_tool(message: str) -> str:',
+        '    """Return the message verbatim."""',
+        "    return f'echo: {message}'",
+    ],
+)
 
 
 # ---- Tool resolver ----

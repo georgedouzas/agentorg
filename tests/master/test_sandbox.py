@@ -1,22 +1,18 @@
 """Tests for the sandbox module."""
 
-import textwrap
-
 import pytest
 
 from agentorg.master import ToolValidationError, validate_tool_source
 
-VALID_TOOL_SOURCE = textwrap.dedent(
-    '''
-    """A simple custom tool that echoes its input."""
-
-    async def echo_tool(message: str) -> str:
-        """Return the message unchanged - used as a smoke test for the sandbox."""
-        return message
-    '''
-
-       ,
-).strip()
+VALID_TOOL_SOURCE = '\n'.join(
+    [
+        '"""A simple custom tool that echoes its input."""',
+        '',
+        'async def echo_tool(message: str) -> str:',
+        '    """Return the message unchanged - used as a smoke test for the sandbox."""',
+        '    return message',
+    ],
+)
 VALID_CASES = [{'input': {'message': 'pong'}, 'expected_contains': 'pong'}]
 
 
@@ -97,14 +93,13 @@ def test_validate_tool_source_rejects_ellipsis_body():
 
 def test_validate_tool_source_rejects_raise_not_implemented_error():
     """`raise NotImplementedError(...)` is the classic stub escape - banned outright."""
-    source = textwrap.dedent(
-        '''
-        async def stub_tool() -> str:
-            """Will be filled in later."""
-            raise NotImplementedError("configure foo")
-        '''
-           ,
-    ).strip()
+    source = '\n'.join(
+        [
+            'async def stub_tool() -> str:',
+            '    """Will be filled in later."""',
+            '    raise NotImplementedError("configure foo")',
+        ],
+    )
     with pytest.raises(ToolValidationError, match='NotImplementedError'):
         validate_tool_source('stub_tool', source, test_cases=VALID_CASES)
 
@@ -140,16 +135,16 @@ def test_validate_tool_source_rejects_empty_test_cases_list():
 
 def test_validate_tool_source_expected_raises_passes_when_env_var_missing():
     """A real env-var-reading body + expected_raises with drop_env asserts the read happens."""
-    source = textwrap.dedent(
-        '''
-        import os
-
-        async def stripe_charge(amount: int) -> str:
-            """Charge a Stripe customer; raises KeyError if the secret is not configured."""
-            key = os.environ["STRIPE_SECRET_KEY"]
-            return f"would charge {amount} with key prefix {key[:4]}"
-        ''',
-    ).strip()
+    source = '\n'.join(
+        [
+            'import os',
+            '',
+            'async def stripe_charge(amount: int) -> str:',
+            '    """Charge a Stripe customer; raises KeyError if the secret is not configured."""',
+            '    key = os.environ["STRIPE_SECRET_KEY"]',
+            '    return f"would charge {amount} with key prefix {key[:4]}"',
+        ],
+    )
     validate_tool_source(
         'stripe_charge',
         source,
@@ -182,16 +177,15 @@ def test_validate_tool_source_expected_raises_fails_when_function_does_not_raise
 
 def test_validate_tool_source_env_override_lets_a_real_call_succeed():
     """Setting `env={...}` on a test case lets a tool that reads env vars actually return."""
-    source = textwrap.dedent(
-        '''
-        import os
-
-        async def env_echo() -> str:
-            """Return the configured echo prefix."""
-            return os.environ.get("ECHO_PREFIX", "missing") + ":ok"
-        '''
-           ,
-    ).strip()
+    source = '\n'.join(
+        [
+            'import os',
+            '',
+            'async def env_echo() -> str:',
+            '    """Return the configured echo prefix."""',
+            '    return os.environ.get("ECHO_PREFIX", "missing") + ":ok"',
+        ],
+    )
     validate_tool_source(
         'env_echo',
         source,

@@ -98,12 +98,19 @@ skip-string-normalization = true
 target-version = ["py311"]
 
 [tool.docformatter]
+black = true
 in-place = true
 recursive = true
 close-quotes-on-newline = true
 wrap-descriptions = 120
 wrap-summaries = 120
-exclude = ["tests/fixtures"]
+exclude = [
+    "tests/fixtures",
+    # Files where black wants 2 blank lines after module docstring / function-with-only-a-docstring,
+    # and docformatter wants 1: the formatters oscillate. Excluding from docformatter lets black win.
+    "_agent.py",
+    "test_parameters.py",
+]
 
 [tool.ruff]
 extend-exclude = ["docs/generated", "tests/fixtures"]

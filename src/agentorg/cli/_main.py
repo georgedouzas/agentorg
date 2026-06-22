@@ -11,6 +11,8 @@ from ._ui import ui
 @click.version_option(package_name='agentorg')
 def main() -> None:
     """Agentorg: Generate runnable multi-agent organisations."""
+    return
+
 
 main.add_command(new)
 main.add_command(render)
