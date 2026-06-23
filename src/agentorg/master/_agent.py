@@ -123,9 +123,7 @@ MASTER_INTRODUCTION = dedent(
 ).strip()
 
 
-# ============================================================================
 # Per-stage prompts
-# ============================================================================
 #
 # The interview is an agno workflow of six per-stage agents (see build_master_workflow).
 # Each agent gets BASE_INSTRUCTIONS + its own stage block - nothing else. The model
@@ -320,7 +318,6 @@ DISCOVER_INSTRUCTIONS = dedent(
 
 CONFIGURE_INSTRUCTIONS = dedent(
     """
-    ### Stage 2 instructions (CONFIGURE)
 
     Goal: every required identity field, the budget tier, the deployment target, and
     (for cloud targets) the credentials the deploy will need. Threshold is high -
@@ -385,7 +382,6 @@ CONFIGURE_INSTRUCTIONS = dedent(
 
 BUILD_INSTRUCTIONS = dedent(
     """
-    ### Stage 3 instructions (BUILD - the crucial stage)
 
     The live preview iframe is already running the rendered org. Every agent, team,
     workflow, custom tool, or skill you commit appears in the dashboard within a couple
@@ -820,9 +816,7 @@ async def _ensure_response_text(run_output: RunOutput) -> None:
         run_output.content = _next_question()
 
 
-# --------------------------------------------------------------------------------------
 # Per-stage tool slices
-# --------------------------------------------------------------------------------------
 #
 # The interview is an agno workflow of 6 Steps - one per stage. Each Step carries its own
 # `Agent` with a NARROW tool slice: Discover's agent literally lacks `set_org_identity`,
@@ -830,75 +824,63 @@ async def _ensure_response_text(run_output: RunOutput) -> None:
 # at the tool layer rather than via prompt discipline. Every stage carries `get_current_spec`
 # (read-only), `list_placeholders` (read-only), and `advance_to_next_stage`.
 
-_COMMON_TOOLS: list[Callable[..., object]] = [get_current_spec, list_placeholders, advance_to_next_stage]
-
-_DISCOVER_TOOLS: list[Callable[..., object]] = [
-    *_COMMON_TOOLS,
-    record_discovery_summary,
-    add_or_update_principle_section,
-    remove_principle_section,
-]
-
-_CONFIGURE_TOOLS: list[Callable[..., object]] = [
-    *_COMMON_TOOLS,
-    set_org_identity,
-    set_runtime_infra,
-    add_or_update_env_var,
-    remove_env_var,
-    add_or_update_setup_step,
-    remove_setup_step,
-]
-
-_BUILD_TOOLS: list[Callable[..., object]] = [
-    *_COMMON_TOOLS,
-    add_or_update_agent,
-    remove_agent,
-    add_or_update_team,
-    remove_team,
-    add_or_update_workflow,
-    remove_workflow,
-    add_or_update_parameter,
-    remove_parameter,
-    emit_custom_tool,
-    remove_custom_tool,
-    emit_custom_skill,
-    remove_custom_skill,
-    sandbox_agent,
-    # Custom tools sometimes need credentials; let Build declare env vars + setup steps
-    # alongside them rather than punting that to Refine.
-    add_or_update_env_var,
-    remove_env_var,
-    add_or_update_setup_step,
-    remove_setup_step,
-]
-
-_REFINE_TOOLS: list[Callable[..., object]] = [
-    *_COMMON_TOOLS,
-    add_or_update_knowledge_type,
-    remove_knowledge_type,
-    add_or_update_principle_section,
-    remove_principle_section,
-    add_or_update_parameter,
-    remove_parameter,
-    set_ui_app,
-    set_ui_empty_state,
-    set_knowledge_empty,
-    add_or_update_agent_group,
-    remove_agent_group,
-    set_featured_agents,
-    set_agent_icons,
-    add_or_update_overview_block,
-    remove_overview_block,
-]
-
-_HANDOFF_TOOLS: list[Callable[..., object]] = [get_current_spec, finalize_spec]
+COMMON_TOOLS: list[Callable[..., object]] = [get_current_spec, list_placeholders, advance_to_next_stage]
 
 STAGE_TOOLS: dict[str, list[Callable[..., object]]] = {
-    'discover': _DISCOVER_TOOLS,
-    'configure': _CONFIGURE_TOOLS,
-    'build': _BUILD_TOOLS,
-    'refine': _REFINE_TOOLS,
-    'handoff': _HANDOFF_TOOLS,
+    'discover': [
+        *COMMON_TOOLS,
+        record_discovery_summary,
+        add_or_update_principle_section,
+        remove_principle_section,
+    ],
+    'configure': [
+        *COMMON_TOOLS,
+        set_org_identity,
+        set_runtime_infra,
+        add_or_update_env_var,
+        remove_env_var,
+        add_or_update_setup_step,
+        remove_setup_step,
+    ],
+    'build': [
+        *COMMON_TOOLS,
+        add_or_update_agent,
+        remove_agent,
+        add_or_update_team,
+        remove_team,
+        add_or_update_workflow,
+        remove_workflow,
+        add_or_update_parameter,
+        remove_parameter,
+        emit_custom_tool,
+        remove_custom_tool,
+        emit_custom_skill,
+        remove_custom_skill,
+        sandbox_agent,
+        add_or_update_env_var,
+        remove_env_var,
+        add_or_update_setup_step,
+        remove_setup_step,
+    ],
+    'refine': [
+        *COMMON_TOOLS,
+        add_or_update_knowledge_type,
+        remove_knowledge_type,
+        add_or_update_principle_section,
+        remove_principle_section,
+        add_or_update_parameter,
+        remove_parameter,
+        set_ui_app,
+        set_ui_empty_state,
+        set_knowledge_empty,
+        add_or_update_agent_group,
+        remove_agent_group,
+        set_featured_agents,
+        set_agent_icons,
+        add_or_update_overview_block,
+        remove_overview_block,
+    ],
+    'handoff': [get_current_spec, finalize_spec],
 }
 
 
@@ -981,9 +963,7 @@ def agent_for_current_stage() -> Agent:
     return _ensure_workflow_built()[state.stage]
 
 
-# ============================================================================
 # Production master (runs inside the deployed org)
-# ============================================================================
 
 PRODUCTION_MASTER_INSTRUCTIONS = """You are the master agent running inside the deployed org.
 

@@ -3,21 +3,9 @@
 import json
 from pathlib import Path
 
-from agentorg.core.spec import Spec
-
+from ..core.spec import Spec
 from ._models import AgentSpec, CustomTool, TeamSpec, WorkflowSpec
 from ._state import Discovery, Stage, State, get_state
-
-_VALID_STAGES: tuple[Stage, ...] = (
-    'discover',
-    'configure',
-    'build',
-    'refine',
-    'handoff',
-)
-# Legacy drafts saved before the Generate stage was removed will appear as 'generate';
-# migrate them forward to 'build' on load so the user lands somewhere coherent.
-_LEGACY_STAGE_MIGRATION: dict[str, Stage] = {'generate': 'build'}
 
 DEFAULT_DRAFT_PATH = Path.home() / '.agentorg' / 'draft.json'
 
@@ -74,9 +62,11 @@ def load_draft(path: Path = DEFAULT_DRAFT_PATH) -> State:
     state = get_state()
     state.spec = spec
     state.custom_tools = [CustomTool(**t) for t in data.get('custom_tools', [])]
+    valid_stages: tuple[Stage, ...] = ('discover', 'configure', 'build', 'refine', 'handoff')
+    legacy_migration: dict[str, Stage] = {'generate': 'build'}
     raw_stage = data.get('stage', 'discover')
-    migrated = _LEGACY_STAGE_MIGRATION.get(raw_stage, raw_stage)
-    state.stage = migrated if migrated in _VALID_STAGES else 'discover'
+    migrated = legacy_migration.get(raw_stage, raw_stage)
+    state.stage = migrated if migrated in valid_stages else 'discover'
     discovery_data = data.get('discovery')
     if isinstance(discovery_data, dict):
         state.discovery = Discovery(

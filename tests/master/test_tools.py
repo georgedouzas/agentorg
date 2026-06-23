@@ -76,9 +76,6 @@ def _add_basic_agent(agent_id: str = 'researcher') -> str:
     )
 
 
-# ---- Placeholders ----
-
-
 def test_list_placeholders_on_seed_reports_org_fields_and_empty_agents():
     """A fresh seed reports every TODO field on `org`/`ui` plus the empty `ai.agents`."""
     paths = {path for path, _ in list_placeholders()}
@@ -86,9 +83,6 @@ def test_list_placeholders_on_seed_reports_org_fields_and_empty_agents():
     assert 'org.repository' in paths
     assert 'org.admin_name' in paths
     assert 'ai.agents' in paths
-
-
-# ---- Org ----
 
 
 def test_set_org_identity_clears_only_provided_fields():
@@ -162,9 +156,6 @@ def test_set_org_identity_accepts_well_formed_admin_email():
     assert get_state().spec.org.admin_email == 'admin@example.com'
 
 
-# ---- Agents ----
-
-
 def test_add_or_update_agent_adds_a_new_agent():
     """Adding a never-seen `agent_id` appends an `AgentSpec` to `ai.agents`."""
     message = _add_basic_agent()
@@ -233,9 +224,6 @@ def test_remove_agent_returns_a_not_found_message_for_unknown_id():
     assert 'No agent' in message
 
 
-# ---- Teams ----
-
-
 def test_add_or_update_team_adds_a_new_team():
     """A new team appears in `spec.ai.teams` keyed by `team_id`."""
     _add_basic_agent()
@@ -270,9 +258,6 @@ def test_remove_team_drops_the_team():
     assert get_state().spec.ai.teams == []
 
 
-# ---- Workflows ----
-
-
 def test_add_or_update_workflow_with_steps_referencing_agents():
     """Steps reference agents by id; workflow is keyed by `workflow_id`."""
     msg = add_or_update_workflow(
@@ -297,9 +282,6 @@ def test_remove_workflow_drops_the_workflow():
     assert 'Removed' in msg
 
 
-# ---- Parameters ----
-
-
 def test_add_or_update_parameter_adds_a_typed_default():
     """A new parameter appears in `spec.parameters`."""
     msg = add_or_update_parameter(name='min_sources', param_type='int', default=3, label='Minimum Sources')
@@ -314,9 +296,6 @@ def test_remove_parameter_drops_the_parameter():
     add_or_update_parameter(name='p1', param_type='string', default='x', label='P1')
     msg = remove_parameter('p1')
     assert 'Removed' in msg
-
-
-# ---- Knowledge ----
 
 
 def test_add_or_update_knowledge_type_adds_a_type_with_metadata_fields():
@@ -363,9 +342,6 @@ def test_remove_principle_section_drops_it():
     assert 'Removed' in msg
 
 
-# ---- Runtime ----
-
-
 def test_set_runtime_infra_changes_only_provided_fields():
     """Only fields passed to `set_runtime_infra` are updated."""
     set_runtime_infra(packaging='docker', api='railway')
@@ -410,9 +386,6 @@ def test_add_or_update_setup_step_adds_and_removes():
     assert remove_setup_step('secrets').startswith('Removed')
 
 
-# ---- UI ----
-
-
 def test_set_ui_app_changes_only_provided_fields():
     """`set_ui_app` patches the app block in place."""
     set_ui_app(name='Research Org', icon='microscope')
@@ -454,9 +427,6 @@ def test_overview_block_add_and_remove():
     assert get_state().spec.ui.overview[0].title == 'How it works'
     remove_overview_block('How it works')
     assert get_state().spec.ui.overview == []
-
-
-# ---- Custom tools ----
 
 
 def test_emit_custom_tool_registers_validated_source():
@@ -538,9 +508,6 @@ def test_remove_custom_tool_drops_a_registered_tool():
 def test_remove_custom_tool_returns_not_found_for_unknown_name():
     """Removing a tool that was never registered is a safe no-op."""
     assert 'No custom tool' in remove_custom_tool('never_registered')
-
-
-# ---- Stage-1 discovery gate ----
 
 
 _LONG_DISCOVERY = {
@@ -669,9 +636,6 @@ def test_set_org_identity_budget_works_in_configure():
     assert get_state().spec.org.budget == 'low'
 
 
-# ---- get_current_spec ----
-
-
 def test_get_current_spec_returns_the_in_memory_spec():
     """`get_current_spec` is a thin getter that exposes the working `state.spec`."""
     assert get_current_spec() is get_state().spec
@@ -682,9 +646,6 @@ def test_get_current_spec_reflects_mutations():
     advance_to_configure_stage()
     set_org_identity(slug='research-org')
     assert get_current_spec().org.slug == 'research-org'
-
-
-# ---- emit_custom_skill / remove_custom_skill ----
 
 
 _VALID_SKILL_MD = '\n'.join(
@@ -739,9 +700,6 @@ def test_remove_custom_skill_returns_not_found_for_unknown_name():
     assert 'No custom skill' in remove_custom_skill('never-registered')
 
 
-# ---- advance_to_next_stage ----
-
-
 def test_advance_to_next_stage_reports_blockers_when_unsatisfied():
     """The first stage's blockers gate the advance; the returned message lists them."""
     assert get_state().stage == 'discover'
@@ -764,9 +722,6 @@ def test_advance_to_next_stage_at_the_final_stage_is_a_noop():
     msg = advance_to_next_stage()
     assert 'final stage' in msg.lower()
     assert get_state().stage == 'handoff'
-
-
-# ---- request_redeploy ----
 
 
 def test_request_redeploy_writes_spec_py_and_returns_redeploy_instructions(tmp_path, monkeypatch):

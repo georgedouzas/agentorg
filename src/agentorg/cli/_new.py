@@ -10,7 +10,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.text import Text
 
-from agentorg.master import (
+from ..master import (
     DEFAULT_DRAFT_PATH,
     MASTER_INTRODUCTION,
     STAGE_LABELS,

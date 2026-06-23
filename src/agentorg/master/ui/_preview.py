@@ -1,23 +1,4 @@
-"""Live preview of the rendered org for the master UI.
-
-`PreviewManager` owns the lifecycle of two subprocesses spawned alongside the master UI:
-
-  - The rendered org's FastAPI app (`uvicorn ... --reload`) on an auto-allocated port.
-  - The rendered frontend dev server (`npm run dev`) on an auto-allocated port, with
-    `VITE_API_HOST` pointed at the API port so Vite's proxy reaches our backend.
-
-On master-UI boot the manager renders the current `Spec` (placeholder seed values are
-fine - they pass Pydantic validation) into a persistent cache directory under
-`~/.agentorg/preview/`, runs `uv sync` and `npm install` (cached across sessions), and
-spawns the two servers. The iframe in the master UI canvas points at the Vite URL.
-
-On each spec mutation the manager re-renders to the same cache dir; uvicorn's `--reload`
-picks up the new `spec.py` and Vite HMR handles the frontend changes that flow through.
-
-Knowledge-write tools in the preview see `AGENTORG_PREVIEW_MODE=true` in their env and
-short-circuit so the preview is effectively read-only: the user can chat with agents and
-explore the dashboard, but nothing they do persists.
-"""
+"""Live preview of the rendered org for the master UI."""
 
 from __future__ import annotations
 
@@ -35,8 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from agentorg.core.render import render as render_project
-
+from ...core.render import render as render_project
 from .._state import get_state
 from .._tools import finalize_spec
 

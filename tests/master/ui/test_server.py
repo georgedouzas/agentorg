@@ -186,9 +186,6 @@ def test_api_spec_readiness_is_true_after_filling_org_identity():
     assert readiness['org_slug'] == 'research-org'
 
 
-# ---------- stage machine (explicit, advanced by /api/advance) ----------
-
-
 def test_api_spec_includes_stage_summary_on_seed():
     """Fresh seed state starts in Stage 1 (discover) with low-threshold blockers."""
     app = build_app(agent_factory=_FakeAgent)
@@ -362,7 +359,7 @@ class _FlakyAgent:
 
 def test_post_api_chat_retries_transient_upstream_errors_then_succeeds(monkeypatch):
     """A 503 from the upstream model is retried, and the eventual success is returned to the client."""
-    monkeypatch.setattr(ui_server, '_CHAT_RETRY_BASE_DELAY', 0.0)
+    monkeypatch.setattr(ui_server, 'CHAT_RETRY_BASE_DELAY', 0.0)
     flaky = _FlakyAgent(fail_times=2, exception=RuntimeError('503 Service Unavailable'))
     app = build_app(agent_factory=lambda: flaky)
     client = TestClient(app)
@@ -374,14 +371,14 @@ def test_post_api_chat_retries_transient_upstream_errors_then_succeeds(monkeypat
 
 def test_post_api_chat_returns_503_when_retries_are_exhausted(monkeypatch):
     """When every retry hits the same transient error, the endpoint surfaces a clean 503."""
-    monkeypatch.setattr(ui_server, '_CHAT_RETRY_BASE_DELAY', 0.0)
+    monkeypatch.setattr(ui_server, 'CHAT_RETRY_BASE_DELAY', 0.0)
     flaky = _FlakyAgent(fail_times=99, exception=RuntimeError('429 Too Many Requests'))
     app = build_app(agent_factory=lambda: flaky)
     client = TestClient(app)
     response = client.post('/api/chat', json={'message': 'hi'})
     assert response.status_code == 503
     assert 'temporarily unavailable' in response.json()['detail'].lower()
-    assert len(flaky.calls) == ui_server._CHAT_RETRY_ATTEMPTS
+    assert len(flaky.calls) == ui_server.CHAT_RETRY_ATTEMPTS
 
 
 def test_post_api_chat_does_not_retry_non_transient_errors():

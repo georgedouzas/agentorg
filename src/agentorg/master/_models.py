@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from agentorg.core.spec import SpecModel
+from ..core.spec import SpecModel
 
 
 class AgentSpec(SpecModel):

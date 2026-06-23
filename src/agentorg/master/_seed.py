@@ -1,6 +1,6 @@
 """Seed Spec used at the start of the interview."""
 
-from agentorg.core.spec import (
+from ..core.spec import (
     AI,
     UI,
     AppUI,

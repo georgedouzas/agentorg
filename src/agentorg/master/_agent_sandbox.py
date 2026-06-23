@@ -1,15 +1,4 @@
-"""Behavioural sandbox: build an `agno.Agent` from an `AgentSpec` and run real prompts against it.
-
-This is the engine behind the `sandbox_agent` patch tool used in Stage 4 of the interview.
-Tool callables are resolved from the built-in catalog or by `exec()`-ing the source of a
-custom tool registered via `emit_custom_tool` (the source has already been validated in a
-subprocess at emit time). Skill loaders are resolved from `DEFAULT_SKILLS_REFS` or, for
-`'custom:<name>'` refs, by materialising the registered SKILL.md into a temporary directory.
-
-Running the constructed agent calls the real model and executes its real tools - including
-any external-side-effect calls those tools make. Callers are expected to be explicit about
-that risk with the user.
-"""
+"""Behavioural sandbox that builds an agno Agent from an AgentSpec and runs real prompts against it."""
 
 import tempfile
 from pathlib import Path
@@ -18,10 +7,9 @@ from typing import Any
 from agno.skills.loaders.base import SkillLoader
 from agno.skills.loaders.local import LocalSkills
 
-from agentorg.core.agents import tools as builtin_tools
-from agentorg.core.agents.framework.agno import GitHubSkills, make_agent
-from agentorg.core.agents.skills import DEFAULT_SKILLS_REFS
-
+from ..core.agents import tools as builtin_tools
+from ..core.agents.framework.agno import GitHubSkills, make_agent
+from ..core.agents.skills import DEFAULT_SKILLS_REFS
 from ._models import AgentSpec, CustomSkill, CustomTool
 
 BUILTIN_TOOL_NAMES = (
@@ -74,7 +62,7 @@ async def _stub_delete_knowledge(knowledge_type: str, name: str) -> str:
     return f'[sandbox stub] would delete knowledge unit ({knowledge_type!r}, {name!r}).'
 
 
-_SANDBOX_KNOWLEDGE_STUBS: dict[str, Any] = {
+SANDBOX_KNOWLEDGE_STUBS: dict[str, Any] = {
     'read_knowledge': _stub_read_knowledge,
     'write_knowledge': _stub_write_knowledge,
     'list_knowledge': _stub_list_knowledge,
@@ -112,8 +100,8 @@ def resolve_tool(
     # Tools use BARE names; the LLM sometimes prefixes `custom:` (it confuses the skill
     # format for the tool format). Strip the prefix so both forms resolve.
     name = name.removeprefix('custom:')
-    if name in _SANDBOX_KNOWLEDGE_STUBS:
-        return _SANDBOX_KNOWLEDGE_STUBS[name]
+    if name in SANDBOX_KNOWLEDGE_STUBS:
+        return SANDBOX_KNOWLEDGE_STUBS[name]
     if name in BUILTIN_TOOL_NAMES:
         return getattr(builtin_tools, name)
     for custom in custom_tools:

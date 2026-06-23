@@ -1,9 +1,4 @@
-"""Jinja environment + template-tree walker.
-
-The walker iterates every file in `template_dir`, treats the file's RELATIVE PATH as itself a Jinja template (so `{{
-org.package_name }}` in a directory name resolves at render time), strips the trailing `.jinja` if present, and either
-renders+writes the file (templated) or copies it verbatim (static). Both write paths are idempotent.
-"""
+"""Jinja environment + template-tree walker."""
 
 import shutil
 from pathlib import Path

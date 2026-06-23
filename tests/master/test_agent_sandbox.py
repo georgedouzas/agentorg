@@ -34,9 +34,6 @@ VALID_TOOL_SOURCE = '\n'.join(
 )
 
 
-# ---- Tool resolver ----
-
-
 def test_resolve_tool_returns_the_sandbox_stub_for_knowledge_tools():
     """Knowledge tools are swapped for sandbox stubs - the real ones need a reasoner context."""
     resolved = resolve_tool('read_knowledge', custom_tools=[])
@@ -58,9 +55,6 @@ def test_resolve_tool_raises_for_an_unknown_name():
     """A name that's neither built-in nor custom raises AgentSandboxError."""
     with pytest.raises(AgentSandboxError, match='unknown tool ref'):
         resolve_tool('nonexistent_tool', custom_tools=[])
-
-
-# ---- Skill resolver ----
 
 
 def test_resolve_skill_for_a_catalog_ref_returns_a_github_loader():
@@ -93,9 +87,6 @@ def test_resolve_skill_rejects_unknown_catalog():
     """A nonexistent catalog name raises an explicit error."""
     with pytest.raises(AgentSandboxError, match='unknown skill catalog'):
         resolve_skill('totally-fake-catalog', custom_skills=[], custom_skill_root=Path())
-
-
-# ---- build_agent_from_spec ----
 
 
 def _tool_agent_spec() -> AgentSpec:
@@ -139,9 +130,6 @@ def test_build_agent_from_spec_raises_when_custom_skill_root_is_missing():
             custom_tools=[],
             custom_skills=[CustomSkill(name='my-skill', skill_md='# X\n\nbody.')],
         )
-
-
-# ---- sandbox_agent patch tool ----
 
 
 async def test_sandbox_agent_returns_a_friendly_message_for_unknown_agent_id():
@@ -224,9 +212,6 @@ async def test_sandbox_agent_runs_against_a_custom_tool_with_a_real_body(monkeyp
     monkeypatch.setattr(Agent, 'arun', fake_arun)
     result = await sandbox_agent(agent_id='echoer', test_prompts=['say hello'])
     assert 'echo_tool' in result
-
-
-# ---- sandbox_run (direct invocation, lower-level than sandbox_agent) ----
 
 
 async def test_sandbox_run_emits_a_report_header_for_the_agent(monkeypatch: pytest.MonkeyPatch):

@@ -1,18 +1,9 @@
-"""Turn a `Spec` into a Jinja-ready data dict.
-
-`spec.ai.{agents,teams,workflows}` hold agno-native runtime objects (not Pydantic).
-`make_agent(in_scope=[...], workflow=[...], style=[...])` assembles its structured
-kwargs into a single `instructions` string at construction time - those structured
-fields are not recoverable from the agent afterwards. We extract only what IS
-introspectable: id, name, role, model, tools (as names), skills (as refs), and the
-final assembled `instructions`. Templates that need the structured pieces should
-parse `instructions` markdown or read the user's spec.py directly.
-"""
+"""Turn a Spec into a Jinja-ready data dict."""
 
 from datetime import UTC, datetime
 from typing import Any
 
-from agentorg.core.spec import Spec
+from ..spec import Spec
 
 
 def _runnable_name(obj: object) -> str:

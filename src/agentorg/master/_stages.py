@@ -1,26 +1,5 @@
-"""Interview stage machine.
+"""Interview stage machine."""
 
-The master agent moves through five stages and only crosses each boundary when the
-user explicitly confirms. Each stage has its own threshold predicate that tells the UI
-which blockers (if any) are still unmet.
-
-Stages:
-    1. discover  - org scope, mission; draft principles. Low threshold.
-    2. configure - identity (name/slug/package/admin) + budget + deployment infra.
-    3. build     - design agents/teams/workflows iteratively with the live preview;
-                   per-agent: discuss tools + skills, sandbox-test, commit, live-test,
-                   user smoke-test, iterate. The crucial stage.
-    4. refine    - knowledge types, parameters, consolidated principles, dashboard polish.
-    5. handoff   - finalize, run/deploy walkthrough, repo push. Terminal.
-
-The old Generate stage is gone: the live preview iframe makes "render and walk the user
-through getting it running" obsolete - the preview *is* the running org. The run/deploy
-walkthrough that used to live there now lives in Handoff where it actually matters.
-
-The stage is stored as a string on `State.stage` so persistence stays a plain JSON dict.
-"""
-
-from collections.abc import Callable
 from typing import get_args
 
 from ._seed import PLACEHOLDER_VALUES
@@ -47,10 +26,7 @@ def _real(value: object) -> bool:
     return isinstance(value, str) and bool(value) and value not in PLACEHOLDER_VALUES
 
 
-# ---------- per-stage thresholds ----------
-
-
-_STAGE2_DESCRIPTION_MIN_LEN = 200
+STAGE2_DESCRIPTION_MIN_LEN = 200
 
 
 def _discover_blockers(state: State) -> list[str]:
@@ -88,9 +64,9 @@ def _configure_blockers(state: State) -> list[str]:
     if not _real(org.admin_email):
         blockers.append('Admin email.')
     desc = (org.description or '').strip()
-    if (not _real(org.description)) or len(desc) < _STAGE2_DESCRIPTION_MIN_LEN:
+    if (not _real(org.description)) or len(desc) < STAGE2_DESCRIPTION_MIN_LEN:
         blockers.append(
-            f'A substantive description (>= {_STAGE2_DESCRIPTION_MIN_LEN} chars) covering mission + audience.',
+            f'A substantive description (>= {STAGE2_DESCRIPTION_MIN_LEN} chars) covering mission + audience.',
         )
     # Cloud targets need their access tokens declared before we can advance.
     infra = state.spec.runtime.infra
@@ -125,22 +101,10 @@ def _handoff_blockers(state: State) -> list[str]:
     return ['Handoff is the final stage.']
 
 
-_BLOCKER_FNS: dict[Stage, Callable[[State], list[str]]] = {
-    'discover': _discover_blockers,
-    'configure': _configure_blockers,
-    'build': _build_blockers,
-    'refine': _refine_blockers,
-    'handoff': _handoff_blockers,
-}
-
-
 def _has_env_var(state: State, name: str) -> bool:
     """True when `name` appears in either required or optional env vars."""
     env = state.spec.runtime.env_vars
     return any(v.name == name for v in (*env.required, *env.optional))
-
-
-# ---------- public API ----------
 
 
 def current_stage(state: State) -> Stage:
@@ -150,8 +114,14 @@ def current_stage(state: State) -> Stage:
 
 def next_blockers(state: State) -> list[str]:
     """Return the list of reasons Next is disabled for the current stage."""
-    fn = _BLOCKER_FNS[state.stage]
-    return fn(state)
+    fns = {
+        'discover': _discover_blockers,
+        'configure': _configure_blockers,
+        'build': _build_blockers,
+        'refine': _refine_blockers,
+        'handoff': _handoff_blockers,
+    }
+    return fns[state.stage](state)
 
 
 def next_enabled(state: State) -> bool:

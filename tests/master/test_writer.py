@@ -261,9 +261,6 @@ def test_finalize_spec_inlines_custom_tools_into_the_rendered_file(tmp_path: Pat
     assert module.echo_tool.__name__ == 'echo_tool'
 
 
-# ---- write_spec ----
-
-
 def test_write_spec_writes_a_minimal_spec_file(tmp_path: Path) -> None:
     """`write_spec` materialises a spec object to a path on disk."""
     from agentorg.master import write_spec  # noqa: PLC0415

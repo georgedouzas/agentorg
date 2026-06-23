@@ -61,24 +61,6 @@ SUBPROCESS_PROGRAM = (
     '                os.environ[k] = v\n'
 )
 
-_PLACEHOLDER_MARKERS = (
-    'TODO',
-    'FIXME',
-    'placeholder',
-    'stub',
-    'fake',
-    'your code here',
-    'add your',
-    'in a real',
-    'generated code',
-    'coming soon',
-    'not implemented',
-)
-_PLACEHOLDER_TEXT_RE = re.compile(
-    r'\b(' + '|'.join(re.escape(m) for m in _PLACEHOLDER_MARKERS) + r')\b',
-    re.IGNORECASE,
-)
-
 
 class ToolValidationError(Exception):
     """Raised when emitted tool source fails the sandbox validator."""
@@ -94,6 +76,20 @@ def _body_is_effectively_empty(body: list[ast.stmt]) -> bool:
 
 def _find_placeholder_violations(func: ast.AsyncFunctionDef) -> list[str]:
     """Walk `func`'s body and return human-readable descriptions of any placeholder slop found."""
+    markers = (
+        'TODO',
+        'FIXME',
+        'placeholder',
+        'stub',
+        'fake',
+        'your code here',
+        'add your',
+        'in a real',
+        'generated code',
+        'coming soon',
+        'not implemented',
+    )
+    placeholder_re = re.compile(r'\b(' + '|'.join(re.escape(m) for m in markers) + r')\b', re.IGNORECASE)
     violations: list[str] = []
     if _body_is_effectively_empty(func.body):
         violations.append(f"line {func.lineno}: body is empty/pass-only/docstring-only - write a real implementation")
@@ -110,7 +106,7 @@ def _find_placeholder_violations(func: ast.AsyncFunctionDef) -> list[str]:
                     "`expected_raises='YOUR_ENV_VAR'` to defer credentials to setup-debt.",
                 )
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            match = _PLACEHOLDER_TEXT_RE.search(node.value)
+            match = placeholder_re.search(node.value)
             if match:
                 snippet = node.value.strip().replace('\n', ' ')[:60]
                 violations.append(
@@ -207,9 +203,6 @@ class SkillValidationError(Exception):
     """Raised when emitted skill source fails validation."""
 
 
-_SKILL_NAME_PATTERN = '^[a-z][a-z0-9-]*$'
-
-
 def validate_skill_source(name: str, skill_md: str) -> None:
     r"""Validate a custom skill's SKILL.md before registering it.
 
@@ -245,7 +238,7 @@ def validate_skill_source(name: str, skill_md: str) -> None:
     """
     import re  # noqa: PLC0415  (stdlib import isolated to this validator)
 
-    if not re.match(_SKILL_NAME_PATTERN, name):
+    if not re.match(r'^[a-z][a-z0-9-]*$', name):
         msg = f"skill name {name!r} must be lowercase-with-hyphens (e.g. 'negotiation-playbook')"
         raise SkillValidationError(msg)
 

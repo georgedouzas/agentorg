@@ -6,7 +6,7 @@ from typing import Literal, TypeVar
 
 from pydantic import BaseModel
 
-from agentorg.core.spec import (
+from ..core.spec import (
     AI,
     AppUI,
     EmptyState,
@@ -26,7 +26,6 @@ from agentorg.core.spec import (
     SetupStep,
     Spec,
 )
-
 from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
 from ._seed import PLACEHOLDER_VALUES
@@ -79,20 +78,10 @@ def _replace_ai(
     )
 
 
-_ORG_STRING_FIELDS: tuple[str, ...] = (
-    'name',
-    'slug',
-    'package_name',
-    'description',
-    'repository',
-    'admin_name',
-    'admin_email',
-)
-
-
 def _org_placeholders(spec: Spec) -> list[tuple[str, str]]:
     """Return placeholder entries for the seed-valued fields on `spec.org`."""
-    return [(f'org.{f}', getattr(spec.org, f)) for f in _ORG_STRING_FIELDS if _is_placeholder(getattr(spec.org, f))]
+    fields = ('name', 'slug', 'package_name', 'description', 'repository', 'admin_name', 'admin_email')
+    return [(f'org.{f}', getattr(spec.org, f)) for f in fields if _is_placeholder(getattr(spec.org, f))]
 
 
 def _ai_placeholders(spec: Spec) -> list[tuple[str, str]]:
@@ -155,24 +144,17 @@ def list_placeholders() -> list[tuple[str, str]]:
     return out
 
 
-_EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$')
-_GIT_HTTPS_RE = re.compile(r'^https?://[A-Za-z0-9.\-]+(?::\d+)?(?:/[^/\s]+)+/?$')
-_GIT_SSH_RE = re.compile(r'^git@[A-Za-z0-9.\-]+:[^/\s][^/\s]*/[^/\s]+(?:\.git)?$')
-_REPO_PLACEHOLDER_SUFFIX = '/TODO'
-
-
 def _is_valid_email(value: str) -> bool:
-    return bool(_EMAIL_RE.match(value))
+    return bool(re.match(r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$', value))
 
 
 def _is_valid_repository(value: str) -> bool:
-    """Validate a repository URL.
-
-    Recognises the seed placeholder and `https://example.com/TODO`.
-    """
-    if value in PLACEHOLDER_VALUES or value.endswith(_REPO_PLACEHOLDER_SUFFIX):
+    """Validate a repository URL; recognise the seed placeholder and `https://example.com/TODO`."""
+    if value in PLACEHOLDER_VALUES or value.endswith('/TODO'):
         return True
-    return bool(_GIT_HTTPS_RE.match(value) or _GIT_SSH_RE.match(value))
+    https_re = r'^https?://[A-Za-z0-9.\-]+(?::\d+)?(?:/[^/\s]+)+/?$'
+    ssh_re = r'^git@[A-Za-z0-9.\-]+:[^/\s][^/\s]*/[^/\s]+(?:\.git)?$'
+    return bool(re.match(https_re, value) or re.match(ssh_re, value))
 
 
 def set_org_identity(
@@ -549,9 +531,9 @@ def remove_knowledge_type(knowledge_type_id: str) -> str:
     return f"Removed knowledge type '{knowledge_type_id}'."
 
 
-_DISCOVERY_MIN_LEN = 100
-_STAGE1_MIN_PRINCIPLE_BODY_LEN = 200
-_STAGE2_DESCRIPTION_MIN_LEN = 200
+DISCOVERY_MIN_LEN = 100
+STAGE1_MIN_PRINCIPLE_BODY_LEN = 200
+STAGE2_DESCRIPTION_MIN_LEN = 200
 
 
 def record_discovery_summary(
@@ -623,9 +605,9 @@ def record_discovery_summary(
     }
     for name, value in fields.items():
         n = len(value.strip())
-        if n < _DISCOVERY_MIN_LEN:
+        if n < DISCOVERY_MIN_LEN:
             blockers.append(
-                f"{name!r} is only {n} chars (need at least {_DISCOVERY_MIN_LEN}) - "
+                f"{name!r} is only {n} chars (need at least {DISCOVERY_MIN_LEN}) - "
                 f"keep probing the user, then retry with specifics from their answers.",
             )
     if blockers:
@@ -667,10 +649,10 @@ def _check_description_length(description: str | None) -> str | None:
     if description is None:
         return None
     desc = description.strip()
-    if len(desc) < _STAGE2_DESCRIPTION_MIN_LEN:
+    if len(desc) < STAGE2_DESCRIPTION_MIN_LEN:
         return (
             f"Description too short ({len(desc)} chars). Write at least "
-            f"{_STAGE2_DESCRIPTION_MIN_LEN} characters - 2-4 sentences covering "
+            f"{STAGE2_DESCRIPTION_MIN_LEN} characters - 2-4 sentences covering "
             "mission, audience, and what makes this group distinctive. You have the "
             "discovery summary from Stage 1; draft from it and ask the user to confirm."
         )
@@ -694,10 +676,10 @@ def add_or_update_principle_section(*, section_id: str, title: str, body: str) -
     state = get_state()
     if state.stage == 'discover' and state.discovery is None:
         return _stage1_discovery_gate_message()
-    if state.stage == 'discover' and len(body.strip()) < _STAGE1_MIN_PRINCIPLE_BODY_LEN:
+    if state.stage == 'discover' and len(body.strip()) < STAGE1_MIN_PRINCIPLE_BODY_LEN:
         return (
             f"Stage-1 principle body too short ({len(body.strip())} chars). Write at "
-            f"least {_STAGE1_MIN_PRINCIPLE_BODY_LEN} characters - a real paragraph that "
+            f"least {STAGE1_MIN_PRINCIPLE_BODY_LEN} characters - a real paragraph that "
             "explains the principle in context (what it means in day-to-day decisions, "
             "what trade-offs it implies). One-line slogans like 'Quality matters' are "
             "not principles - they're labels. If the user said 'you decide', go back and "

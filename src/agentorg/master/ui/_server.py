@@ -1,10 +1,4 @@
-"""FastAPI app exposing the master interview agent over HTTP for a browser client.
-
-The server holds a single agent instance for the process lifetime. `/api/chat` accepts the user's message and returns
-the master's reply plus the tool calls it made; `/api/spec` returns a JSON snapshot of the working spec (org + agents +
-teams + workflows + knowledge + parameters, plus any custom tools/skills) so the browser can render a live view that
-updates after every turn. `/api/render` writes spec.py + materialises the full project tree.
-"""
+"""FastAPI app exposing the master interview agent over HTTP for a browser client."""
 
 import asyncio
 import io
@@ -20,8 +14,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from agentorg.core.render import render as render_project
-
+from ...core.render import render as render_project
 from .._agent import _reset_workflow_cache, agent_for_current_stage
 from .._persistence import save_draft
 from .._seed import PLACEHOLDER_VALUES
@@ -36,20 +29,8 @@ logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent / '_static'
 INDEX_HTML = STATIC_DIR / 'index.html'
 
-# Substrings (case-insensitive) that mark an upstream-model exception as transient and worth retrying.
-_TRANSIENT_MARKERS: tuple[str, ...] = (
-    '429',
-    '502',
-    '503',
-    '504',
-    'service unavailable',
-    'overloaded',
-    'rate limit',
-    'too many requests',
-    'temporarily unavailable',
-)
-_CHAT_RETRY_ATTEMPTS = 3
-_CHAT_RETRY_BASE_DELAY = 1.0
+CHAT_RETRY_ATTEMPTS = 3
+CHAT_RETRY_BASE_DELAY = 1.0
 
 
 class ChatRequest(BaseModel):
@@ -157,30 +138,40 @@ def _materialise_to_zip(slug: str) -> bytes:
 
 def _is_transient(exc: BaseException) -> bool:
     """True when `exc` carries a marker that suggests retrying might succeed (5xx, 429, overload)."""
+    markers = (
+        '429',
+        '502',
+        '503',
+        '504',
+        'service unavailable',
+        'overloaded',
+        'rate limit',
+        'too many requests',
+        'temporarily unavailable',
+    )
     msg = str(exc).lower()
-    return any(marker in msg for marker in _TRANSIENT_MARKERS)
+    return any(marker in msg for marker in markers)
 
 
 async def _arun_with_retry(agent: Any, message: str) -> Any:  # noqa: ANN401
     """Run `agent.arun(message)` with exponential backoff on transient upstream errors.
 
-    Non-transient exceptions propagate immediately. Transient ones are retried up to `_CHAT_RETRY_ATTEMPTS` total times
-    with `_CHAT_RETRY_BASE_DELAY * 2**attempt` second pauses; the last failure is re-raised so the caller can surface
-    it.
+    Non-transient exceptions propagate immediately. Transient ones are retried up to `CHAT_RETRY_ATTEMPTS` total times
+    with `CHAT_RETRY_BASE_DELAY * 2**attempt` second pauses; the last failure is re-raised so the caller can surface it.
     """
     last_exc: BaseException | None = None
-    for attempt in range(_CHAT_RETRY_ATTEMPTS):
+    for attempt in range(CHAT_RETRY_ATTEMPTS):
         try:
             return await agent.arun(message)
         except Exception as exc:
             last_exc = exc
-            if not _is_transient(exc) or attempt == _CHAT_RETRY_ATTEMPTS - 1:
+            if not _is_transient(exc) or attempt == CHAT_RETRY_ATTEMPTS - 1:
                 raise
-            delay = _CHAT_RETRY_BASE_DELAY * (2**attempt)
+            delay = CHAT_RETRY_BASE_DELAY * (2**attempt)
             logger.warning(
                 'chat: transient upstream error (attempt %d/%d), retrying in %.1fs: %s',
                 attempt + 1,
-                _CHAT_RETRY_ATTEMPTS,
+                CHAT_RETRY_ATTEMPTS,
                 delay,
                 exc,
             )

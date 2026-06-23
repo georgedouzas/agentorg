@@ -4,8 +4,7 @@ import runpy
 from importlib.resources import files
 from pathlib import Path
 
-from agentorg.core.spec import Spec
-
+from ..spec import Spec
 from ._engine import _copy_static, render_tree
 from ._extract import jinja_context
 

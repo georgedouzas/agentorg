@@ -67,9 +67,6 @@ def test_validate_tool_source_rejects_tool_that_fails_a_smoke_case():
         )
 
 
-# ---------- Layer A: placeholder rejection ----------
-
-
 def test_validate_tool_source_rejects_empty_body():
     """A body of just `pass` is rejected before the subprocess runs."""
     source = 'async def stub_tool():\n    pass\n'
@@ -116,9 +113,6 @@ def test_validate_tool_source_rejects_in_a_real_scenario_comment_as_return():
     source = 'async def stub_tool() -> str:\n    return "In a real scenario this would call the API."\n'
     with pytest.raises(ToolValidationError, match='placeholder marker'):
         validate_tool_source('stub_tool', source, test_cases=VALID_CASES)
-
-
-# ---------- Layer B: test_cases requirement + expected_raises ----------
 
 
 def test_validate_tool_source_rejects_missing_test_cases():
@@ -197,9 +191,6 @@ def test_validate_tool_source_env_override_lets_a_real_call_succeed():
             },
         ],
     )
-
-
-# ---- validate_skill_source / SkillValidationError ----
 
 
 VALID_SKILL_MD = '\n'.join(

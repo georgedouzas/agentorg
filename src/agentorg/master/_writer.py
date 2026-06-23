@@ -6,8 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from agentorg.core.spec import Spec
-
+from ..core.spec import Spec
 from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 
 INDENT = '    '

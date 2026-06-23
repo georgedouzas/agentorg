@@ -2,8 +2,8 @@
 
 from agentfield.agent import Agent as AgentFieldNode
 
-from agentorg.core.adapters.agno import append_principles, register_reasoner
-from agentorg.master._agent import build_production_master
+from .....master._agent import build_production_master
+from ....adapters.agno import append_principles, register_reasoner
 
 
 def register_master(node: AgentFieldNode, principles_text: str = '') -> str:

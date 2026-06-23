@@ -6,8 +6,8 @@ from weakref import WeakSet
 
 from agentfield.agent import Agent as AgentFieldNode
 
-from agentorg.core.agents import AgnoAgent
-from agentorg.core.spec import Spec
+from ...agents import AgnoAgent
+from ...spec import Spec
 
 _registered_tools: WeakSet[Callable] = WeakSet()
 

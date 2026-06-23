@@ -6,12 +6,12 @@ from threading import Timer
 
 import click
 
-from agentorg.master import (
+from ..master import (
     DEFAULT_DRAFT_PATH,
     load_draft,
     reset_state,
 )
-from agentorg.master.ui._server import serve
+from ..master.ui._server import serve
 
 
 @click.command()

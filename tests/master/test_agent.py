@@ -197,9 +197,6 @@ def test_next_question_returns_finalize_prompt_when_nothing_left():
     assert _next_question() == ALL_PLACEHOLDERS_FILLED
 
 
-# ---- agent_for_current_stage ----
-
-
 def test_agent_for_current_stage_returns_an_agent_with_the_stage_id():
     """The routed agent's id matches the current stage (e.g. 'discover')."""
     from agentorg.master import agent_for_current_stage  # noqa: PLC0415

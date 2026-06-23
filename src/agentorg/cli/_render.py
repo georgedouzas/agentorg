@@ -4,9 +4,7 @@ from pathlib import Path
 
 import click
 
-from agentorg.core import render as _render
-
-_TEMPLATES = ['full', 'frontend', 'backend', 'ai']
+from ..core import render as _render
 
 
 @click.command()
@@ -24,7 +22,7 @@ _TEMPLATES = ['full', 'frontend', 'backend', 'ai']
 @click.option(
     '--template',
     default='full',
-    type=click.Choice(_TEMPLATES),
+    type=click.Choice(['full', 'frontend', 'backend', 'ai']),
     show_default=True,
     help=(
         'Which shipped template to render. `full` is the complete project; '

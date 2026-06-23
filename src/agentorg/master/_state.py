@@ -3,8 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
-from agentorg.core.spec import Spec
-
+from ..core.spec import Spec
 from ._models import CustomSkill, CustomTool
 from ._seed import default_spec
 

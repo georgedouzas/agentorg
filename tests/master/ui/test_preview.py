@@ -1,10 +1,4 @@
-"""Tests for the preview-subprocess module.
-
-We do NOT actually spawn uv / npm in tests - the manager is exercised at the level of
-its public surface (snapshot, status flips, schedule_rerender debouncing) by monkey-
-patching the boot internals. End-to-end "preview really boots" is covered by the live
-smoke test, not by pytest.
-"""
+"""Tests for the preview module."""
 
 import asyncio
 from pathlib import Path
