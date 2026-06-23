@@ -3,9 +3,12 @@
 from agno.agent import Agent
 
 from agentorg.master import (
+    ALL_PLACEHOLDERS_FILLED,
     MASTER_INSTRUCTIONS,
     MASTER_INTRODUCTION,
     MASTER_TOOLS,
+    QUESTION_TEMPLATES,
+    STAGE_TOOLS,
     add_or_update_agent,
     add_or_update_agent_group,
     add_or_update_knowledge_type,
@@ -20,14 +23,7 @@ from agentorg.master import (
     set_ui_app,
     set_ui_empty_state,
 )
-from agentorg.master._agent import (
-    ALL_PLACEHOLDERS_FILLED,
-    QUESTION_TEMPLATES,
-    STAGE_TOOLS,
-    _next_question,
-    _placeholders_dependency,
-    _working_spec_dependency,
-)
+from agentorg.master._agent import _next_question, _placeholders_dependency, _working_spec_dependency
 
 from .conftest import advance_to_configure_stage, seed_discovery
 

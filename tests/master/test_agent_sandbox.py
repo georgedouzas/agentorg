@@ -11,18 +11,16 @@ from agno.skills.loaders.local import LocalSkills
 from agentorg.core.agents.skills import DEFAULT_SKILLS_REFS
 from agentorg.core.agents.tools import read_knowledge
 from agentorg.master import (
+    AgentSandboxError,
     AgentSpec,
     CustomSkill,
     CustomTool,
     add_or_update_agent,
-    emit_custom_tool,
-    sandbox_agent,
-)
-from agentorg.master._agent_sandbox import (
-    AgentSandboxError,
     build_agent_from_spec,
+    emit_custom_tool,
     resolve_skill,
     resolve_tool,
+    sandbox_agent,
 )
 
 VALID_TOOL_SOURCE = '\n'.join(

@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from agentorg.master import (
+    STAGE_TOOLS,
     AgentSpec,
     add_or_update_agent,
     add_or_update_agent_group,
@@ -43,7 +44,6 @@ from agentorg.master import (
     set_ui_app,
     set_ui_empty_state,
 )
-from agentorg.master._agent import STAGE_TOOLS
 
 from .conftest import advance_to_configure_stage, seed_discovery
 

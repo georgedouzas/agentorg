@@ -1,15 +1,17 @@
 """The agentorg master agent that interviews the user to produce a spec.py."""
 
 from ._agent import (
+    ALL_PLACEHOLDERS_FILLED,
     MASTER_INSTRUCTIONS,
     MASTER_INTRODUCTION,
     MASTER_TOOLS,
+    QUESTION_TEMPLATES,
     STAGE_TOOLS,
     agent_for_current_stage,
     build_master_agent,
     build_master_workflow,
 )
-from ._agent_sandbox import sandbox_run
+from ._agent_sandbox import AgentSandboxError, build_agent_from_spec, resolve_skill, resolve_tool, sandbox_run
 from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 from ._persistence import DEFAULT_DRAFT_PATH, load_draft, save_draft
 from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
@@ -59,6 +61,7 @@ from ._tools import (
 from ._writer import python_literal, render_spec, write_spec
 
 __all__ = [
+    'ALL_PLACEHOLDERS_FILLED',
     'DEFAULT_DRAFT_PATH',
     'MASTER_INSTRUCTIONS',
     'MASTER_INTRODUCTION',
@@ -66,9 +69,11 @@ __all__ = [
     'PLACEHOLDER',
     'PLACEHOLDER_NAME',
     'PLACEHOLDER_VALUES',
+    'QUESTION_TEMPLATES',
     'STAGES',
     'STAGE_LABELS',
     'STAGE_TOOLS',
+    'AgentSandboxError',
     'AgentSpec',
     'CustomSkill',
     'CustomTool',
@@ -93,6 +98,7 @@ __all__ = [
     'advance',
     'advance_to_next_stage',
     'agent_for_current_stage',
+    'build_agent_from_spec',
     'build_master_agent',
     'build_master_workflow',
     'current_stage',
@@ -123,6 +129,8 @@ __all__ = [
     'render_spec',
     'request_redeploy',
     'reset_state',
+    'resolve_skill',
+    'resolve_tool',
     'sandbox_agent',
     'sandbox_run',
     'save_draft',

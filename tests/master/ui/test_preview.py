@@ -13,8 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agentorg.master import reset_state
-from agentorg.master.ui._preview import PreviewManager, PreviewSnapshot
-from agentorg.master.ui._server import build_app
+from agentorg.master.ui import PreviewManager, PreviewSnapshot, build_app
 
 
 @pytest.fixture(autouse=True)

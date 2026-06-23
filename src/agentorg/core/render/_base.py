@@ -6,9 +6,8 @@ from pathlib import Path
 
 from agentorg.core.spec import Spec
 
-from ._engine import render_tree
+from ._engine import _copy_static, render_tree
 from ._extract import jinja_context
-from ._io import _copy_static
 
 
 def _load_spec(spec_path: Path) -> Spec:
