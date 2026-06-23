@@ -6,6 +6,8 @@ import click
 
 from agentorg.core import render as _render
 
+_TEMPLATES = ['full', 'frontend', 'backend', 'ai']
+
 
 @click.command()
 @click.argument(
@@ -19,11 +21,22 @@ from agentorg.core import render as _render
     type=click.Path(file_okay=False, path_type=Path),
     help='Output directory.',
 )
-def render(spec_path: Path | None, output: Path) -> None:
+@click.option(
+    '--template',
+    default='full',
+    type=click.Choice(_TEMPLATES),
+    show_default=True,
+    help=(
+        'Which shipped template to render. `full` is the complete project; '
+        '`frontend` / `backend` / `ai` are partials that emit a runnable, testable '
+        'mini-project scoped to one layer.'
+    ),
+)
+def render(spec_path: Path | None, output: Path, template: str) -> None:
     """Render a project from a specification file."""
     target = spec_path or Path.cwd() / 'spec.py'
     if not target.exists():
         msg = f'No spec at {target}'
         raise click.ClickException(msg)
-    _render(target, output)
-    click.echo(f'Rendered into {output}')
+    _render(target, output, template=template)
+    click.echo(f'Rendered ({template}) into {output}')

@@ -93,13 +93,23 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
     return base
 
 
-def render(spec_path: Path, output_dir: Path, template_dir: Path | None = None) -> None:
-    """Render the project template from a spec file.
+def render(
+    spec_path: Path,
+    output_dir: Path,
+    template_dir: Path | None = None,
+    *,
+    template: str = 'full',
+) -> None:
+    """Render a project from a spec file using one of the shipped templates.
 
     Arguments:
         spec_path: Path to the user's `spec.py`.
         output_dir: Output directory, created or overwritten in place.
-        template_dir: Override the template root, or None to use the agentorg-shipped template.
+        template_dir: Override the template root entirely (skips `template` selection).
+        template: Which shipped template to use - `full` (default), `frontend`, `backend`,
+            or `ai`. The partials produce runnable mini-projects scoped to one layer of
+            the org (the React dashboard, the FastAPI service, or the agent definitions
+            + a sandbox driver) for fast smoke / unit tests against that layer alone.
     """
     # Load specification
     spec = runpy.run_path(str(spec_path)).get('spec')
@@ -110,7 +120,7 @@ def render(spec_path: Path, output_dir: Path, template_dir: Path | None = None) 
     data = _jinja_context(spec)
 
     if template_dir is None:
-        template_dir = Path(str(files(__package__) / 'template'))
+        template_dir = Path(str(files(__package__) / 'templates' / template))
 
     env = Environment(
         loader=FileSystemLoader(str(template_dir)),
