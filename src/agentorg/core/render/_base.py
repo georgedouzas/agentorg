@@ -9,7 +9,6 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from agentorg.core.agents.framework.agno.platform import PLATFORM_AGENTS
 from agentorg.core.spec import Spec
 
 
@@ -83,7 +82,7 @@ def _jinja_context(spec: Spec) -> dict[str, Any]:
     base = spec.model_dump(mode='json', exclude={'ai'})
     base['year'] = datetime.now(tz=UTC).year
     base['generated'] = {
-        'agents': [_agent_summary(a) for a in (*PLATFORM_AGENTS, *spec.ai.agents)],
+        'agents': [_agent_summary(a) for a in spec.ai.agents],
         'teams': [_team_summary(t) for t in spec.ai.teams],
         'workflows': [_workflow_summary(w) for w in spec.ai.workflows],
         'agent_groups': base['ui']['agent_groups'],

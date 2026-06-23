@@ -15,7 +15,6 @@ export interface AppConfig {
   agent_icons: Record<string, string>;
   overview: OverviewBlock[];
   agent_configs: Record<string, AgentConfig>;
-  platform_agent_groups?: AgentGroup[];
   platform_agents?: { id: string; name: string }[];
   principles_owner?: string;
 }

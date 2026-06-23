@@ -1,5 +1,0 @@
-# Central secrets — single source of truth across all fixtures (user-managed).
-.env
-
-# Per-fixture .env, derived from the central one by `nox -s fixture_env`.
-*/output/.env

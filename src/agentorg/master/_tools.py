@@ -1222,3 +1222,27 @@ def finalize_spec(output_path: str | Path) -> str:
         skill_dir.mkdir(parents=True, exist_ok=True)
         (skill_dir / 'SKILL.md').write_text(skill.skill_md)
     return f'Wrote {target}.'
+
+
+def request_redeploy() -> str:
+    """Write the working spec to `./spec.py` and instruct the operator to redeploy.
+
+    Used by the production master agent when the user is ready to apply pending in-memory edits to the deployed org. The
+    master mutates spec.py; the operator runs their own deploy pipeline (typically git push -> CI rebuild -> container
+    redeploy).
+    """
+    target = Path('spec.py').resolve()
+    state = get_state()
+    write_spec(state.spec, target, custom_tools=state.custom_tools, custom_skills=state.custom_skills)
+    for skill in state.custom_skills:
+        skill_dir = target.parent / 'skills' / skill.name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / 'SKILL.md').write_text(skill.skill_md)
+    return (
+        f'Wrote {target}.\n\n'
+        'To apply on the running org, commit + push so your CI rebuilds and redeploys:\n'
+        '  git add spec.py skills/\n'
+        '  git commit -m "Update org spec"\n'
+        '  git push\n\n'
+        "Once the deploy completes the running org will reflect the changes."
+    )

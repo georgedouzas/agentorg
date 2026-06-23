@@ -11,7 +11,7 @@ from agentfield import Agent
 from fastapi.middleware.cors import CORSMiddleware
 
 from agentorg.core.adapters.agno import register_agents, register_teams, register_workflows
-from agentorg.core.agents.framework.agno.platform import register_platform_agents
+from agentorg.core.agents.framework.agno import register_master
 
 from {{ org.package_name }}.app.routes import build_router
 from {{ org.package_name }}.spec import spec
@@ -54,7 +54,7 @@ _principles_text = '\n\n'.join(
     f'### {s.title}\n\n{s.body.format_map(_param_defaults).strip()}'
     for s in spec.knowledge.principles.sections
 )
-register_platform_agents(app, _principles_text)
+register_master(app, _principles_text)
 register_agents(app, spec, _principles_text)
 register_teams(app, spec)
 register_workflows(app, spec)

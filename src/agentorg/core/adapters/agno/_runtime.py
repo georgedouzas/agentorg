@@ -60,8 +60,8 @@ def append_principles(agent: AgnoAgent, principles: str) -> None:
 def register_agents(node: AgentFieldNode, spec: Spec, principles_text: str = '') -> list[str]:
     """Register every user agent in `spec.ai.agents` as a reasoner tagged `agent`.
 
-    Platform agents are not handled here — they register through
-    `agentorg.core.agents.framework.agno.platform.register_platform_agents`.
+    The master agent registers separately via
+    `agentorg.core.agents.framework.agno.register_master`.
 
     Arguments:
         node: The AgentField node to register on.

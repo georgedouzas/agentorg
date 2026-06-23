@@ -249,15 +249,14 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  // Principles are knowledge with a 'Principles' tag, owned by Knowledge Engineer.
+  // Principles are knowledge with a 'Principles' tag, owned by Master.
   // No special rendering - they flow through the same Thumbnail / TypeSection path as
   // other knowledge. Synthesised on the client from `config.principles.sections` rather
   // than the spec-bound source, so live updates from the master agent reflect immediately.
   const principles = useMemo<KnowledgeItem[]>(() => {
     const sections = config.principles?.sections ?? [];
-    const owner = config.principles_owner ?? 'knowledge-engineer';
-    const ownerName = (config.platform_agents ?? []).find(p => p.id === owner)?.name
-      ?? 'Knowledge Engineer';
+    const owner = config.principles_owner ?? 'master';
+    const ownerName = (config.platform_agents ?? []).find(p => p.id === owner)?.name ?? 'Master';
     return sections.map(s => ({
       name: `principle-${s.id}`,
       type: 'principle',
@@ -272,7 +271,7 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
 
   // 'All agents' (empty filter) means NO filter - every item shows, principles included.
   // When a specific agent is picked, only that agent's items show; principles naturally
-  // appear only when Knowledge Engineer is the active filter, because they're owned by
+  // appear only when Master is the active filter, because they're owned by
   // that agent. No special tag-based hiding.
   const visible = useMemo(() => {
     const base = searchHits ?? allItems;
@@ -283,7 +282,7 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
   // Author dropdown always includes the platform agents (they're systemic owners of the
   // knowledge surface even before they've written anything), plus any user-defined agents
   // that have written units. Platform agents come from /api/v1/config so the list stays
-  // in sync with the rendered org's PLATFORM_AGENTS registry.
+  // in sync with the rendered org's master registration.
   const authors = useMemo<AuthorOption[]>(() => {
     const seen = new Map<string, string>();
     for (const p of (config.platform_agents ?? [])) {
@@ -335,7 +334,7 @@ export function KnowledgeView({ config }: { config: AppConfig }) {
       {!loading && types.length > 0 && types.map(t => {
         const sectionItems = byType.get(t.id) ?? [];
         // Skip the principles bucket entirely when filtered out. The visible memo
-        // already hides principle items unless Knowledge Engineer is selected, so an
+        // already hides principle items unless Master is selected, so an
         // empty 'Principles (0)' section would just be noise.
         if (t.id === 'principle' && sectionItems.length === 0) return null;
         return (

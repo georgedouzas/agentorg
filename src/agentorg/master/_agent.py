@@ -42,6 +42,7 @@ from ._tools import (
     remove_setup_step,
     remove_team,
     remove_workflow,
+    request_redeploy,
     sandbox_agent,
     set_agent_icons,
     set_featured_agents,
@@ -136,9 +137,8 @@ MASTER_INTRODUCTION = dedent(
 
 
 BASE_INSTRUCTIONS = dedent(
-    """You are AgentOrg, the master agent that interviews the user to design and build a coordinated group of agents
-    (`spec.py` plus a working project tree). The "group" can.
-
+    """You are AgentOrg, the master agent that interviews the user to design and build a
+    coordinated group of agents (`spec.py` plus a working project tree). The "group" can
     be a full organization, a team inside one, a department, a workflow owner, or a
     capability that plugs into something bigger - same machinery for every shape. The
     spec's `org.*` fields are the storage location for "this group" regardless of how
@@ -979,3 +979,65 @@ def agent_for_current_stage() -> Agent:
     """Return the per-stage agent that should handle the next chat turn."""
     state = get_state()
     return _ensure_workflow_built()[state.stage]
+
+
+# ============================================================================
+# Production master (runs inside the deployed org)
+# ============================================================================
+
+PRODUCTION_MASTER_INSTRUCTIONS = """You are the master agent running inside the deployed org.
+
+The user is the operator. Your toolbelt lets you modify any part of the spec: identity,
+infra, agents, teams, workflows, knowledge, parameters, UI. You mutate the IN-MEMORY
+working spec; changes do NOT take effect on the running org until the user redeploys.
+
+When the user asks for a change: confirm, mutate via the relevant tool, reflect back.
+When the user is ready to apply changes, call `request_redeploy` - it writes the
+updated `spec.py` and prints instructions for their deploy pipeline.
+
+Do not redeploy proactively. Do not chain multiple redeploys in one turn.
+Be concise; do not narrate tool calls.
+""".strip()
+
+
+PRODUCTION_MASTER_INTRODUCTION = (
+    "Hi - I'm the master agent running inside your org. "
+    'Tell me what you want to change and I will edit the spec. '
+    "When ready, say 'deploy' and I'll write the new spec.py and walk you through redeploying."
+)
+
+
+def _production_tools() -> list[Callable[..., object]]:
+    """Union of every stage's tools minus advance_to_next_stage, plus request_redeploy."""
+    seen: dict[str, Callable[..., object]] = {}
+    for tools in STAGE_TOOLS.values():
+        for tool in tools:
+            if tool is advance_to_next_stage:
+                continue
+            seen[tool.__name__] = tool
+    return [*seen.values(), request_redeploy]
+
+
+def build_production_master() -> Agent:
+    """Build the single-agent production master with the full toolbelt."""
+    return Agent(
+        id='master',
+        name='Master',
+        model=os.getenv('AGENTORG_MODEL'),
+        instructions=PRODUCTION_MASTER_INSTRUCTIONS,
+        introduction=PRODUCTION_MASTER_INTRODUCTION,
+        db=InMemoryDb(),
+        tools=_production_tools(),
+        post_hooks=[_ensure_response_text],
+        add_history_to_context=True,
+        num_history_runs=20,
+        cache_session=True,
+        dependencies={
+            'working_spec': _working_spec_dependency,
+            'placeholders': _placeholders_dependency,
+        },
+        add_dependencies_to_context=True,
+        add_name_to_context=True,
+        add_datetime_to_context=True,
+        markdown=True,
+    )
