@@ -13,6 +13,8 @@ from rich.text import Text
 from agentorg.master import (
     DEFAULT_DRAFT_PATH,
     MASTER_INTRODUCTION,
+    STAGE_LABELS,
+    STAGES,
     advance,
     agent_for_current_stage,
     get_state,
@@ -21,7 +23,6 @@ from agentorg.master import (
     save_draft,
     stage_summary,
 )
-from agentorg.master._stages import STAGE_LABELS, STAGES
 
 
 def _stage_banner(console: Console) -> None:

@@ -15,12 +15,16 @@ from agentorg.master import (
     add_or_update_setup_step,
     add_or_update_team,
     add_or_update_workflow,
+    advance_to_next_stage,
+    emit_custom_skill,
     emit_custom_tool,
+    get_current_spec,
     get_state,
     list_placeholders,
     record_discovery_summary,
     remove_agent,
     remove_agent_group,
+    remove_custom_skill,
     remove_custom_tool,
     remove_env_var,
     remove_knowledge_type,
@@ -30,6 +34,7 @@ from agentorg.master import (
     remove_setup_step,
     remove_team,
     remove_workflow,
+    request_redeploy,
     set_agent_icons,
     set_featured_agents,
     set_knowledge_empty,
@@ -662,3 +667,114 @@ def test_set_org_identity_budget_works_in_configure():
     msg = set_org_identity(budget='low')
     assert msg.startswith('Updated')
     assert get_state().spec.org.budget == 'low'
+
+
+# ---- get_current_spec ----
+
+
+def test_get_current_spec_returns_the_in_memory_spec():
+    """`get_current_spec` is a thin getter that exposes the working `state.spec`."""
+    assert get_current_spec() is get_state().spec
+
+
+def test_get_current_spec_reflects_mutations():
+    """A subsequent state mutation is visible through `get_current_spec`."""
+    advance_to_configure_stage()
+    set_org_identity(slug='research-org')
+    assert get_current_spec().org.slug == 'research-org'
+
+
+# ---- emit_custom_skill / remove_custom_skill ----
+
+
+_VALID_SKILL_MD = '\n'.join(
+    [
+        '---',
+        'name: negotiation-playbook',
+        'description: Steps for negotiating with a counterparty.',
+        '---',
+        '',
+        '# Negotiation playbook',
+        '',
+        '1. Anchor high.',
+    ],
+)
+
+
+def test_emit_custom_skill_registers_validated_skill():
+    """A valid SKILL.md is stored in `state.custom_skills`."""
+    msg = emit_custom_skill(name='negotiation-playbook', skill_md=_VALID_SKILL_MD)
+    assert msg.startswith('Registered')
+    skills = get_state().custom_skills
+    assert len(skills) == 1
+    assert skills[0].name == 'negotiation-playbook'
+
+
+def test_emit_custom_skill_updates_existing_skill_by_name():
+    """Re-emitting with the same name overwrites in place."""
+    emit_custom_skill(name='negotiation-playbook', skill_md=_VALID_SKILL_MD)
+    new_md = _VALID_SKILL_MD.replace('Anchor high.', 'Open with the high anchor.')
+    emit_custom_skill(name='negotiation-playbook', skill_md=new_md)
+    skills = get_state().custom_skills
+    assert len(skills) == 1
+    assert 'Open with the high anchor.' in skills[0].skill_md
+
+
+def test_emit_custom_skill_rejects_invalid_skill_md():
+    """Validation fails surface to the caller; the skill is NOT registered."""
+    msg = emit_custom_skill(name='bad-skill', skill_md='no frontmatter here')
+    assert 'YAML frontmatter' in msg or 'failed' in msg.lower()
+    assert get_state().custom_skills == []
+
+
+def test_remove_custom_skill_drops_a_registered_skill():
+    """Removing by name shrinks the custom skills list."""
+    emit_custom_skill(name='negotiation-playbook', skill_md=_VALID_SKILL_MD)
+    assert remove_custom_skill('negotiation-playbook').startswith('Removed')
+    assert get_state().custom_skills == []
+
+
+def test_remove_custom_skill_returns_not_found_for_unknown_name():
+    """Removing a skill that was never registered is a safe no-op."""
+    assert 'No custom skill' in remove_custom_skill('never-registered')
+
+
+# ---- advance_to_next_stage ----
+
+
+def test_advance_to_next_stage_reports_blockers_when_unsatisfied():
+    """The first stage's blockers gate the advance; the returned message lists them."""
+    assert get_state().stage == 'discover'
+    msg = advance_to_next_stage()
+    assert 'Cannot advance' in msg
+    assert get_state().stage == 'discover'
+
+
+def test_advance_to_next_stage_moves_cursor_when_blockers_clear():
+    """Once blockers are resolved, the cursor advances and the message confirms it."""
+    seed_discovery()
+    msg = advance_to_next_stage()
+    assert msg.startswith('Advanced from Stage 1')
+    assert get_state().stage == 'configure'
+
+
+def test_advance_to_next_stage_at_the_final_stage_is_a_noop():
+    """Trying to advance past the terminal stage returns the already-final message."""
+    get_state().stage = 'handoff'
+    msg = advance_to_next_stage()
+    assert 'final stage' in msg.lower()
+    assert get_state().stage == 'handoff'
+
+
+# ---- request_redeploy ----
+
+
+def test_request_redeploy_writes_spec_py_and_returns_redeploy_instructions(tmp_path, monkeypatch):
+    """`request_redeploy` writes the current spec to `./spec.py` and returns operator instructions."""
+    monkeypatch.chdir(tmp_path)
+    advance_to_configure_stage()
+    set_org_identity(slug='research-org', package_name='research_org')
+    msg = request_redeploy()
+    assert (tmp_path / 'spec.py').exists()
+    assert 'spec.py' in msg
+    assert 'redeploy' in msg.lower() or 'deploy' in msg.lower()

@@ -199,3 +199,22 @@ def test_next_question_returns_finalize_prompt_when_nothing_left():
     add_or_update_agent_group(label='All', ids=['r'])
 
     assert _next_question() == ALL_PLACEHOLDERS_FILLED
+
+
+# ---- agent_for_current_stage ----
+
+
+def test_agent_for_current_stage_returns_an_agent_with_the_stage_id():
+    """The routed agent's id matches the current stage (e.g. 'discover')."""
+    from agentorg.master import agent_for_current_stage  # noqa: PLC0415
+
+    agent = agent_for_current_stage()
+    assert agent.id == 'master-discover'
+
+
+def test_agent_for_current_stage_follows_the_stage_cursor():
+    """Moving the cursor changes which agent is returned."""
+    from agentorg.master import agent_for_current_stage, get_state  # noqa: PLC0415
+
+    get_state().stage = 'build'
+    assert agent_for_current_stage().id == 'master-build'

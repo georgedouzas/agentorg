@@ -4,21 +4,21 @@
 
 ## Agents
 
-{% for group in generated.agent_groups %}### {{ group.label }}
+{% for group in ui.agent_groups %}### {{ group.label }}
 
 | Agent | Role |
 | --- | --- |
 {% for aid in group.ids -%}
-{% set agent = generated.agents | selectattr('id', 'equalto', aid) | first -%}
+{% set agent = ai.agents | selectattr('id', 'equalto', aid) | first -%}
 | {{ agent.name }} | {{ agent.role }} |
 {% endfor %}
 
 {% endfor %}## Workflows
 
-{% for group in generated.workflow_groups %}### {{ group.label }}
+{% for group in ui.workflow_groups %}### {{ group.label }}
 
 {% for wid in group.ids -%}
-{% set wf = generated.workflows | selectattr('id', 'equalto', wid) | first -%}
+{% set wf = ai.workflows | selectattr('id', 'equalto', wid) | first -%}
 #### {{ wf.name }}
 
 {{ wf.description }}
@@ -30,7 +30,7 @@
 {% set agent_names = step.parallel | map(attribute='agent') | map('replace', '-', ' ') | map('title') | list -%}
 | {{ loop.index }} | {{ step.name }} | {{ agent_names | join(', ') }} (parallel) | No |
 {% else -%}
-{% set agent_name = (generated.agents | selectattr('id', 'equalto', step.agent) | first).name -%}
+{% set agent_name = (ai.agents | selectattr('id', 'equalto', step.agent) | first).name -%}
 | {{ loop.index }} | {{ step.name }} | {{ agent_name }} | {% if step.hitl %}Yes{% else %}No{% endif %} |
 {% endif -%}
 {% endfor %}

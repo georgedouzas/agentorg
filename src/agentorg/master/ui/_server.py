@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from agentorg.core.render import render as render_project
 
-from .._agent import agent_for_current_stage, reset_workflow_cache
+from .._agent import _reset_workflow_cache, agent_for_current_stage
 from .._persistence import save_draft
 from .._seed import PLACEHOLDER_VALUES
 from .._stages import STAGE_LABELS, STAGES, stage_summary
@@ -292,7 +292,7 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
         reset_state()
         # Drop the cached per-stage agent registry so the next chat builds fresh agents
         # against the reset state (no leaked chat history from the old session).
-        reset_workflow_cache()
+        _reset_workflow_cache()
         if preview is not None:
             preview.schedule_rerender()
         return {'status': 'reset'}

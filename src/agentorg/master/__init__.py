@@ -8,8 +8,8 @@ from ._agent import (
     agent_for_current_stage,
     build_master_agent,
     build_master_workflow,
-    reset_workflow_cache,
 )
+from ._agent_sandbox import sandbox_run
 from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
 from ._persistence import DEFAULT_DRAFT_PATH, load_draft, save_draft
 from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
@@ -27,6 +27,7 @@ from ._tools import (
     add_or_update_setup_step,
     add_or_update_team,
     add_or_update_workflow,
+    advance_to_next_stage,
     emit_custom_skill,
     emit_custom_tool,
     finalize_spec,
@@ -45,6 +46,7 @@ from ._tools import (
     remove_setup_step,
     remove_team,
     remove_workflow,
+    request_redeploy,
     sandbox_agent,
     set_agent_icons,
     set_featured_agents,
@@ -89,6 +91,7 @@ __all__ = [
     'add_or_update_team',
     'add_or_update_workflow',
     'advance',
+    'advance_to_next_stage',
     'agent_for_current_stage',
     'build_master_agent',
     'build_master_workflow',
@@ -118,9 +121,10 @@ __all__ = [
     'remove_team',
     'remove_workflow',
     'render_spec',
+    'request_redeploy',
     'reset_state',
-    'reset_workflow_cache',
     'sandbox_agent',
+    'sandbox_run',
     'save_draft',
     'set_agent_icons',
     'set_featured_agents',

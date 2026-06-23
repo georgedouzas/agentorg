@@ -969,7 +969,7 @@ def _ensure_workflow_built() -> dict[str, Agent]:
     return _STAGE_AGENTS
 
 
-def reset_workflow_cache() -> None:
+def _reset_workflow_cache() -> None:
     """Drop the cached per-stage agents (used by tests that monkeypatch env vars)."""
     global _STAGE_AGENTS  # noqa: PLW0603
     _STAGE_AGENTS = None

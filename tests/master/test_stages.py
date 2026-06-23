@@ -3,6 +3,8 @@
 import pytest
 
 from agentorg.master import (
+    STAGE_LABELS,
+    STAGES,
     add_or_update_agent,
     add_or_update_env_var,
     advance,
@@ -14,7 +16,6 @@ from agentorg.master import (
     set_org_identity,
     stage_summary,
 )
-from agentorg.master._stages import STAGE_LABELS, STAGES
 
 from .conftest import seed_discovery
 

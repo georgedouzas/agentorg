@@ -3,18 +3,18 @@ import { apiFetch } from '../api';
 import type { AppConfig } from '../types';
 
 const DEFAULT_CONFIG: AppConfig = {
-  app_name: {{ generated.ui.app.name | tojson }},
-  app_icon: {{ generated.ui.app.icon | tojson }},
-  app_description: {{ generated.ui.app.description | tojson }},
+  app_name: {{ ui.app.name | tojson }},
+  app_icon: {{ ui.app.icon | tojson }},
+  app_description: {{ ui.app.description | tojson }},
   empty_state: {
-    icon: {{ generated.ui.empty_state.icon | tojson }},
-    title: {{ generated.ui.empty_state.title | tojson }},
-    body: {{ generated.ui.empty_state.body | tojson }},
+    icon: {{ ui.empty_state.icon | tojson }},
+    title: {{ ui.empty_state.title | tojson }},
+    body: {{ ui.empty_state.body | tojson }},
   },
-  knowledge_empty: {{ generated.ui.knowledge_empty | tojson }},
-  types: {{ generated.knowledge.types | tojson }},
+  knowledge_empty: {{ ui.knowledge_empty | tojson }},
+  types: {{ knowledge.types | tojson }},
   parameters: {{ parameters | tojson }},
-  principles: {{ generated.knowledge.principles | tojson }},
+  principles: {{ knowledge.principles | tojson }},
   agent_groups: [],
   featured_agents: [],
   agent_icons: {},

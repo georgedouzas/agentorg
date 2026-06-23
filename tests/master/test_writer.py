@@ -259,3 +259,63 @@ def test_finalize_spec_inlines_custom_tools_into_the_rendered_file(tmp_path: Pat
 
     module = _import_spec_from_path(target)
     assert module.echo_tool.__name__ == 'echo_tool'
+
+
+# ---- write_spec ----
+
+
+def test_write_spec_writes_a_minimal_spec_file(tmp_path: Path) -> None:
+    """`write_spec` materialises a spec object to a path on disk."""
+    from agentorg.master import write_spec  # noqa: PLC0415
+
+    spec = Spec.model_validate(
+        {
+            'org': Org.model_validate(
+                {
+                    'name': 'X',
+                    'slug': 'x',
+                    'package_name': 'x',
+                    'description': '',
+                    'repository': '',
+                    'admin_name': '',
+                    'admin_email': '',
+                    'visibility': 'private',
+                    'budget': 'medium',
+                },
+            ).model_dump(),
+            'runtime': {
+                'infra': {
+                    'packaging': 'none',
+                    'database': 'sqlite',
+                    'vector_db': 'chromadb',
+                    'embedder': 'google:text-embedding-004',
+                    'api': 'none',
+                    'frontend': 'none',
+                    'auth': 'none',
+                },
+                'env_vars': {'required': [], 'optional': []},
+                'setup': [],
+            },
+            'ai': {'agents': [], 'teams': [], 'workflows': [], 'framework': 'agno'},
+            'parameters': [],
+            'knowledge': {'principles': {'sections': []}, 'types': []},
+            'ui': {
+                'app': {'name': 'X', 'icon': '🤖', 'description': ''},
+                'empty_state': {'icon': '🤖', 'title': 'Pick an agent', 'body': ''},
+                'knowledge_empty': '',
+                'agent_groups': [],
+                'workflow_groups': [],
+                'featured_agents': [],
+                'agent_icons': {},
+                'overview': [],
+                'agent_configs': {},
+                'chat_quick_prompts': {},
+            },
+        },
+    )
+    target = tmp_path / 'spec.py'
+    write_spec(spec, target)
+    rendered = target.read_text()
+    assert 'spec = Spec(' in rendered
+    # The rendered file must parse as Python.
+    ast.parse(rendered)

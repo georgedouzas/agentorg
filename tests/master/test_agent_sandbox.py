@@ -226,3 +226,43 @@ async def test_sandbox_agent_runs_against_a_custom_tool_with_a_real_body(monkeyp
     monkeypatch.setattr(Agent, 'arun', fake_arun)
     result = await sandbox_agent(agent_id='echoer', test_prompts=['say hello'])
     assert 'echo_tool' in result
+
+
+# ---- sandbox_run (direct invocation, lower-level than sandbox_agent) ----
+
+
+async def test_sandbox_run_emits_a_report_header_for_the_agent(monkeypatch: pytest.MonkeyPatch):
+    """`sandbox_run` returns a markdown report whose header names the agent."""
+    from agentorg.master import sandbox_run  # noqa: PLC0415
+
+    async def fake_arun(self, prompt: str, *args: object, **kwargs: object) -> object:
+        return SimpleNamespace(content='ok', tool_calls=[])
+
+    monkeypatch.setattr(Agent, 'arun', fake_arun)
+    spec = AgentSpec(
+        agent_id='echoer',
+        name='Echoer',
+        role='Echoes input.',
+        in_scope=['Echoing.'],
+        workflow=['Receive.', 'Echo.'],
+        tools=[],
+    )
+    report = await sandbox_run(spec, test_prompts=['hi'], custom_tools=[], custom_skills=[])
+    assert report.startswith('## Sandbox report for `echoer`')
+
+
+async def test_sandbox_run_surfaces_build_failure_when_tool_is_missing():
+    """A spec referencing an unregistered tool returns a report explaining the build failure."""
+    from agentorg.master import sandbox_run  # noqa: PLC0415
+
+    spec = AgentSpec(
+        agent_id='broken',
+        name='Broken',
+        role='References a tool that does not exist.',
+        in_scope=['Nothing real.'],
+        workflow=['Try to use ghost_tool.'],
+        tools=['ghost_tool'],
+    )
+    report = await sandbox_run(spec, test_prompts=['hello'], custom_tools=[], custom_skills=[])
+    assert 'could not be built' in report
+    assert 'ghost_tool' in report
