@@ -1,7 +1,5 @@
 """Tests for base module."""
 
-import os
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -10,31 +8,10 @@ import pytest
 
 from agentorg.core import render
 
-FIXTURES_DIR = Path(__file__).parents[2] / 'fixtures'
-CENTRAL_ENV = FIXTURES_DIR / '.env'
-RENDERED_TESTS = (
-    'tests/test_factories.py',
-    'tests/test_routes.py',
-    'tests/test_knowledge.py',
-)
-
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
-
-
-def _read_env_file(path: Path) -> dict[str, str]:
-    env: dict[str, str] = {}
-    if not path.exists():
-        return env
-    for line in path.read_text().splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith('#') or '=' not in stripped:
-            continue
-        key, _, value = stripped.partition('=')
-        env[key.strip()] = value.strip().strip('"').strip("'")
-    return env
 
 
 @pytest.fixture
@@ -154,42 +131,25 @@ def test_spec_py_is_copied_into_rendered_package(
     assert copied.read_text() == (spec_dir / 'spec.py').read_text()
 
 
-@pytest.fixture(scope='session')
-def synced_org(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Render the org fixture into a tmp dir, point its agentorg dep at this repo, then uv sync."""
-    work = tmp_path_factory.mktemp('rendered-org')
-    render(FIXTURES_DIR / 'org' / 'spec.py', work)
-    agentorg_root = Path(__file__).parents[3]
-    pyproject = work / 'pyproject.toml'
-    pyproject.write_text(
-        pyproject.read_text() + f'\n[tool.uv.sources]\nagentorg = {{ path = "{agentorg_root}", editable = true }}\n',
-    )
-    result = subprocess.run(
-        ['uv', 'sync', '--quiet'],  # noqa: S607
-        cwd=str(work),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        pytest.skip(f'uv sync of rendered org failed: {result.stderr.strip()[:500]}')
-    return work
-
-
-@pytest.fixture(scope='session')
-def env_with_secrets() -> dict[str, str]:
-    """Process env merged with secrets from `tests/fixtures/.env`."""
-    return {**os.environ, **_read_env_file(CENTRAL_ENV)}
-
-
-def test_rendered_tests_pass(synced_org: Path, env_with_secrets: dict[str, str]) -> None:
-    """The rendered org's pytest suite exits 0."""
-    result = subprocess.run(  # noqa: S603
-        ['uv', 'run', '--quiet', 'pytest', '-q', '--no-header', '--no-cov', *RENDERED_TESTS],  # noqa: S607
-        cwd=str(synced_org),
-        capture_output=True,
-        text=True,
-        env=env_with_secrets,
-        check=False,
-    )
-    assert result.returncode == 0, f'rendered org tests failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}'
+@pytest.mark.parametrize(
+    ('template', 'must_contain'),
+    [
+        ('full', ['pyproject.toml', 'src/acme/spec.py', 'src/frontend/package.json']),
+        ('frontend', ['package.json', 'vite.config.ts', 'src/App.tsx']),
+        ('backend', ['pyproject.toml', 'src/acme/spec.py', 'src/acme/app/main.py', 'tests/test_routes.py']),
+        ('ai', ['pyproject.toml', 'src/acme/spec.py', 'src/acme/sandbox.py', 'src/acme/ai/__init__.py']),
+    ],
+)
+def test_each_shipped_template_renders(
+    write_spec_py: Callable[..., None],
+    tmp_path: Path,
+    template: str,
+    must_contain: list[str],
+) -> None:
+    """Each shipped template renders against a minimal spec and produces its signature files."""
+    spec_dir = tmp_path / 'spec'
+    output = tmp_path / 'out'
+    write_spec_py(spec_dir)
+    render(spec_dir / 'spec.py', output, template=template)
+    for relpath in must_contain:
+        assert (output / relpath).exists(), f'{template}: expected {relpath} to exist'

@@ -1,0 +1,54 @@
+"""Sandbox driver: boot a real AgentField node, register the spec's agents, smoke-test each.
+
+Run with:
+    uv run python -m {{ org.package_name }}.sandbox
+"""
+
+import asyncio
+import os
+
+from agentfield import Agent
+from agentorg.core.adapters.agno import register_agents, register_teams, register_workflows
+
+from {{ org.package_name }}.spec import spec
+
+
+SMOKE_PROMPT = 'Hello, please reply with one short sentence so I can confirm you are reachable.'
+
+
+async def main() -> None:
+    """Boot the node, register every reasoner, run each agent against the smoke prompt."""
+    server = os.getenv('AGENTFIELD_SERVER')
+    node = Agent(
+        node_id=spec.org.slug,
+        version='1.0.0',
+        description=spec.org.description,
+        tags=[spec.org.slug],
+        agentfield_server=server,
+        auto_register=bool(server),
+        enable_did=bool(server),
+        vc_enabled=bool(server),
+        dev_mode=not server,
+    )
+    node.embedder_model = spec.runtime.infra.embedder  # type: ignore[attr-defined]
+
+    register_agents(node, spec)
+    register_teams(node, spec)
+    register_workflows(node, spec)
+
+    if not spec.ai.agents:
+        print('No agents in spec.ai.agents - nothing to sandbox.')
+        return
+
+    for agent in spec.ai.agents:
+        name = getattr(agent, 'id', None) or getattr(agent, 'name', None) or '<unnamed>'
+        print(f'\n=== {name} ===')
+        try:
+            result = await agent.arun(SMOKE_PROMPT)
+            print((result.content or '').strip()[:300])
+        except Exception as exc:  # noqa: BLE001 - surface all failures to the user
+            print(f'ERROR: {type(exc).__name__}: {exc}')
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

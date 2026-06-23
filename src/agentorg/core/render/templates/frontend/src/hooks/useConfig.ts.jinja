@@ -1,0 +1,40 @@
+import { useState, useEffect } from 'react';
+import { apiFetch } from '../api';
+import type { AppConfig } from '../types';
+
+const DEFAULT_CONFIG: AppConfig = {
+  app_name: {{ generated.ui.app.name | tojson }},
+  app_icon: {{ generated.ui.app.icon | tojson }},
+  app_description: {{ generated.ui.app.description | tojson }},
+  empty_state: {
+    icon: {{ generated.ui.empty_state.icon | tojson }},
+    title: {{ generated.ui.empty_state.title | tojson }},
+    body: {{ generated.ui.empty_state.body | tojson }},
+  },
+  knowledge_empty: {{ generated.ui.knowledge_empty | tojson }},
+  types: {{ generated.knowledge.types | tojson }},
+  parameters: {{ parameters | tojson }},
+  principles: {{ generated.knowledge.principles | tojson }},
+  agent_groups: [],
+  featured_agents: [],
+  agent_icons: {},
+  overview: [],
+  agent_configs: {},
+};
+
+// In preview mode App.tsx bumps `refreshKey` on a 2s heartbeat so the config re-fetches
+// and the dashboard stays in sync with spec.py mutations from the master agent. In
+// production the prop is omitted and the fetch runs once.
+export function useConfig(refreshKey: number = 0) {
+  const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<AppConfig>('/api/v1/config')
+      .then(data => setConfig({ ...DEFAULT_CONFIG, ...data }))
+      .catch(() => {/* use defaults */})
+      .finally(() => setLoading(false));
+  }, [refreshKey]);
+
+  return { config, loading };
+}
