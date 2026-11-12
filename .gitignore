@@ -42,7 +42,7 @@ docs/generated/
 # IDE and editors
 .idea/
 .vscode/
-.claude/
+.claude/settings.local.json
 CLAUDE.md
 
 # OS
