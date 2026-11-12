@@ -115,7 +115,7 @@ def checks(session: nox.Session, file: str) -> None:
         session: The nox session.
         file: The file to be checked.
     """
-    arg = check_cli(session, ['all', 'quality', 'dependencies', 'types', 'security', 'docs'])
+    arg = check_cli(session, ['all', 'quality', 'dependencies', 'types', 'security', 'docs', 'layout'])
     session.run('uv', 'sync', '--only-dev', '--active', external=True)
     if arg in ['quality', 'all']:
         session.run('ruff', 'check', file)
@@ -126,6 +126,9 @@ def checks(session: nox.Session, file: str) -> None:
     if arg in ['docs', 'all'] and file == 'src':
         session.run('interrogate', file)
         session.run('pydoclint', file)
+    if arg in ['layout', 'all'] and file == 'src':
+        session.run('uv', 'sync', '--active', external=True)
+        session.run('agentorg', 'check-layout')
     if arg in ['dependencies', 'all']:
         requirements_path = (Path(session.create_tmp()) / 'requirements.txt').as_posix()
         session.run(

@@ -162,8 +162,10 @@ conventions are the taste it cannot check.
   MUST be a single line.
 - A test MUST use the public API the way a user does, and MUST NOT import a private name from a private module.
   Where it needs an internal, the internal wants to be public.
-- A test MUST NOT reach the network, and MUST use a recorded payload, a fake, or a locally served page instead.
-  Fixtures MUST be typed, small, and live in the nearest `conftest.py`.
+- A test in the gated suite MUST NOT reach the network, and MUST use a recorded payload, a fake, or a locally served
+  page instead. Fixtures MUST be typed, small, and live in the nearest `conftest.py`.
+- An end-to-end test MUST live in a separate suite that runs outside the merge gate, and MUST tear down everything it
+  provisions, even when it fails.
 - Code MUST pass the full automated gate before merge, covering formatting, linting, static type checking, docstring
   coverage, a security scan, and a dependency audit.
 - The gate MUST run locally through pre-commit and again in CI, a red run MUST block merge, and failures MUST be
@@ -203,17 +205,22 @@ conventions are the taste it cannot check.
 - A deviation MUST be justified in the PR, and an unjustified violation MUST block merge.
 - Contributor-facing operational guidance MUST live alongside the code, in a `CONTRIBUTING.md` and developer docs,
   and MUST stay consistent with this constitution.
+
 ## Project Profile: agentorg
 
 This section instantiates the body above for this repository. It is the repo-specific part, and it is a starting point
 to fill in as the project takes shape.
 
-- Ecosystem contract: TODO name the framework contract this project conforms to (for example, an estimator or plugin
-  contract, a web framework's application contract, or none if the project defines its own).
+- Ecosystem contract: every rendered org is one AgentField agent node, and each of its agents registers on that node
+  as a reasoner tagged so that control-plane policies can target it.
 - Language: Python >=3.11, <3.14.
 - Build and tooling: uv with SCM-derived versioning and a `src`
   layout. The `nox` sessions are `formatting`, `checks`, `tests`, `docs`, `changelog`, and `release`. The gate covers
-  `ruff`, `mypy`, `bandit`, `pip-audit`, `deptry`, `pydoclint`, and `interrogate`, with `pytest` under branch coverage
-  and randomized ordering.
+  `ruff`, `mypy`, `bandit`, `pip-audit`, `deptry`, `pydoclint`, `interrogate`, and `agentorg check-layout`, with
+  `pytest` under branch coverage and randomized ordering. Rendered projects run the same layout check.
+- End-to-end suite: the `e2e` session runs `tests/e2e/` outside the gate. It renders an org, deploys it to one target
+  (`local-process`, `local-docker`, or `cloud` on Railway and Vercel), drives it through its public API and dashboard,
+  and tears it down. Model calls are replayed from recordings by default, and a `live` mode calls the real API under a
+  USD cap.
 - Layout: library. The importable package under `src/agentorg` is distributed to others.
-**Version**: 1.0.0 | **Ratified**: 2026-01-01 | **Last Amended**: 2026-01-01
+**Version**: 1.1.0 | **Ratified**: 2026-01-01 | **Last Amended**: 2026-11-12
