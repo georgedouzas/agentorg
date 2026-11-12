@@ -8,9 +8,9 @@ handling. Operators can see what the org did, what it is doing and what went wro
 ## ADDED Requirements
 
 ### Requirement: Every piece of work is a run
-Each invocation of an agent, team or workflow SHALL create a run record. The record holds:
+Each invocation of an agent or unit SHALL create a run record. The record holds:
 - `id`, `target` and trigger kind/id;
-- the parent run, when it was created by delegation or by a workflow step;
+- the parent run, when it was created by delegation, a pipeline step or a council member;
 - the session id, user id and status;
 - start and end timestamps;
 - the output, the failure reason, the cost and the token usage.
@@ -92,7 +92,7 @@ start. It SHALL then follow the retry policy.
 ### Requirement: Concurrency is capped org-wide and per agent
 The runtime SHALL enforce two concurrency caps:
 - `operations.runs.max_concurrent` (default 4) per worker process;
-- each agent's `concurrency` (default 1), across all workers.
+- each agent's `replicas` (default 1), across all workers.
 
 Runs beyond either cap SHALL wait in `queued`. Queued runs start in priority order and FIFO within a priority:
 `manual` > `webhook` and `queue` > `event` > `schedule`.

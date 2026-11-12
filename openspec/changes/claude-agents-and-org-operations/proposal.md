@@ -19,8 +19,9 @@ operations**.
 - **BREAKING**: `Spec.ai` stops accepting arbitrary runnables (`list[Any]` of agno objects). It becomes typed declarations:
   - `Agent`: persona, model, autonomy level, built-in tools, custom tools, MCP servers, skills, workspace, memory, limits and
     output contract.
-  - `Team`: a lead agent plus its members.
-  - `Workflow`: ordered agent steps with optional human review.
+  - `Unit`: the org is a tree of units. Each unit is governed by one of five fixed models: `solo`, `pipeline`, `hub`,
+    `pool` or `council`. One agent is a one-unit org; hundreds of thousands of agents are nested units under hard span and
+    depth limits.
 - **BREAKING**: agno is removed as a dependency.
   - Deleted: `core/agents/framework/agno/`, `core/adapters/agno/`, the agno skill loaders and the `AgnoAgent` type.
   - Replaced by a Claude Agent SDK adapter that turns each `Agent` into `ClaudeAgentOptions` and registers it as an
@@ -30,8 +31,8 @@ operations**.
   - **Triggers**: `manual`, `schedule` (cron), `event` (org bus), `webhook` (external HTTP) and `queue` (an external AMQP
     queue). Each has explicit overlap and catch-up policies.
   - **Runs**: a single unit of work with a fixed status machine, a concurrency cap, retries and a failure policy.
-  - **Communication**: three primitives only (`delegate`, `handoff`, `publish`), a topology (`hub`, `hierarchy`, `mesh`)
-    that bounds who may call whom, and a maximum delegation depth.
+  - **Communication**: four primitives only (`delegate`, `handoff`, `publish`, `escalate`). Who may call whom follows
+    the unit tree, and sibling units interact only through events.
   - **Governance**: action classes that require human approval, and a USD budget (monthly cap, per-run cap, alert threshold,
     exhaustion behaviour).
   - **Lifecycle**: org states `draft → trial → active ⇄ paused → retired`, with defined effects on triggers, approvals and
@@ -77,7 +78,9 @@ operations**.
   policies.
 - `operations/run-management`: the run record, status machine, broker-backed queueing, concurrency, retries, failure
   handling and run history.
-- `operations/agent-communication`: delegate, handoff and publish; topology rules; teams; workflows.
+- `operations/org-structure`: the unit tree, the five governance models and their semantics, span and depth limits,
+  replicas, and per-unit owners, autonomy ceilings and budgets.
+- `operations/agent-communication`: delegate, handoff, publish and escalate, and how the unit tree permits them.
 - `operations/governance`: human approvals by action class, and USD budgets with alerting and exhaustion behaviour.
 - `operations/org-lifecycle`: org states, the transitions between them, and what each state permits.
 - `master/interview-authoring`: the master agent's per-stage tools for authoring agent definitions and operations, running

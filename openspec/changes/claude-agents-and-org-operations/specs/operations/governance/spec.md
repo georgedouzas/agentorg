@@ -34,7 +34,7 @@ An action SHALL require approval when either of these holds:
 
 ### Requirement: Approvals have approvers, timeouts and outcomes
 `operations.governance` SHALL declare:
-- `approvers`: emails, defaulting to the org admin;
+- `approvers`: emails, defaulting to the org admin. Unit `owners` take precedence for actions inside their unit;
 - `approval_timeout_h`: default 24;
 - `on_timeout`: `reject`, which is the default, or `approve`.
 
