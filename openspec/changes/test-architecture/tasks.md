@@ -2,13 +2,13 @@
 
 ## 1. Test layout check
 
-- [ ] 1.1 Add `scripts/check_test_layout.py` covering the mapping, AST detection of re-export-only inits, the default exemptions, `[tool.agentorg.test-layout] exempt` with a stale-entry check, the ambiguous-twin check, and orphan detection. Verify with `tests/scripts/test_check_test_layout.py` on temporary trees covering each scenario in `specs/quality/test-layout`.
-- [ ] 1.2 Add `exempt = ["src/agentorg/core/spec/_config.py"]` to `pyproject.toml` and wire the script into `nox -s checks` as the `layout` subcommand, also included in `all`. Verify that `uv run nox -s checks -- layout` passes on the current tree, or lists only the agno module that the operations change deletes.
-- [ ] 1.3 Move the rendered test templates to mirrored paths: `tests/test_routes.py` → `tests/app/test_routes.py` in full and backend, and map `test_factories` and `test_knowledge` to their source modules or fold them in. Ship the script with the templates and add `layout` to the rendered `noxfile.py`. Verify that `test_each_shipped_template_renders` passes and that `nox -s checks -- layout` passes inside a rendered minimal project.
+- [x] 1.1 Add `agentorg.core.quality.find_layout_violations` and the `agentorg check-layout` command covering the mapping, AST detection of re-export-only inits, the default exemptions, `[tool.agentorg.test-layout] exempt` with a stale-entry check, the ambiguous-twin check, and orphan detection. Verify with `tests/core/quality/test_layout.py` and `tests/cli/test_check_layout.py` on temporary trees covering each scenario in `specs/quality/test-layout`.
+- [x] 1.2 Add `exempt = ["src/agentorg/core/spec/_config.py"]` to `pyproject.toml` and wire `agentorg check-layout` into `nox -s checks` as the `layout` subcommand, also included in `all`. Verify that `uv run nox -s checks -- layout` passes on the current tree, or lists only the agno module that the operations change deletes.
+- [x] 1.3 Move the rendered test templates to mirrored paths: `tests/test_routes.py` → `tests/app/test_routes.py` in full and backend, and map `test_factories` and `test_knowledge` to their source modules or fold them in. Declare each template's exemptions in its rendered `pyproject.toml` and add `layout` (running `agentorg check-layout`) to the rendered `noxfile.py`. Verify that `test_each_shipped_template_renders` passes and that `nox -s checks -- layout` passes inside a rendered minimal project.
 
 ## 2. Constitution and docs
 
-- [ ] 2.1 Amend the constitution's Tests & Gates no-network rule into the gated-suite and e2e-suite rules, extend the Project Profile with the ecosystem contract and the `e2e` session and targets, and bump the version to 1.1.0. Verify by reading the diff: the body has only MUST / MUST NOT rules and the profile names all three targets.
+- [x] 2.1 Amend the constitution's Tests & Gates no-network rule into the gated-suite and e2e-suite rules, extend the Project Profile with the ecosystem contract and the `e2e` session and targets, and bump the version to 1.1.0. Verify by reading the diff: the body has only MUST / MUST NOT rules and the profile names all three targets.
 - [ ] 2.2 Add an "End-to-end tests" section to `CONTRIBUTING.md` covering targets, model modes, recording cassettes, and the artifacts location. Verify that the documented `nox -s e2e -- --target local-process --scenario master-golden-path` command runs as written once group 4 lands.
 
 ## 3. E2e harness

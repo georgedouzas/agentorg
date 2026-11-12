@@ -27,14 +27,23 @@ See proposal.md for the motivation. These constraints shape the approach:
 
 ## Decisions
 
-### D1. The layout check is a script, not a pytest test
+### D1. The layout check is a library command, not a pytest test
 
-`scripts/check_test_layout.py` takes a source root and a tests root and prints violations. `nox -s checks` calls it for
-`src`. The rendered project ships the same script (copied by the template) and the same session.
+`agentorg.core.quality.find_layout_violations(project_root)` returns the violations, and `agentorg check-layout` prints
+them and exits non-zero. `nox -s checks -- layout` runs the command. Rendered projects already depend on `agentorg`, so
+they run the same command, and the check exists in exactly one place.
+
+- *Why not a copied script*: the constitution forbids keeping the same logic in two places, and a copy in the templates
+  would drift.
 
 - *Why not a pytest test*: a meta-test would itself violate the mirror rule, and it would run inside the suite it polices.
-- *Mapping*: strip a leading `_` from the module name, then `tests/<rel dir>/test_<name>.py`. Re-export-only `__init__.py`
-  files are detected by AST: they contain only imports, `__all__` and a docstring.
+- *Mapping*: strip leading underscores from the module name, then `tests/<rel dir>/test_<name>.py`. An `__init__.py`
+  with logic maps to `tests/<rel dir>/test_init.py`. Re-export-only `__init__.py` files are detected by AST: they contain
+  only a docstring, imports, `__all__` and `TypeAlias` declarations.
+- *Template sources*: directories whose names are not Python identifiers, such as `{{ org.package_name }}`, are not
+  importable and are skipped. This covers the render templates without naming them.
+- *Roots*: `[tool.agentorg.test-layout] roots` maps source directories to tests directories, and defaults to
+  `src/<package>` → `tests`.
 
 ### D2. E2e harness layout
 

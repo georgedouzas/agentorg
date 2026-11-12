@@ -65,7 +65,7 @@ None. No baseline specs exist.
 ## Impact
 
 - **Code**:
-  - New: the `scripts/check_test_layout.py` gate step, wired into `nox -s checks`;
+  - New: `agentorg.core.quality` and the `agentorg check-layout` command, wired into `nox -s checks`;
   - New: `tests/e2e/`, holding the harness, targets, mock API and scenarios;
   - New: the `nox -s e2e` session;
   - `noxfile.py.jinja` in the full and backend templates;

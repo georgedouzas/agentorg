@@ -91,7 +91,9 @@ Two conventions every package and its tests follow:
    test file layout maps 1:1 onto the source: `src/X/_engine.py` has its tests in `tests/X/test_engine.py`.
 
    One intentional exception: an internal module whose only export is a base class subclassed by other modules (e.g.
-   `core/spec/_config.py::SpecModel`) is exercised transitively and doesn't need a dedicated test file.
+   `core/spec/_config.py::SpecModel`) is exercised transitively and doesn't need a dedicated test file. Such exceptions
+   are declared in `[tool.agentorg.test-layout] exempt`; `nox -s checks -- layout` (`agentorg check-layout`) enforces
+   the mirror for the library and for rendered projects.
 
 ## Module structure
 

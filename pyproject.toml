@@ -160,6 +160,10 @@ skips = ["B101"]
 # won't-fix ReDoS in py, pulled in transitively by interrogate.
 ignore-vulns = ["PYSEC-2022-42969"]
 
+[tool.agentorg.test-layout]
+# Modules without a mirrored test file, read by `agentorg check-layout`. `_config` holds only a base class.
+exempt = ["src/agentorg/core/spec/_config.py"]
+
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
 addopts = "--cov"

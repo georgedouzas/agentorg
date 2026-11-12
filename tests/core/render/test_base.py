@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from agentorg.core import render
+from agentorg.core.quality import find_layout_violations
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def write_spec_py(spec_dict_minimal: dict[str, Any]) -> Callable[..., Path]:
     [
         ('full', ['pyproject.toml', 'src/acme/spec.py', 'src/frontend/package.json']),
         ('frontend', ['package.json', 'vite.config.ts', 'src/App.tsx']),
-        ('backend', ['pyproject.toml', 'src/acme/spec.py', 'src/acme/app/main.py', 'tests/test_routes.py']),
+        ('backend', ['pyproject.toml', 'src/acme/spec.py', 'src/acme/app/main.py', 'tests/app/test_routes.py']),
         ('ai', ['pyproject.toml', 'src/acme/spec.py', 'src/acme/sandbox.py', 'src/acme/ai/__init__.py']),
     ],
 )
@@ -44,6 +45,18 @@ def test_each_shipped_template_renders(
     render(spec_py, output, template=template)
     for relpath in must_contain:
         assert (output / relpath).exists(), f'{template}: expected {relpath} to exist'
+
+
+@pytest.mark.parametrize('template', ['full', 'backend', 'ai'])
+def test_each_python_template_renders_mirrored_tests(
+    write_spec_py: Callable[..., Path],
+    tmp_path: Path,
+    template: str,
+) -> None:
+    """Each Python template renders a project whose tests mirror its source tree."""
+    output = tmp_path / 'out'
+    render(write_spec_py(tmp_path / 'spec'), output, template=template)
+    assert find_layout_violations(output) == []
 
 
 def test_spec_py_is_copied_into_rendered_package(write_spec_py: Callable[..., Path], tmp_path: Path) -> None:
