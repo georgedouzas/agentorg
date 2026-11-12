@@ -5,7 +5,6 @@ from pydantic import ValidationError
 
 from agentorg.master import (
     STAGE_TOOLS,
-    AgentSpec,
     add_or_update_agent,
     add_or_update_agent_group,
     add_or_update_env_var,
@@ -14,8 +13,8 @@ from agentorg.master import (
     add_or_update_parameter,
     add_or_update_principle_section,
     add_or_update_setup_step,
-    add_or_update_team,
-    add_or_update_workflow,
+    add_or_update_trigger,
+    add_or_update_unit,
     advance_to_next_stage,
     emit_custom_skill,
     emit_custom_tool,
@@ -33,19 +32,25 @@ from agentorg.master import (
     remove_parameter,
     remove_principle_section,
     remove_setup_step,
-    remove_team,
-    remove_workflow,
-    request_redeploy,
+    remove_trigger,
+    remove_unit,
     set_agent_icons,
+    set_approvers,
+    set_budget,
     set_featured_agents,
+    set_governance,
     set_knowledge_empty,
+    set_lifecycle,
+    set_notifications,
     set_org_identity,
+    set_pipeline_step,
+    set_run_policy,
     set_runtime_infra,
     set_ui_app,
     set_ui_empty_state,
 )
 
-from .conftest import advance_to_configure_stage, seed_discovery
+from .conftest import ECHO_TOOL_SOURCE, advance_to_configure_stage, build_hub_org, seed_discovery
 
 # Long description used in tests that need a Stage-2-grade `org.description`.
 _LONG_DESC = (
@@ -64,16 +69,6 @@ VALID_TOOL_SOURCE = '\n'.join(
     ],
 )
 VALID_TEST_CASES = [{'input': {'message': 'pong'}, 'expected_contains': 'pong'}]
-
-
-def _add_basic_agent(agent_id: str = 'researcher') -> str:
-    return add_or_update_agent(
-        agent_id=agent_id,
-        name='Researcher',
-        role='Gather sources on a topic.',
-        in_scope=['Source gathering on the requested topic'],
-        workflow=['Restate the topic.', 'Cite at least three sources.'],
-    )
 
 
 def test_list_placeholders_on_seed_reports_org_fields_and_empty_agents():
@@ -102,7 +97,7 @@ def test_set_org_identity_rejects_invalid_visibility():
     """`visibility` outside the literal union is rejected by Pydantic validation."""
     advance_to_configure_stage()
     with pytest.raises(ValidationError):
-        set_org_identity(visibility='internal')  # type: ignore[arg-type]
+        set_org_identity(visibility='internal')
 
 
 def test_set_org_identity_with_no_args_is_a_noop():
@@ -156,130 +151,162 @@ def test_set_org_identity_accepts_well_formed_admin_email():
     assert get_state().spec.org.admin_email == 'admin@example.com'
 
 
-def test_add_or_update_agent_adds_a_new_agent():
-    """Adding a never-seen `agent_id` appends an `AgentSpec` to `ai.agents`."""
-    message = _add_basic_agent()
-    assert message.startswith('Added')
-    agents = get_state().spec.ai.agents
-    assert len(agents) == 1
-    assert isinstance(agents[0], AgentSpec)
-    assert agents[0].agent_id == 'researcher'
+def test_add_or_update_agent_needs_an_existing_unit():
+    """Agents are placed in units, so the unit must exist first."""
+    assert 'Create it first' in add_or_update_agent(agent_id='a', name='A', role='Works.', unit_id='ghost')
+    assert get_state().agents == []
 
 
-def test_add_or_update_agent_updates_an_existing_agent():
-    """Re-adding the same `agent_id` replaces the existing `AgentSpec`."""
-    _add_basic_agent()
+def test_build_hub_org_produces_a_valid_tree():
+    """A hub with its lead and a member assembles into the live spec."""
+    build_hub_org()
+    spec = get_state().spec
+    assert get_state().structure_error is None
+    assert spec.ai.root is not None
+    assert (spec.ai.root.lead, spec.ai.root.members) == ('lead', ['researcher'])
+
+
+def test_incomplete_structure_is_reported_and_keeps_last_valid_spec():
+    """A hub without its lead is saved as a draft, reported, and leaves the spec's tree unset."""
+    add_or_update_unit(unit_id='research', name='Research', model='hub')
+    message = add_or_update_agent(agent_id='a', name='A', role='Works.', unit_id='research')
+    assert 'not complete yet' in message
+    assert 'needs a `lead`' in message
+    assert get_state().spec.ai.root is None
+    assert [agent.id for agent in get_state().agents] == ['a']
+
+
+def test_add_or_update_agent_updates_in_place_and_moves_units():
+    """Re-adding an agent updates it and moves it to the named unit."""
+    build_hub_org()
+    add_or_update_unit(unit_id='desk', name='Desk', model='solo', parent_id='research')
+    message = add_or_update_agent(agent_id='researcher', name='R2', role='Gathers.', unit_id='desk', model='haiku')
+    assert message.startswith("Updated agent 'researcher'")
+    spec = get_state().spec
+    assert spec.ai.agent('researcher').model == 'haiku'
+    assert [unit.id for unit in spec.ai.path_to('researcher')] == ['research', 'desk']
+
+
+def test_add_or_update_agent_returns_validation_errors_as_text():
+    """Invalid agent fields come back as text and nothing is saved."""
+    build_hub_org()
     message = add_or_update_agent(
-        agent_id='researcher',
-        name='Researcher',
-        role='Updated role: synthesise + cite.',
-        in_scope=['Updated scope'],
-        workflow=['Updated workflow.'],
+        agent_id='bad',
+        name='B',
+        role='r',
+        unit_id='research',
+        autonomy='read_only',
+        builtin_tools=['bash'],
     )
-    assert message.startswith('Updated')
-    agents = get_state().spec.ai.agents
-    assert len(agents) == 1
-    assert agents[0].role.startswith('Updated role')
+    assert message.startswith('Agent not saved')
+    assert 'bad' not in {agent.id for agent in get_state().agents}
 
 
-def test_add_or_update_agent_clears_the_agents_placeholder():
-    """Adding the first agent removes `ai.agents` from the placeholder list."""
-    _add_basic_agent()
-    paths = {path for path, _ in list_placeholders()}
-    assert 'ai.agents' not in paths
-
-
-def test_agent_with_neither_tools_nor_skills_is_flagged_unfinished():
-    """An agent missing both tools and skills shows up as `<id>.tools_or_skills (empty)`."""
-    _add_basic_agent('toolless')
-    paths = {path for path, _ in list_placeholders()}
-    assert any(p.startswith('ai.agents[toolless].') for p in paths)
-
-
-def test_agent_with_only_skills_is_considered_finished():
-    """An agent with skills but no tools is NOT flagged - skills cover the same need."""
-    add_or_update_agent(
-        agent_id='skilled',
-        name='Skilled',
-        role='Uses skills.',
-        in_scope=['Reasoning over the question.'],
-        workflow=['Think through it.', 'Reply.'],
-        skills=['superpowers'],
+def test_add_or_update_agent_resolves_custom_tools():
+    """Custom tools are referenced by name and stored as the compiled functions."""
+    emit_custom_tool(
+        name='echo_tool',
+        source=ECHO_TOOL_SOURCE,
+        test_cases=[{'input': {'message': 'x'}, 'expected_contains': 'x'}],
     )
-    paths = {path for path, _ in list_placeholders()}
-    assert not any(p.startswith('ai.agents[skilled].') for p in paths)
-
-
-def test_remove_agent_drops_an_existing_agent():
-    """Removing by `agent_id` shrinks the list and returns a confirmation."""
-    _add_basic_agent()
-    message = remove_agent('researcher')
-    assert 'Removed' in message
-    assert get_state().spec.ai.agents == []
-
-
-def test_remove_agent_returns_a_not_found_message_for_unknown_id():
-    """Removing an unknown `agent_id` is a safe no-op with a clear message."""
-    message = remove_agent('does-not-exist')
-    assert 'No agent' in message
-
-
-def test_add_or_update_team_adds_a_new_team():
-    """A new team appears in `spec.ai.teams` keyed by `team_id`."""
-    _add_basic_agent()
-    _add_basic_agent('analyst')
-    msg = add_or_update_team(
-        team_id='research-team',
-        name='Research Team',
-        role='Coordinate research and analysis.',
-        workflow=['Delegate to researcher.', 'Hand off to analyst.'],
-        member_ids=['researcher', 'analyst'],
+    build_hub_org()
+    assert 'Unknown custom tools' in add_or_update_agent(
+        agent_id='x',
+        name='X',
+        role='r',
+        unit_id='research',
+        tools=['nope'],
     )
-    assert msg.startswith('Added')
-    teams = get_state().spec.ai.teams
-    assert len(teams) == 1
-    assert teams[0].team_id == 'research-team'
-    assert teams[0].member_ids == ['researcher', 'analyst']
+    add_or_update_agent(agent_id='researcher', name='R', role='r', unit_id='research', tools=['echo_tool'])
+    assert get_state().spec.ai.agent('researcher').tools[0].__name__ == 'echo_tool'
+    assert 'used by' in remove_custom_tool('echo_tool')
 
 
-def test_add_or_update_team_updates_an_existing_team():
-    """Re-adding the same `team_id` replaces the entry."""
-    add_or_update_team(team_id='t1', name='T', role='r', workflow=['w'], member_ids=[])
-    msg = add_or_update_team(team_id='t1', name='T renamed', role='r2', workflow=['w2'], member_ids=[])
-    assert msg.startswith('Updated')
-    assert get_state().spec.ai.teams[0].name == 'T renamed'
+def test_remove_agent_detaches_it_from_its_unit():
+    """Removing an agent takes it out of its unit."""
+    build_hub_org()
+    assert remove_agent('researcher').startswith("Removed agent 'researcher'")
+    assert get_state().spec.ai.root.members == []
+    assert remove_agent('ghost') == "No agent named 'ghost'."
 
 
-def test_remove_team_drops_the_team():
-    """Removing by `team_id` empties the teams list."""
-    add_or_update_team(team_id='t1', name='T', role='r', workflow=['w'], member_ids=[])
-    msg = remove_team('t1')
-    assert 'Removed' in msg
-    assert get_state().spec.ai.teams == []
+def test_remove_unit_refuses_until_empty():
+    """A unit holding agents cannot be removed."""
+    build_hub_org()
+    assert 'still holds' in remove_unit('research')
 
 
-def test_add_or_update_workflow_with_steps_referencing_agents():
-    """Steps reference agents by id; workflow is keyed by `workflow_id`."""
-    msg = add_or_update_workflow(
-        workflow_id='pipeline',
-        name='Pipeline',
-        steps=[
-            {'name': 'Gather', 'agent_id': 'researcher'},
-            {'name': 'Analyse', 'agent_id': 'analyst', 'requires_output_review': True},
-        ],
-        description='Gather then analyse.',
+def test_set_pipeline_step_sets_review_gate():
+    """A pipeline step gets its instruction and review gate."""
+    add_or_update_unit(unit_id='content', name='Content', model='pipeline')
+    add_or_update_agent(agent_id='drafter', name='Drafter', role='Drafts.', unit_id='content')
+    set_pipeline_step(unit_id='content', member_id='drafter', instruction='Write it.', review='human')
+    step = get_state().spec.ai.root.members[0]
+    assert (step.member, step.review, step.instruction) == ('drafter', 'human', 'Write it.')
+
+
+def test_add_or_update_trigger_rejects_invalid_cron_and_keeps_spec():
+    """An invalid trigger returns an error and leaves the triggers unchanged."""
+    build_hub_org()
+    message = add_or_update_trigger(
+        trigger_id='nightly',
+        kind='schedule',
+        target='research',
+        prompt='Go.',
+        cron='not cron',
     )
-    assert msg.startswith('Added')
-    workflows = get_state().spec.ai.workflows
-    assert workflows[0].workflow_id == 'pipeline'
-    assert workflows[0].steps[1].requires_output_review is True
+    assert "Trigger 'nightly' not saved" in message
+    assert get_state().spec.operations.triggers == []
 
 
-def test_remove_workflow_drops_the_workflow():
-    """Removing by `workflow_id` empties the workflows list."""
-    add_or_update_workflow(workflow_id='w1', name='W', steps=[{'name': 's', 'agent_id': 'researcher'}])
-    msg = remove_workflow('w1')
-    assert 'Removed' in msg
+def test_add_or_update_and_remove_trigger():
+    """A valid schedule is saved against an existing target and can be removed."""
+    build_hub_org()
+    add_or_update_trigger(
+        trigger_id='weekly',
+        kind='schedule',
+        target='research',
+        prompt='Report for {now}.',
+        cron='0 8 * * MON',
+    )
+    assert [t.id for t in get_state().spec.operations.triggers] == ['weekly']
+    assert "not saved" in add_or_update_trigger(
+        trigger_id='x',
+        kind='event',
+        target='ghost',
+        prompt='Go.',
+        event='custom.x',
+    )
+    assert remove_trigger('weekly') == "Removed trigger 'weekly'."
+
+
+def test_operations_tools_update_their_sections():
+    """Budget, lifecycle, approvers, governance, notifications and run policy land in operations."""
+    assert set_budget(monthly_usd=120).startswith('Budget set')
+    set_lifecycle(initial='active', trial_max_runs=10)
+    set_approvers(['ops@acme.com'])
+    set_governance(approval_required=['code_execution'])
+    set_notifications(channels=['email'], email_to=['ops@acme.com'])
+    set_run_policy(retries=2, on_failure='escalate')
+    ops = get_state().spec.operations
+    assert (ops.budget.monthly_usd, ops.lifecycle.initial, ops.governance.approvers) == (
+        120,
+        'active',
+        ['ops@acme.com'],
+    )
+    assert ops.governance.approval_required == ['code_execution']
+    assert (ops.notifications.channels, ops.runs.retries, ops.runs.on_failure) == (
+        ['dashboard', 'email'],
+        2,
+        'escalate',
+    )
+
+
+def test_operations_tools_return_errors_as_text():
+    """Invalid operations values come back as text."""
+    assert set_approvers(['nope']).startswith('These do not look like emails')
+    assert set_notifications(channels=['webhook']).startswith('Notifications not saved')
+    assert set_run_policy(on_failure='handoff').startswith('Run policy not saved')
 
 
 def test_add_or_update_parameter_adds_a_typed_default():
@@ -362,7 +389,7 @@ def test_add_or_update_env_var_routes_to_required_or_optional():
     add_or_update_env_var(name='GOOGLE_API_KEY', description='Gemini key.', required_label='Prod', required=True)
     add_or_update_env_var(name='LOG_LEVEL', description='Logging.', required_label='Dev', required=False)
     env = get_state().spec.runtime.env_vars
-    assert env.required[0].name == 'GOOGLE_API_KEY'
+    assert [var.name for var in env.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'GOOGLE_API_KEY']
     assert env.optional[0].name == 'LOG_LEVEL'
 
 
@@ -623,29 +650,16 @@ def test_add_or_update_principle_section_blocked_in_stage1_without_discovery():
     assert get_state().spec.knowledge.principles.sections == []
 
 
-def test_set_org_identity_budget_works_in_configure():
-    """`set_org_identity(budget=...)` works in Stage 2 (Configure), no gate.
-
-    The old budget-blocked-in-Stage-1 check is gone: Discover doesn't have the tool, so
-    the gate has nothing to gate. In Configure (where the tool actually lives) budget is
-    just another field on the org card.
-    """
-    advance_to_configure_stage()
-    msg = set_org_identity(budget='low')
-    assert msg.startswith('Updated')
-    assert get_state().spec.org.budget == 'low'
-
-
-def test_get_current_spec_returns_the_in_memory_spec():
-    """`get_current_spec` is a thin getter that exposes the working `state.spec`."""
-    assert get_current_spec() is get_state().spec
+def test_get_current_spec_returns_spec_source():
+    """`get_current_spec` returns the spec.py source of the working spec."""
+    assert get_current_spec().startswith('"""Spec for Untitled org."""')
 
 
 def test_get_current_spec_reflects_mutations():
     """A subsequent state mutation is visible through `get_current_spec`."""
     advance_to_configure_stage()
     set_org_identity(slug='research-org')
-    assert get_current_spec().org.slug == 'research-org'
+    assert "slug='research-org'" in get_current_spec()
 
 
 _VALID_SKILL_MD = '\n'.join(
@@ -722,14 +736,3 @@ def test_advance_to_next_stage_at_the_final_stage_is_a_noop():
     msg = advance_to_next_stage()
     assert 'final stage' in msg.lower()
     assert get_state().stage == 'handoff'
-
-
-def test_request_redeploy_writes_spec_py_and_returns_redeploy_instructions(tmp_path, monkeypatch):
-    """`request_redeploy` writes the current spec to `./spec.py` and returns operator instructions."""
-    monkeypatch.chdir(tmp_path)
-    advance_to_configure_stage()
-    set_org_identity(slug='research-org', package_name='research_org')
-    msg = request_redeploy()
-    assert (tmp_path / 'spec.py').exists()
-    assert 'spec.py' in msg
-    assert 'redeploy' in msg.lower() or 'deploy' in msg.lower()

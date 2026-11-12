@@ -65,6 +65,7 @@ class Runtime(SpecModel):
 
     @model_validator(mode='after')
     def _include_platform_requirements(self) -> 'Runtime':
+        """Add the platform env vars and, on Railway, the RabbitMQ setup step."""
         declared = {var.name for var in self.env_vars.required + self.env_vars.optional}
         platform = [
             EnvVar(name='ANTHROPIC_API_KEY', description='Anthropic API key of the agents.', required_label='Always'),

@@ -37,7 +37,7 @@ async def test_event_bus_starts_run_with_payload(
     """A matching event starts a run whose prompt carries the payload and whose chain names the trigger."""
     spec = _spec(spec_dict_minimal, _event_trigger('on-report', 'knowledge.created', filter={'type': 'report'}))
     queued = Queued(store)
-    bus = EventBus(spec, store, fake_broker, queued, admit_all, dict)
+    bus = EventBus(spec, store, fake_broker, queued, admit=admit_all, parameters=dict)
     await bus.start()
     await bus.publish_knowledge('created', {'type': 'report', 'name': 'weekly'})
     await fake_broker.drain()
@@ -54,7 +54,7 @@ async def test_event_bus_ignores_filter_mismatch(
     """An event whose payload fails the filter starts nothing."""
     spec = _spec(spec_dict_minimal, _event_trigger('on-report', 'knowledge.created', filter={'type': 'report'}))
     queued = Queued(store)
-    bus = EventBus(spec, store, fake_broker, queued, admit_all, dict)
+    bus = EventBus(spec, store, fake_broker, queued, admit=admit_all, parameters=dict)
     await bus.start()
     await bus.publish_knowledge('created', {'type': 'note', 'name': 'n'})
     await fake_broker.drain()
@@ -74,7 +74,7 @@ async def test_event_bus_breaks_loops_at_max_chain_depth(
         max_chain_depth=3,
     )
     queued = Queued(store)
-    bus = EventBus(spec, store, fake_broker, queued, admit_all, dict)
+    bus = EventBus(spec, store, fake_broker, queued, admit=admit_all, parameters=dict)
     await bus.start()
     await bus.publish('custom.ping', {})
     for _ in range(5):
@@ -98,7 +98,7 @@ async def test_event_bus_skips_disabled_trigger(
 ) -> None:
     """A disabled event trigger is not subscribed."""
     spec = _spec(spec_dict_minimal, _event_trigger('ping', 'custom.ping', enabled=enabled))
-    bus = EventBus(spec, store, fake_broker, Queued(store), admit_all, dict)
+    bus = EventBus(spec, store, fake_broker, Queued(store), admit=admit_all, parameters=dict)
     await bus.start()
     assert fake_broker.consumers == {}
 
@@ -119,8 +119,8 @@ async def test_event_bus_respects_admission(
         store,
         fake_broker,
         queued,
-        refuse,
-        dict,
+        admit=refuse,
+        parameters=dict,
     )
     await bus.start()
     await bus.publish('custom.ping', {})

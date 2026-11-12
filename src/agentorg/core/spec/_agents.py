@@ -62,6 +62,7 @@ class McpServer(SpecModel):
 
     @model_validator(mode='after')
     def _validate_connection(self) -> 'McpServer':
+        """Require a command for stdio servers and a url otherwise."""
         if self.transport == 'stdio' and not self.command:
             msg = f"MCP server '{self.name}' uses transport 'stdio' and needs a `command`."
             raise ValueError(msg)
@@ -88,6 +89,7 @@ class Output(SpecModel):
 
     @model_validator(mode='after')
     def _validate_schema(self) -> 'Output':
+        """Require a JSON schema for json output."""
         if self.format == 'json' and not self.json_schema:
             msg = "Output format 'json' needs a `json_schema`."
             raise ValueError(msg)
@@ -116,6 +118,7 @@ class Agent(SpecModel):
 
     @model_validator(mode='after')
     def _validate_tools(self) -> 'Agent':
+        """Derive default built-in tools and reject write tools for read-only agents."""
         if self.builtin_tools is None:
             self.__dict__['builtin_tools'] = list(DEFAULT_BUILTIN_TOOLS[self.autonomy])
             return self
@@ -156,6 +159,7 @@ class Unit(SpecModel):
         return [member.member if isinstance(member, Step) else member for member in self.members]
 
     def _validate_model_rules(self) -> None:
+        """Enforce the structural rule of the unit's model."""
         if self.model != 'pipeline' and any(isinstance(member, Step) for member in self.members):
             msg = f"Unit '{self.id}': steps are only allowed in a pipeline."
             raise ValueError(msg)
@@ -170,6 +174,7 @@ class Unit(SpecModel):
             raise ValueError(msg)
 
     def _validate_council(self) -> None:
+        """Enforce council size, decision rule and judge lead."""
         if self.model != 'council':
             return
         if len(self.members) not in COUNCIL_SIZE or self.decision is None:
@@ -184,6 +189,7 @@ class Unit(SpecModel):
 
     @model_validator(mode='after')
     def _validate_unit(self) -> 'Unit':
+        """Enforce the model rules, the span limit and the lead not being a member."""
         self._validate_model_rules()
         self._validate_council()
         span = MAX_POOL_SPAN if self.model == 'pool' else MAX_SPAN

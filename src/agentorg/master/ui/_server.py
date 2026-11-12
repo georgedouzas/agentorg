@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from ...core.render import jinja_context
 from ...core.render import render as render_project
 from .._agent import _reset_workflow_cache, agent_for_current_stage
 from .._persistence import save_draft
@@ -77,7 +78,7 @@ def _readiness(state: State) -> dict[str, Any]:
     }
 
 
-def _agent_factory_default() -> Any:  # noqa: ANN401 (returns an agno.Agent; avoid leaking the type)
+def _agent_factory_default() -> Any:  # noqa: ANN401 - a StageAgent, or a test double with `arun`
     """Return the agent for the current stage.
 
     Called once per chat turn so a stage transition (after `advance_to_next_stage`) is
@@ -87,27 +88,17 @@ def _agent_factory_default() -> Any:  # noqa: ANN401 (returns an agno.Agent; avo
     return agent_for_current_stage()
 
 
-def _extract_tool_calls(run_output: Any) -> list[str]:  # noqa: ANN401 (RunOutput shape is loose)
-    """Pull a flat list of tool-call names out of an agno `RunOutput`."""
-    tool_calls = getattr(run_output, 'tool_calls', None) or []
-    names: list[str] = []
-    for call in tool_calls:
-        name = (
-            getattr(call, 'tool_name', None)
-            or getattr(call, 'name', None)
-            or (call.get('tool_name') if isinstance(call, dict) else None)
-            or (call.get('name') if isinstance(call, dict) else None)
-        )
-        if name:
-            names.append(str(name))
-    return names
+def _extract_tool_calls(run_output: Any) -> list[str]:  # noqa: ANN401 - a MasterReply or a test double
+    """Return the names of the tools a master turn called."""
+    return [str(name) for name in getattr(run_output, 'tool_calls', None) or []]
 
 
 def _spec_snapshot() -> dict[str, Any]:
     """Build the JSON payload `GET /api/spec` returns: spec + custom tools/skills + readiness + stage."""
     state = get_state()
     return {
-        'spec': state.spec.model_dump(mode='json'),
+        'spec': jinja_context(state.spec),
+        'structure_error': state.structure_error,
         'custom_tools': [{'name': t.name, 'source': t.source} for t in state.custom_tools],
         'custom_skills': [{'name': s.name, 'skill_md': s.skill_md} for s in state.custom_skills],
         'readiness': _readiness(state),
@@ -190,7 +181,7 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
     """Build a FastAPI app wrapping the master agent.
 
     Arguments:
-        agent_factory: Callable returning an `agno.Agent`. Overridden in tests to inject a
+        agent_factory: Callable returning the stage agent. Overridden in tests to inject a
             mock without making real model calls.
         draft_path: Where `save_draft` writes after each turn. Defaults to none = no autosave.
         autosave: When True and `draft_path` is set, snapshots the working spec to disk after
@@ -301,7 +292,7 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
 
         # Ask the agent to immediately narrate the transition + walk the user through what
         # happens in the new stage. The synthetic prompt becomes the user-side turn in
-        # agno's memory, which is correct - subsequent turns benefit from knowing the
+        # agent's conversation, which is correct - subsequent turns benefit from knowing the
         # transition happened.
         prev_idx = STAGES.index(prev_stage) + 1
         new_idx = STAGES.index(new_stage) + 1
@@ -337,8 +328,10 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
                 status_code=409,
                 detail={
                     'blockers': [
-                        f"The project download is available from Stage 3 onward; "
-                        f"you're currently in Stage '{state.stage}'.",
+                        (
+                            f"The project download is available from Stage 3 onward; "
+                            f"you're currently in Stage '{state.stage}'."
+                        ),
                     ],
                 },
             )

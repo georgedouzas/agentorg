@@ -58,7 +58,7 @@ def _probe_http(url: str, *, timeout: float = 0.6) -> bool:
     serving HTTP, so the iframe never lands on a `connection refused` page.
     """
     try:
-        with urllib.request.urlopen(url, timeout=timeout):  # noqa: S310 (localhost only)
+        with urllib.request.urlopen(url, timeout=timeout):  # noqa: S310  # nosec B310 - localhost URL
             return True
     except urllib.error.HTTPError:
         return True  # any HTTP response - including 404 - means the port is bound

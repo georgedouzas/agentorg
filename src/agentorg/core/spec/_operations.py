@@ -27,14 +27,18 @@ Channel = Literal['dashboard', 'email', 'webhook', 'amqp']
 
 
 def _default_governed() -> list[ActionClass]:
+    """Return the action classes governed by default."""
     return ['external_write', 'outbound_message']
 
 
 def _default_channels() -> list[Channel]:
+    """Return the notification channels used by default."""
     return ['dashboard']
 
 
 class _TriggerBase(SpecModel):
+    """Fields every trigger kind shares."""
+
     id: str = Field(pattern=r'^[a-z][a-z0-9-]*$')
     target: str
     prompt: str
@@ -53,6 +57,7 @@ class ScheduleTrigger(_TriggerBase):
     @field_validator('cron')
     @classmethod
     def _validate_cron(cls, value: str) -> str:
+        """Accept only valid 5-field cron expressions."""
         if len(value.split()) != CRON_FIELDS or not croniter.is_valid(value):
             msg = f"cron must be a valid 5-field expression, got '{value}'."
             raise ValueError(msg)
@@ -61,6 +66,7 @@ class ScheduleTrigger(_TriggerBase):
     @field_validator('timezone')
     @classmethod
     def _validate_timezone(cls, value: str) -> str:
+        """Accept only IANA timezone names."""
         if value not in available_timezones():
             msg = f"timezone must be an IANA name such as 'Europe/Athens', got '{value}'."
             raise ValueError(msg)
@@ -77,6 +83,7 @@ class EventTrigger(_TriggerBase):
     @field_validator('event')
     @classmethod
     def _validate_event(cls, value: str) -> str:
+        """Accept built-in event names and `custom.*` names."""
         if value not in BUILTIN_EVENTS and not value.startswith('custom.'):
             msg = f"event must be one of {sorted(BUILTIN_EVENTS)} or start with 'custom.', got '{value}'."
             raise ValueError(msg)
@@ -113,6 +120,7 @@ class RunsPolicy(SpecModel):
 
     @model_validator(mode='after')
     def _validate_fallback(self) -> 'RunsPolicy':
+        """Require a fallback agent for the handoff failure policy."""
         if self.on_failure == 'handoff' and not self.fallback_agent:
             msg = "on_failure 'handoff' needs a `fallback_agent`."
             raise ValueError(msg)
@@ -154,6 +162,7 @@ class Notifications(SpecModel):
 
     @model_validator(mode='after')
     def _validate_channels(self) -> 'Notifications':
+        """Add the dashboard channel and require each channel's destination."""
         if 'dashboard' not in self.channels:
             self.__dict__['channels'] = ['dashboard', *self.channels]
         required = {'email': self.email_to, 'webhook': self.webhook_url_env, 'amqp': self.amqp_exchange}
@@ -187,6 +196,7 @@ class Operations(SpecModel):
 
     @model_validator(mode='after')
     def _validate_trigger_ids(self) -> 'Operations':
+        """Reject trigger ids used twice."""
         ids = [trigger.id for trigger in self.triggers]
         duplicates = sorted({id_ for id_ in ids if ids.count(id_) > 1})
         if duplicates:

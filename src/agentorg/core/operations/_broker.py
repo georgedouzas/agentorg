@@ -36,6 +36,7 @@ class Broker:
         self._consumers: dict[str, tuple[AbstractQueue, AbstractChannel]] = {}
 
     def _name(self, *parts: str) -> str:
+        """Return a name under the org slug prefix."""
         return '.'.join((self.slug, *parts))
 
     @property
@@ -77,6 +78,7 @@ class Broker:
             await queue.bind(delay)
 
     async def _publish(self, exchange: str, routing_key: str, payload: dict[str, Any], priority: int = 0) -> None:
+        """Publish a persistent JSON message to an exchange."""
         message = aio_pika.Message(
             json.dumps(payload).encode(),
             content_type='application/json',
@@ -108,6 +110,7 @@ class Broker:
         await declared.publish(message, routing_key=routing_key)
 
     async def _consume(self, queue_name: str, handler: MessageHandler, prefetch: int, declare: bool) -> str:
+        """Consume a queue on its own channel and remember the consumer for cancelling."""
         if self._connection is None:
             msg = 'The broker is not connected; await Broker.connect() first.'
             raise RuntimeError(msg)

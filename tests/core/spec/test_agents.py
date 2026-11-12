@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from agentorg.core.spec import Agent, McpServer, Output, Unit
+from agentorg.core.spec import Agent, McpServer, Output, Step, Unit
 
 
 def _agent(**fields: object) -> Agent:
@@ -117,7 +117,7 @@ def test_unit_pool_allows_one_hundred_members() -> None:
 def test_unit_iter_units_and_depth_cover_nested_units() -> None:
     """Nested units are yielded depth first and counted as levels."""
     inner = Unit(id='inner', name='Inner', model='solo', members=['a'])
-    root = Unit(id='root', name='Root', model='pipeline', members=[{'member': inner, 'review': 'human'}, 'b'])
+    root = Unit(id='root', name='Root', model='pipeline', members=[Step(member=inner, review='human'), 'b'])
     assert [unit.id for unit in root.iter_units()] == ['root', 'inner']
     assert root.depth() == 2
     assert root.member_refs == [inner, 'b']

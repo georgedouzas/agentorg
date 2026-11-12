@@ -19,20 +19,25 @@ VERBOSITY = {
 
 
 class _Defaults(dict[str, object]):
+    """Mapping that leaves unknown placeholders as `{name}`."""
+
     def __missing__(self, key: str) -> str:
         return '{' + key + '}'
 
 
 def _section(title: str, lines: list[str]) -> str:
+    """Return a Markdown section, or nothing when it has no lines."""
     return f'## {title}\n\n' + '\n'.join(lines) if lines else ''
 
 
 def _principles(spec: Spec, parameter_values: Mapping[str, object]) -> list[str]:
+    """Return the principle sections with parameter placeholders filled."""
     values = _Defaults({parameter.name: parameter.default for parameter in spec.parameters} | dict(parameter_values))
     return [f'### {s.title}\n\n{s.body.format_map(values).strip()}' for s in spec.knowledge.principles.sections]
 
 
 def _output(agent: Agent) -> list[str]:
+    """Return the lines that state the output format and knowledge type."""
     lines = []
     if agent.output.format == 'json':
         lines.append(f'Reply with a single JSON object matching this schema:\n{json.dumps(agent.output.json_schema)}')

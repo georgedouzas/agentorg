@@ -13,6 +13,7 @@ def test_spec_round_trips_minimal(spec_dict_minimal: dict[str, Any]) -> None:
     spec = Spec.model_validate(spec_dict_minimal)
     assert spec.org.slug == 'acme'
     assert spec.runtime.infra.packaging == 'none'
+    assert spec.ai.root is not None
     assert spec.ai.root.model == 'solo'
     assert spec.operations.budget.monthly_usd is None
     assert spec.parameters == []
@@ -28,6 +29,9 @@ def test_spec_round_trips_normal(spec_dict_normal: dict[str, Any]) -> None:
     assert spec.parameters[0].name == 'min_sources'
     assert spec.knowledge.principles.sections[0].id == 'mission'
     assert spec.ui.featured_agents == ['analyst']
+
+
+HOOK_VAR = 'HOOK_SECRET'
 
 
 @pytest.mark.parametrize('missing', ['org', 'runtime', 'ai', 'operations', 'parameters', 'knowledge', 'ui'])
@@ -68,7 +72,7 @@ def test_spec_rejects_prompt_with_unknown_variable(spec_dict_minimal: dict[str, 
 
 def test_spec_rejects_undeclared_webhook_secret(spec_dict_minimal: dict[str, Any]) -> None:
     """A webhook secret must be a declared env var."""
-    trigger = {'kind': 'webhook', 'secret_env': 'HOOK_SECRET'}
+    trigger = {'kind': 'webhook', 'secret_env': HOOK_VAR}
     with pytest.raises(ValidationError, match='HOOK_SECRET'):
         Spec.model_validate(_with_trigger(spec_dict_minimal, **trigger))
 

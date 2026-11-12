@@ -5,8 +5,8 @@ context: |
   it before planning a change, follow its code conventions in every artifact and task, and keep
   the Project Profile at its end current as the project develops.
   CLAUDE.md is the authority on architecture, package discipline, module structure and code style; designs and tasks must follow it
-  Keep the three core layers separate: spec/ (Pydantic models), render/ (Jinja materialisation), tools/ (runtime helpers shipped to rendered orgs)
-  agentorg never imports agno; runnables are plain async callables or objects with .arun()
+  Keep the core layers separate: spec/ (Pydantic models), render/ (Jinja materialisation), adapters/claude/ (SDK mapping), operations/ (the runtime shipped to rendered orgs)
+  Agents run only on the Claude Agent SDK; every org needs RabbitMQ (AMQP_URL) and ANTHROPIC_API_KEY next to the AgentField control plane
   Rendered orgs delegate memory, identity, audit and policies to AgentField; do not reimplement them
   Master-agent stages get narrow tool slices; a change must not give a stage tools that belong to another stage
   Renderer writes must stay idempotent so the live preview's Vite watcher does not fire on no-op rerenders

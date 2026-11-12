@@ -47,6 +47,7 @@ class Scheduler:
         store: Store,
         enqueue: Enqueue,
         admit: Admit,
+        *,
         parameters: Parameters,
         worker_id: str,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -68,6 +69,7 @@ class Scheduler:
         return [t for t in self.spec.operations.triggers if isinstance(t, ScheduleTrigger) and t.enabled]
 
     async def _overlaps(self, trigger: ScheduleTrigger) -> bool:
+        """Return whether a previous run of the trigger is still active."""
         for status in ACTIVE_STATUSES:
             runs = await self.store.list_runs(target=trigger.target, status=status, trigger_kind='schedule', limit=1000)
             if any(run.trigger_id == trigger.id for run in runs):
@@ -75,6 +77,7 @@ class Scheduler:
         return False
 
     async def _fire(self, trigger: ScheduleTrigger, now: datetime) -> bool:
+        """Start the trigger's run unless overlap or admission prevents it."""
         if trigger.overlap == 'skip' and await self._overlaps(trigger):
             return False
         if await self.admit(trigger.target) is not None:
@@ -118,6 +121,7 @@ class Scheduler:
         return {trigger.id: await self.tick_trigger(trigger, now) for trigger in self.triggers}
 
     async def _loop(self) -> None:
+        """Tick forever at the scheduler interval."""
         while True:
             await self.tick()
             await asyncio.sleep(TICK.total_seconds())

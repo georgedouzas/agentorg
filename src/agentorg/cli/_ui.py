@@ -53,7 +53,7 @@ from ..master.ui._server import serve
         'have uv or npm available.'
     ),
 )
-def ui(host: str, port: int, resume: bool, draft: Path, open_browser: bool, preview: bool) -> None:
+def ui(*, host: str, port: int, resume: bool, draft: Path, open_browser: bool, preview: bool) -> None:
     """Run the browser-based master interview UI."""
     if resume and draft.exists():
         load_draft(draft)

@@ -3,16 +3,10 @@
 import json
 from typing import Any
 
-from agentfield import Agent
-
-from ._node import current_node
+from ._node import current_memory
 from ._tags import tool
 
 KEY = 'org_parameters'
-
-
-def _get_node() -> Agent:
-    return current_node()
 
 
 @tool('read', tags=('parameters',))
@@ -22,7 +16,7 @@ async def get_org_parameters() -> str:
     Returns:
         state: JSON-encoded `{'parameters': dict}`. Empty dict means the org hasn't been set up.
     """
-    state = await _get_node().memory.global_scope.get(KEY)
+    state = await current_memory().global_scope.get(KEY)
     return json.dumps({'parameters': state.get('parameters', {}) if state else {}})
 
 
@@ -40,7 +34,7 @@ async def set_org_parameter(
     Returns:
         state: JSON-encoded `{'parameters': dict}` with the new value applied.
     """
-    scope = _get_node().memory.global_scope
+    scope = current_memory().global_scope
     state = await scope.get(KEY) or {'parameters': {}}
     state['parameters'][name] = value
     await scope.set(KEY, state)
@@ -54,5 +48,5 @@ async def reset_org_parameters() -> str:
     Returns:
         state: JSON-encoded `{'parameters': {}}`.
     """
-    await _get_node().memory.global_scope.delete(KEY)
+    await current_memory().global_scope.delete(KEY)
     return json.dumps({'parameters': {}})

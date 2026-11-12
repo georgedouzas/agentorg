@@ -18,7 +18,7 @@ def _load_spec(spec_path: Path) -> Spec:
 
 
 def _copy_user_spec(spec_path: Path, package_name: str, output_dir: Path) -> None:
-    """Place the user's spec.py at `<output>/src/<package>/spec.py` for `from <pkg>.spec import spec`.
+    """Place the user's spec.py, and the skills folder next to it, in `<output>/src/<package>/`.
 
     Kept here pending the rendered-agent-code refactor that will eliminate the runtime dependency on a copied spec.py.
     Partial templates without `src/<pkg>/` (e.g. frontend) silently skip the copy.
@@ -27,6 +27,12 @@ def _copy_user_spec(spec_path: Path, package_name: str, output_dir: Path) -> Non
     if not spec_dest.parent.exists():
         return
     _copy_static(spec_path, spec_dest)
+    skills = spec_path.parent / 'skills'
+    for skill_file in sorted(skills.rglob('*')) if skills.is_dir() else []:
+        if skill_file.is_file():
+            dest = spec_dest.parent / 'skills' / skill_file.relative_to(skills)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            _copy_static(skill_file, dest)
 
 
 def render(spec_path: Path, output_dir: Path, *, template: str = 'full') -> None:

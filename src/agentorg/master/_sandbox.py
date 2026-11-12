@@ -3,10 +3,12 @@
 import ast
 import json
 import re
-import subprocess
+import subprocess  # nosec B404 - the sandbox runs candidate tools in a child interpreter
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 SANDBOX_TIMEOUT_SECONDS = 10
 SUBPROCESS_PROGRAM = (
@@ -179,7 +181,7 @@ def validate_tool_source(name: str, source: str, test_cases: list[dict] | None =
         json.dump(list(test_cases), cases_tmp)
         cases_tmp_path = Path(cases_tmp.name)
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - fixed argv: this interpreter and files the sandbox wrote
             [sys.executable, '-c', SUBPROCESS_PROGRAM, str(tmp_path), name, str(cases_tmp_path)],
             capture_output=True,
             timeout=SANDBOX_TIMEOUT_SECONDS,
@@ -206,7 +208,7 @@ class SkillValidationError(Exception):
 def validate_skill_source(name: str, skill_md: str) -> None:
     r"""Validate a custom skill's SKILL.md before registering it.
 
-    agno's `LocalSkills` loader requires the file to START with a YAML frontmatter
+    The Claude agent harness requires the file to START with a YAML frontmatter
     block delimited by `---` lines, carrying at minimum a `name` and a `description`.
     The body after the frontmatter is the skill's instructions in markdown.
 
@@ -276,3 +278,19 @@ def validate_skill_source(name: str, skill_md: str) -> None:
     if not any(ln.strip() for ln in body_lines):
         msg = 'SKILL.md must contain at least one non-empty line of content after the frontmatter.'
         raise SkillValidationError(msg)
+
+
+def compile_tool(name: str, source: str) -> Callable[..., Any]:
+    """Execute a validated custom tool's source and return its `async def <name>` function.
+
+    Arguments:
+        name: The function name.
+        source: The tool source, already accepted by `validate_tool_source`.
+
+    Returns:
+        function: The tool function, with its module set so it can be named in spec.py.
+    """
+    namespace: dict[str, Any] = {'__name__': 'agentorg_custom_tools'}
+    code = compile(source, f'<custom tool {name}>', 'exec')
+    exec(code, namespace)  # noqa: S102  # nosec B102 - source passed the sandbox
+    return namespace[name]

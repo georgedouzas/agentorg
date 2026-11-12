@@ -140,7 +140,7 @@ def build_router(app: Any, spec: Spec, runtime: OrgRuntime) -> APIRouter:  # noq
     memory = app.memory
     knowledge = memory.global_scope
 
-    targets = {agent.id for agent in spec.ai.agents} | {unit.id for unit in spec.ai.root.iter_units()}
+    targets = {agent.id for agent in spec.ai.agents} | {unit.id for unit in spec.ai.units}
 
     async def _all_units() -> list[dict[str, Any]]:
         # In preview mode the control plane is absent, so `list_keys` raises a memory
@@ -193,7 +193,7 @@ def build_router(app: Any, spec: Spec, runtime: OrgRuntime) -> APIRouter:  # noq
             'workflow_groups': [g.model_dump() for g in ui.workflow_groups],
             'featured_agents': ui.featured_agents,
             'agent_icons': {_MASTER_AGENT_ID: '🛠', **ui.agent_icons},
-            'units': [_unit_summary(spec, unit) for unit in spec.ai.root.iter_units()],
+            'units': [_unit_summary(spec, unit) for unit in spec.ai.units],
             'overview': [b.model_dump() for b in ui.overview],
             'agent_configs': {k: v.model_dump() for k, v in ui.agent_configs.items()},
             'parameters': [p.model_dump() for p in spec.parameters],
@@ -276,11 +276,11 @@ def build_router(app: Any, spec: Spec, runtime: OrgRuntime) -> APIRouter:  # noq
 
     @router.get('/units')
     def list_units() -> list[dict[str, Any]]:
-        return [_unit_summary(spec, unit) for unit in spec.ai.root.iter_units()]
+        return [_unit_summary(spec, unit) for unit in spec.ai.units]
 
     @router.get('/workflows')
     def list_workflows() -> list[dict[str, Any]]:
-        return [{'id': u.id, 'name': u.name} for u in spec.ai.root.iter_units() if u.model == 'pipeline']
+        return [{'id': u.id, 'name': u.name} for u in spec.ai.units if u.model == 'pipeline']
 
     @router.post('/agents/{target_id}/enabled')
     async def set_enabled(target_id: str, body: Enabled) -> dict[str, Any]:

@@ -16,7 +16,7 @@ async def _run_target(target: str, message: str, session_id: str | None, user_id
 def test_register_org_registers_every_agent_and_unit() -> None:
     """Every agent and every unit of the spec becomes a reasoner, agents first."""
     names = register_org(Agent(node_id=spec.org.slug), spec, _run_target)
-    assert names == [agent.id for agent in spec.ai.agents] + [unit.id for unit in spec.ai.root.iter_units()]
+    assert names == [agent.id for agent in spec.ai.agents] + [unit.id for unit in spec.ai.units]
 
 
 def test_registered_reasoners_carry_org_tag() -> None:

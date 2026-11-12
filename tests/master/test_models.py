@@ -1,29 +1,24 @@
-"""Tests for the interview-time spec models."""
+"""Tests for the models module."""
 
 import pytest
 from pydantic import ValidationError
 
-from agentorg.master import StepSpec
+from agentorg.master import CustomSkill, CustomTool, UnitDraft
 
 
-def test_step_spec_construction():
-    """Name + agent_id are sufficient; requires_output_review defaults to False."""
-    step = StepSpec(name='Gather', agent_id='researcher')
-    assert step.name == 'Gather'
-    assert step.agent_id == 'researcher'
-    assert step.requires_output_review is False
+def test_unit_draft_defaults_to_an_empty_root() -> None:
+    """A unit draft starts as a root with no members and no lead."""
+    draft = UnitDraft(id='research', name='Research', model='hub')
+    assert (draft.parent_id, draft.lead, draft.members, draft.routing) == (None, None, [], 'least_loaded')
 
 
-def test_step_spec_accepts_hitl_flag():
-    """requires_output_review can be flipped on."""
-    step = StepSpec(name='Approve', agent_id='reviewer', requires_output_review=True)
-    assert step.requires_output_review is True
-
-
-@pytest.mark.parametrize('missing', ['name', 'agent_id'])
-def test_step_spec_missing_field_raises(missing: str) -> None:
-    """Name and agent_id are both required."""
-    kwargs = {'name': 'X', 'agent_id': 'y'}
-    del kwargs[missing]
+def test_unit_draft_rejects_unknown_model() -> None:
+    """The governance model is a closed set."""
     with pytest.raises(ValidationError):
-        StepSpec(**kwargs)
+        UnitDraft(id='u', name='U', model='democracy')  # type: ignore[arg-type]
+
+
+def test_custom_artefacts_hold_their_sources() -> None:
+    """Custom tools and skills keep their name and source."""
+    assert CustomTool(name='t', source='src').source == 'src'
+    assert CustomSkill(name='s', skill_md='# S').skill_md == '# S'

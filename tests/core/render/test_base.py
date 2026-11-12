@@ -79,3 +79,13 @@ def test_railway_render_lists_rabbitmq_setup_step(spec_dict_minimal: dict[str, A
     readme = (tmp_path / 'out' / 'README.md').read_text()
     assert 'Provision RabbitMQ' in readme
     assert '`AMQP_URL`' in readme
+
+
+def test_skills_next_to_spec_are_copied_into_package(write_spec_py: Callable[..., Path], tmp_path: Path) -> None:
+    """A `skills/` folder next to spec.py lands in the rendered package, where agents load skills from."""
+    spec_py = write_spec_py(tmp_path / 'spec')
+    skill = tmp_path / 'spec' / 'skills' / 'triage' / 'SKILL.md'
+    skill.parent.mkdir(parents=True)
+    skill.write_text('---\nname: triage\ndescription: Triage.\n---\nSteps.\n')
+    render(spec_py, tmp_path / 'out', template='full')
+    assert (tmp_path / 'out' / 'src' / 'acme' / 'skills' / 'triage' / 'SKILL.md').read_text().startswith('---')

@@ -92,6 +92,7 @@ class Dispatcher:
         store: Store,
         broker: RunBroker,
         execute: Execute,
+        *,
         on_failure: FailureHandler,
         worker_id: str | None = None,
     ) -> None:
@@ -108,9 +109,10 @@ class Dispatcher:
     @property
     def targets(self) -> list[str]:
         """Every agent and unit id of the org."""
-        return [agent.id for agent in self.spec.ai.agents] + [unit.id for unit in self.spec.ai.root.iter_units()]
+        return [agent.id for agent in self.spec.ai.agents] + [unit.id for unit in self.spec.ai.units]
 
     def _replicas(self, target: str) -> int | None:
+        """Return the replica cap of an agent target, or None for a unit."""
         agents = {agent.id: agent for agent in self.spec.ai.agents}
         return agents[target].replicas if target in agents else None
 
@@ -138,6 +140,7 @@ class Dispatcher:
         return run
 
     async def _handle(self, message: Message) -> None:
+        """Claim and execute a delivered run, or defer it when its target is at capacity."""
         run_id = json.loads(message.body)['run_id']
         async with self._slots:
             run = await self.store.get_run(run_id)
@@ -159,6 +162,7 @@ class Dispatcher:
         await self._after(run_id)
 
     async def _after(self, run_id: str) -> None:
+        """Retry a failed run by policy, or dead-letter it."""
         run = await self.store.get_run(run_id)
         if run is None or run.status != 'failed':
             return
@@ -183,6 +187,7 @@ class Dispatcher:
         await self.broker.publish_retry(run.target, retry.id, run.attempt, run.priority)
 
     async def _handle_dead(self, message: Message) -> None:
+        """Apply the failure policy to a dead-lettered run."""
         run = await self.store.get_run(json.loads(message.body)['run_id'])
         await message.ack()
         if run is not None:

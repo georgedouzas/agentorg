@@ -2,12 +2,25 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
-from ..core.spec import Spec
-from ._models import AgentSpec, CustomTool, TeamSpec, WorkflowSpec
+from pydantic import ValidationError
+
+from ..core.spec import AI, Agent, Spec
+from ._models import CustomSkill, CustomTool, UnitDraft
+from ._sandbox import compile_tool
 from ._state import Discovery, Stage, State, get_state
+from ._structure import assemble_ai
 
 DEFAULT_DRAFT_PATH = Path.home() / '.agentorg' / 'draft.json'
+STAGES: tuple[Stage, ...] = ('discover', 'configure', 'build', 'refine', 'handoff')
+
+
+def _agent_data(agent: Agent) -> dict[str, Any]:
+    """Return an agent as JSON with its tools by name."""
+    data = agent.model_dump(mode='json', exclude={'tools'}, exclude_unset=True)
+    data['tools'] = [fn.__name__ for fn in agent.tools]
+    return data
 
 
 def save_draft(path: Path = DEFAULT_DRAFT_PATH) -> Path:
@@ -21,19 +34,15 @@ def save_draft(path: Path = DEFAULT_DRAFT_PATH) -> Path:
     """
     state = get_state()
     payload: dict[str, object] = {
-        'spec': state.spec.model_dump(mode='json'),
-        'custom_tools': [t.model_dump(mode='json') for t in state.custom_tools],
+        'spec': state.spec.model_dump(mode='json', exclude={'ai'}, exclude_unset=True),
+        'agents': [_agent_data(agent) for agent in state.agents],
+        'units': [unit.model_dump(mode='json') for unit in state.units],
+        'custom_tools': [tool.model_dump(mode='json') for tool in state.custom_tools],
+        'custom_skills': [skill.model_dump(mode='json') for skill in state.custom_skills],
         'stage': state.stage,
     }
     if state.discovery is not None:
-        payload['discovery'] = {
-            'what_the_group_does': state.discovery.what_the_group_does,
-            'who_serves': state.discovery.who_serves,
-            'concrete_tasks_owned': state.discovery.concrete_tasks_owned,
-            'typical_flow': state.discovery.typical_flow,
-            'business_context': state.discovery.business_context,
-            'current_pain_or_alternative': state.discovery.current_pain_or_alternative,
-        }
+        payload['discovery'] = vars(state.discovery)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2))
     return path
@@ -47,43 +56,25 @@ def load_draft(path: Path = DEFAULT_DRAFT_PATH) -> State:
 
     Returns:
         state: The updated singleton state.
-
-    Raises:
-        FileNotFoundError: If `path` does not exist.
     """
     data = json.loads(Path(path).read_text())
-    spec_data = data['spec']
-    # AI.agents / teams / workflows lose their concrete Pydantic types on dump (typed as list[Any]).
-    # Re-construct them explicitly so they keep their attributes.
-    spec_data['ai']['agents'] = [_revive(a, AgentSpec) for a in spec_data['ai']['agents']]
-    spec_data['ai']['teams'] = [_revive(t, TeamSpec) for t in spec_data['ai']['teams']]
-    spec_data['ai']['workflows'] = [_revive(w, WorkflowSpec) for w in spec_data['ai']['workflows']]
-    spec = Spec(**spec_data)
     state = get_state()
-    state.spec = spec
-    state.custom_tools = [CustomTool(**t) for t in data.get('custom_tools', [])]
-    valid_stages: tuple[Stage, ...] = ('discover', 'configure', 'build', 'refine', 'handoff')
-    legacy_migration: dict[str, Stage] = {'generate': 'build'}
-    raw_stage = data.get('stage', 'discover')
-    migrated = legacy_migration.get(raw_stage, raw_stage)
-    state.stage = migrated if migrated in valid_stages else 'discover'
-    discovery_data = data.get('discovery')
-    if isinstance(discovery_data, dict):
-        state.discovery = Discovery(
-            what_the_group_does=str(discovery_data.get('what_the_group_does', '')),
-            who_serves=str(discovery_data.get('who_serves', '')),
-            concrete_tasks_owned=str(discovery_data.get('concrete_tasks_owned', '')),
-            typical_flow=str(discovery_data.get('typical_flow', '')),
-            business_context=str(discovery_data.get('business_context', '')),
-            current_pain_or_alternative=str(discovery_data.get('current_pain_or_alternative', '')),
-        )
-    else:
-        state.discovery = None
+    state.custom_tools = [CustomTool(**tool) for tool in data.get('custom_tools', [])]
+    state.custom_skills = [CustomSkill(**skill) for skill in data.get('custom_skills', [])]
+    state.functions = {tool.name: compile_tool(tool.name, tool.source) for tool in state.custom_tools}
+    state.agents = [
+        Agent.model_validate({**agent, 'tools': [state.functions[name] for name in agent.get('tools', [])]})
+        for agent in data.get('agents', [])
+    ]
+    state.units = [UnitDraft(**unit) for unit in data.get('units', [])]
+    try:
+        ai = assemble_ai(state.agents, state.units)
+        state.structure_error = None
+    except (ValidationError, ValueError) as error:
+        ai, state.structure_error = AI(agents=[]), str(error)
+    state.spec = Spec(**{**data['spec'], 'ai': ai})
+    stage = data.get('stage', 'discover')
+    state.stage = stage if stage in STAGES else 'discover'
+    discovery = data.get('discovery')
+    state.discovery = Discovery(**{k: str(v) for k, v in discovery.items()}) if isinstance(discovery, dict) else None
     return state
-
-
-def _revive(item: object, target_cls: type) -> object:
-    """Re-instantiate a Pydantic model from a dict; pass non-dicts through unchanged."""
-    if isinstance(item, dict):
-        return target_cls(**item)
-    return item

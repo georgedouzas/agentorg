@@ -34,12 +34,14 @@ class Decision:
 
 
 def _classify_function(fn: Callable[..., Any]) -> ToolClass:
+    """Classify a custom or org tool function by its declared side effect."""
     if side_effect_of(fn) == 'read':
         return ToolClass('read')
     return ToolClass('action', 'outbound_message' if getattr(fn, 'outbound', False) else 'external_write')
 
 
 def _classify_mcp(agent: Agent, server_name: str, tool: str, custom: Mapping[str, Callable[..., Any]]) -> ToolClass:
+    """Classify an MCP tool call by its server and that server's tool lists."""
     if server_name == 'org':
         return ToolClass('action', ORG_ACTIONS[tool]) if tool in ORG_ACTIONS else ToolClass('org')
     if server_name == 'custom':
@@ -54,12 +56,14 @@ def _classify_mcp(agent: Agent, server_name: str, tool: str, custom: Mapping[str
 
 def _decide_action(
     tool_name: str,
+    *,
     action_class: ActionClass | None,
     autonomy: Autonomy,
     governed: Collection[ActionClass],
     lifecycle: LifecycleState,
     preview: bool,
 ) -> Decision:
+    """Decide a consequential action from preview mode, governance, lifecycle and autonomy."""
     if preview and action_class != 'knowledge_publish':
         return Decision('deny', f'{tool_name} is disabled in preview mode; describe what you would do instead.')
     if action_class in governed or lifecycle == 'trial' or autonomy == 'propose':
@@ -120,7 +124,14 @@ def decide(
         return Decision('deny', f'{tool_name} changes state, and you may only read in this org.')
     if tool_class.kind == 'workspace_write':
         return Decision('allow')
-    return _decide_action(tool_name, tool_class.action_class, autonomy, governed, lifecycle, preview)
+    return _decide_action(
+        tool_name,
+        action_class=tool_class.action_class,
+        autonomy=autonomy,
+        governed=governed,
+        lifecycle=lifecycle,
+        preview=preview,
+    )
 
 
 def effective_autonomy(spec: Spec, agent_id: str) -> Autonomy:

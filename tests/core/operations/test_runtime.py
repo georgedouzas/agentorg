@@ -4,9 +4,10 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
+from agentfield.agent import Agent as AgentFieldNode
 from claude_agent_sdk import ClaudeAgentOptions
-from fastapi import FastAPI
 
 from agentorg.core import ConfigurationError
 from agentorg.core.operations import OrgRuntime, database_url, start_operations
@@ -119,9 +120,9 @@ async def test_runtime_failure_policy(
     await runtime.stop()
 
 
-def test_start_operations_mounts_webhooks(spec_dict_normal: dict[str, Any], tmp_path: Path) -> None:
-    """Starting operations on an app mounts the webhook route."""
-    app = FastAPI()
+async def test_start_operations_mounts_webhooks(spec_dict_normal: dict[str, Any], tmp_path: Path) -> None:
+    """Starting operations on an app mounts the webhook route, which answers for unknown triggers."""
+    app = AgentFieldNode(node_id='acme-org')
     start_operations(
         app,
         Spec.model_validate(spec_dict_normal),
@@ -129,7 +130,9 @@ def test_start_operations_mounts_webhooks(spec_dict_normal: dict[str, Any], tmp_
         skills_dir=tmp_path,
         environ=PREVIEW,
     )
-    assert '/hooks/{trigger_id}' in {getattr(route, 'path', '') for route in app.routes}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://org') as client:
+        response = await client.post('/hooks/nope', content=b'{}')
+    assert (response.status_code, response.json()['detail']) == (404, "No webhook trigger 'nope'.")
 
 
 def test_database_url_by_infra(spec_dict_minimal: dict[str, Any], tmp_path: Path) -> None:

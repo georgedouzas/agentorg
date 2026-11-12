@@ -1,6 +1,7 @@
 """Resolve the AgentField node that tools read memory from."""
 
 from agentfield import Agent
+from agentfield.memory import MemoryInterface
 
 _bound: list[Agent] = []
 
@@ -24,3 +25,19 @@ def current_node() -> Agent:
         msg = 'Tools need an AgentField node; run them inside a reasoner or call bind_node(node) at startup.'
         raise RuntimeError(msg)
     return node
+
+
+def current_memory() -> MemoryInterface:
+    """Return the memory of the current or bound node.
+
+    Returns:
+        memory: The node's AgentField memory.
+
+    Raises:
+        RuntimeError: The node has no memory because no AgentField control plane is attached.
+    """
+    memory = current_node().memory
+    if memory is None:
+        msg = 'Knowledge and parameters need an AgentField control plane; set AGENTFIELD_SERVER.'
+        raise RuntimeError(msg)
+    return memory

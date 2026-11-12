@@ -3,11 +3,17 @@
 from pathlib import Path
 
 import pytest
-from agno.agent import Agent
 from click.testing import CliRunner
 
 from agentorg.cli import new
-from agentorg.master import add_or_update_agent, get_state, reset_state, save_draft, set_org_identity
+from agentorg.master import (
+    add_or_update_agent,
+    add_or_update_unit,
+    get_state,
+    reset_state,
+    save_draft,
+    set_org_identity,
+)
 
 
 def _advance_to_configure() -> None:
@@ -22,12 +28,12 @@ def _reset() -> None:
 
 @pytest.fixture
 def _skip_cli_app(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Replace `agno.Agent.acli_app` with a no-op so the chat REPL doesn't try to read from stdin."""
+    """Replace the interview loop with a no-op so the chat REPL doesn't try to read from stdin."""
 
-    async def _noop_cli_app(*_args: object, **_kwargs: object) -> None:
+    async def _noop_interview(*_args: object, **_kwargs: object) -> None:
         return None
 
-    monkeypatch.setattr(Agent, 'acli_app', _noop_cli_app)
+    monkeypatch.setattr('agentorg.cli._new._interview', _noop_interview)
 
 
 def test_new_help_documents_the_command():
@@ -54,13 +60,8 @@ def test_new_resume_loads_an_existing_draft(tmp_path: Path):
     """`--resume` reads the draft file before the chat loop starts."""
     _advance_to_configure()
     set_org_identity(name='Resumed Org')
-    add_or_update_agent(
-        agent_id='researcher',
-        name='Researcher',
-        role='Gather sources.',
-        in_scope=['Sources'],
-        workflow=['Step.'],
-    )
+    add_or_update_unit(unit_id='research', name='Research', model='solo')
+    add_or_update_agent(agent_id='researcher', name='Researcher', role='Gather sources.', unit_id='research')
     draft = tmp_path / 'draft.json'
     save_draft(draft)
     reset_state()
