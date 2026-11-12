@@ -1,6 +1,7 @@
 """Development tasks."""
 
 import shutil
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -25,19 +26,18 @@ CHANGELOG_ARGS: dict[str, Any] = {
 }
 
 
-def check_cli(session: nox.Session, args: list[str]) -> str:
+def check_cli(session: nox.Session, args: list[str], default: str = 'all') -> str:
     """Check the CLI arguments.
 
     Arguments:
         session: The nox session.
         args: The available CLI arguments.
+        default: The subcommand used when none is given.
     """
     available_args = ', '.join([f'`{arg}`' for arg in args])
     msg = f'Available subcommands are one of {available_args}.'
-    session_args = list(session.posargs)
-    if not session_args:
-        session_args = ['all']
-    elif len(session_args) > 1 or session_args[0] not in args:
+    session_args = list(session.posargs) or [default]
+    if len(session_args) > 1 or session_args[0] not in args:
         session.skip(f'{msg} Instead `{" ".join(session_args)}` was given')
     return session_args[0]
 
@@ -62,7 +62,7 @@ def clean(session: nox.Session) -> None:
         'docs/generated',
         '.nox',
         '.ruff_cache',
-        'uv.lock',
+        'coverage.xml',
     ]
     for path in paths:
         shutil.rmtree(path, ignore_errors=True)
@@ -83,9 +83,10 @@ def docs(session: nox.Session) -> None:
     Arguments:
         session: The nox session.
     """
-    arg = check_cli(session, ['serve', 'build'])
-    session.run('uv', 'sync', '--only-dev', '--active', external=True)
-    session.run('mkdocs', arg)
+    arg = check_cli(session, ['serve', 'build'], default='serve')
+    # Not `--only-dev`: mkdocstrings imports the package to document it.
+    session.run('uv', 'sync', '--active', external=True)
+    session.run('properdocs', arg)
 
 
 @nox.session
@@ -121,9 +122,10 @@ def checks(session: nox.Session, file: str) -> None:
     if arg in ['types', 'all']:
         session.run('mypy', file)
     if arg in ['security', 'all']:
-        session.run('bandit', '-r', file)
+        session.run('bandit', '-c', 'pyproject.toml', '-r', file)
     if arg in ['docs', 'all'] and file == 'src':
         session.run('interrogate', file)
+        session.run('pydoclint', file)
     if arg in ['dependencies', 'all']:
         requirements_path = (Path(session.create_tmp()) / 'requirements.txt').as_posix()
         session.run(
@@ -133,11 +135,16 @@ def checks(session: nox.Session, file: str) -> None:
             'requirements-txt',
             '--group',
             'dev',
+            '--no-emit-project',
             '--output-file',
             requirements_path,
             external=True,
         )
-        session.run('safety', 'check', '-r', requirements_path)
+        config = tomllib.loads(Path('pyproject.toml').read_text())
+        ignored = config.get('tool', {}).get('pip-audit', {}).get('ignore-vulns', [])
+        ignore_args = [flag for vuln in ignored for flag in ('--ignore-vuln', vuln)]
+        session.run('pip-audit', '-r', requirements_path, *ignore_args)
+        session.run('deptry', 'src', 'tests')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -156,6 +163,7 @@ def tests(session: nox.Session) -> None:
     session.run('coverage', 'combine')
     session.run('coverage', 'report')
     session.run('coverage', 'html')
+    session.run('coverage', 'xml')
 
 
 @nox.session
@@ -192,15 +200,11 @@ def release(session: nox.Session) -> None:
     session.run('git', 'push', '-u', 'origin', f'release_{version}', external=True)
 
     # Create and merge PR from release branch to main
-    session.run('gh', 'pr', 'create', '--base', 'main', external=True)
+    session.run('gh', 'pr', 'create', '--base', 'main', '--fill', external=True)
     session.run('gh', 'pr', 'merge', '--rebase', '--delete-branch', external=True)
 
-    # Create tag
+    # Create and push the release tag, which is what the pipeline reacts to
     session.run('git', 'checkout', 'main', external=True)
     session.run('git', 'pull', '--rebase', external=True)
     session.run('git', 'tag', version, external=True)
-    session.run('git', 'push', '--tags', external=True)
-
-    # Build and upload artifacts
-    session.run('uv', 'build', external=True)
-    session.run('twine', 'upload', '--skip-existing', 'dist/*')
+    session.run('git', 'push', 'origin', version, external=True)

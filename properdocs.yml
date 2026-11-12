@@ -1,5 +1,5 @@
 site_name: "agentorg"
-site_description: "A framework for generating multi-agent organisations powered by Agno."
+site_description: "A framework for generating multi-agent organisations powered by Claude agents."
 site_url: "https://georgedouzas.github.io/agentorg"
 repo_url: "https://github.com/georgedouzas/agentorg"
 repo_name: "georgedouzas/agentorg"
