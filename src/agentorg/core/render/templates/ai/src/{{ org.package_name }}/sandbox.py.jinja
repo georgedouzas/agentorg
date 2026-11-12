@@ -1,4 +1,4 @@
-"""Sandbox driver: boot a real AgentField node, register the spec's agents, smoke-test each.
+"""Smoke-test every agent of the spec on the Claude agent harness, without a broker.
 
 Run with:
     uv run python -m {{ org.package_name }}.sandbox
@@ -6,48 +6,30 @@ Run with:
 
 import asyncio
 import os
+import tempfile
+from pathlib import Path
 
-from agentfield import Agent
-from agentorg.core.adapters.agno import register_agents, register_teams, register_workflows
+from agentorg.core.operations import OrgRuntime
 
 from {{ org.package_name }}.spec import spec
-
 
 SMOKE_PROMPT = 'Hello, please reply with one short sentence so I can confirm you are reachable.'
 
 
 async def main() -> None:
-    """Boot the node, register every reasoner, run each agent against the smoke prompt."""
-    server = os.getenv('AGENTFIELD_SERVER')
-    node = Agent(
-        node_id=spec.org.slug,
-        version='1.0.0',
-        description=spec.org.description,
-        tags=[spec.org.slug],
-        agentfield_server=server,
-        auto_register=bool(server),
-        enable_did=bool(server),
-        vc_enabled=bool(server),
-        dev_mode=not server,
-    )
-    node.embedder_model = spec.runtime.infra.embedder  # type: ignore[attr-defined]
-
-    register_agents(node, spec)
-    register_teams(node, spec)
-    register_workflows(node, spec)
-
-    if not spec.ai.agents:
-        print('No agents in spec.ai.agents - nothing to sandbox.')
-        return
-
-    for agent in spec.ai.agents:
-        name = getattr(agent, 'id', None) or getattr(agent, 'name', None) or '<unnamed>'
-        print(f'\n=== {name} ===')
-        try:
-            result = await agent.arun(SMOKE_PROMPT)
-            print((result.content or '').strip()[:300])
-        except Exception as exc:  # noqa: BLE001 - surface all failures to the user
-            print(f'ERROR: {type(exc).__name__}: {exc}')
+    """Run each agent once on the smoke prompt in preview mode and print its output and cost."""
+    environ = {**os.environ, 'AGENTORG_PREVIEW_MODE': 'true'}
+    data_dir = Path(tempfile.mkdtemp(prefix='{{ org.slug }}-sandbox-'))
+    runtime = OrgRuntime(spec, environ=environ, data_dir=data_dir, skills_dir=Path(__file__).parent / 'skills')
+    await runtime.start()
+    try:
+        for agent in spec.ai.agents:
+            result = await runtime.run_target(agent.id, SMOKE_PROMPT, None, 'sandbox')
+            run = await runtime.store.get_run(result['run_id']) if 'run_id' in result else None
+            cost = f'{run.cost_usd:.4f} USD' if run else 'n/a'
+            print(f'[{agent.id}] {result["status"]} ({cost}): {result["output"]}')
+    finally:
+        await runtime.stop()
 
 
 if __name__ == '__main__':

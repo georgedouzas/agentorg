@@ -3,9 +3,6 @@
 from typing import Any
 
 import pytest
-from agno.agent import Agent
-from agno.team import Team
-from agno.workflow import Step, Workflow
 
 
 @pytest.fixture
@@ -20,7 +17,6 @@ def org_dict_minimal() -> dict[str, Any]:
         'admin_name': '',
         'admin_email': '',
         'visibility': 'private',
-        'budget': 'medium',
     }
 
 
@@ -36,7 +32,6 @@ def org_dict_normal() -> dict[str, Any]:
         'admin_name': 'A. Coyote',
         'admin_email': 'coyote@acme.com',
         'visibility': 'private',
-        'budget': 'medium',
     }
 
 
@@ -88,17 +83,64 @@ def runtime_dict_normal() -> dict[str, Any]:
 
 @pytest.fixture
 def ai_dict_minimal() -> dict[str, Any]:
-    """Minimal AI dict with empty agents, teams, and workflows."""
-    return {'agents': [], 'teams': [], 'workflows': [], 'framework': 'agno'}
+    """Minimal AI dict: one agent in a solo root unit."""
+    return {
+        'agents': [{'id': 'assistant', 'name': 'Assistant', 'role': 'Answers questions.'}],
+        'root': {'id': 'org', 'name': 'Org', 'model': 'solo', 'members': ['assistant']},
+    }
 
 
 @pytest.fixture
 def ai_dict_normal() -> dict[str, Any]:
-    """Normal AI dict carrying one agent, one team that wraps it, and a one-step workflow."""
-    researcher = Agent(id='researcher', name='Researcher', instructions='Gather sources.')
-    team = Team(id='research-team', name='Research Team', members=[researcher])
-    workflow = Workflow(id='pipeline', name='Pipeline', steps=[Step(name='Gather', agent=researcher)])
-    return {'agents': [researcher], 'teams': [team], 'workflows': [workflow], 'framework': 'agno'}
+    """Normal AI dict: a hub led by an analyst over a researcher and a two-step pipeline."""
+    return {
+        'agents': [
+            {'id': 'analyst', 'name': 'Analyst', 'role': 'Leads the research.', 'model': 'opus'},
+            {'id': 'researcher', 'name': 'Researcher', 'role': 'Gathers sources.', 'autonomy': 'read_only'},
+            {'id': 'writer', 'name': 'Writer', 'role': 'Drafts reports.'},
+            {'id': 'editor', 'name': 'Editor', 'role': 'Edits reports.'},
+        ],
+        'root': {
+            'id': 'research',
+            'name': 'Research',
+            'model': 'hub',
+            'lead': 'analyst',
+            'members': [
+                'researcher',
+                {
+                    'id': 'reporting',
+                    'name': 'Reporting',
+                    'model': 'pipeline',
+                    'members': ['writer', {'member': 'editor', 'review': 'human'}],
+                },
+            ],
+        },
+    }
+
+
+@pytest.fixture
+def operations_dict_minimal() -> dict[str, Any]:
+    """Minimal Operations dict relying on every default."""
+    return {}
+
+
+@pytest.fixture
+def operations_dict_normal() -> dict[str, Any]:
+    """Normal Operations dict with a weekly schedule, a budget and an email channel."""
+    return {
+        'triggers': [
+            {
+                'kind': 'schedule',
+                'id': 'weekly-report',
+                'target': 'research',
+                'prompt': 'Write the weekly report with at least {min_sources} sources.',
+                'cron': '0 8 * * MON',
+                'timezone': 'Europe/Athens',
+            },
+        ],
+        'budget': {'monthly_usd': 200},
+        'notifications': {'channels': ['email'], 'email_to': ['ops@acme.com']},
+    }
 
 
 @pytest.fixture
@@ -180,6 +222,7 @@ def spec_dict_minimal(
     org_dict_minimal: dict[str, Any],
     runtime_dict_minimal: dict[str, Any],
     ai_dict_minimal: dict[str, Any],
+    operations_dict_minimal: dict[str, Any],
     parameters_list_minimal: list[dict[str, Any]],
     knowledge_dict_minimal: dict[str, Any],
     ui_dict_minimal: dict[str, Any],
@@ -189,6 +232,7 @@ def spec_dict_minimal(
         'org': org_dict_minimal,
         'runtime': runtime_dict_minimal,
         'ai': ai_dict_minimal,
+        'operations': operations_dict_minimal,
         'parameters': parameters_list_minimal,
         'knowledge': knowledge_dict_minimal,
         'ui': ui_dict_minimal,
@@ -200,6 +244,7 @@ def spec_dict_normal(
     org_dict_normal: dict[str, Any],
     runtime_dict_normal: dict[str, Any],
     ai_dict_normal: dict[str, Any],
+    operations_dict_normal: dict[str, Any],
     parameters_list_normal: list[dict[str, Any]],
     knowledge_dict_normal: dict[str, Any],
     ui_dict_normal: dict[str, Any],
@@ -209,6 +254,7 @@ def spec_dict_normal(
         'org': org_dict_normal,
         'runtime': runtime_dict_normal,
         'ai': ai_dict_normal,
+        'operations': operations_dict_normal,
         'parameters': parameters_list_normal,
         'knowledge': knowledge_dict_normal,
         'ui': ui_dict_normal,

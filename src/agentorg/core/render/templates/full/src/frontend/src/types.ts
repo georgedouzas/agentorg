@@ -16,6 +16,7 @@ export interface AppConfig {
   overview: OverviewBlock[];
   agent_configs: Record<string, AgentConfig>;
   platform_agents?: { id: string; name: string }[];
+  units?: UnitSummary[];
   principles_owner?: string;
 }
 
@@ -27,6 +28,8 @@ export interface Parameter {
   default: number | string | boolean;
   label?: string;
   format?: string | null;
+  group?: string;
+  unit?: string;
 }
 export interface PrincipleSection { id: string; title: string; body: string; }
 export interface Principles { sections: PrincipleSection[]; }
@@ -54,11 +57,8 @@ export interface ChatMessage {
 }
 
 export interface HitlState {
-  workflowId: string;
-  runId: string;
-  sessionId: string;
+  approvalId: string;
   message: string;
-  requiresInput: boolean;
 }
 
 export interface AgentItem { agent_id?: string; id?: string; name?: string; role?: string; is_platform?: boolean; }
@@ -67,3 +67,40 @@ export interface SelectedAgent { id: string; name: string; type: 'agent' | 'work
 
 export interface KnowledgeItem { name: string; title: string; type: string; agent_id?: string; created_at: string; }
 export interface KnowledgeGroup { agent_id: string; agent_name: string; items: KnowledgeItem[]; }
+
+export interface UnitSummary { id: string; name: string; model: string; lead: string | null; members: string[]; }
+
+export interface RunSummary {
+  id: string;
+  target: string;
+  trigger_kind: string;
+  trigger_id: string | null;
+  parent_id: string | null;
+  status: string;
+  failure_reason: string | null;
+  output: unknown;
+  cost_usd: number;
+  created_at: string | null;
+  ended_at: string | null;
+}
+
+export interface RunDetail extends RunSummary {
+  prompt: string;
+  transcript: Record<string, unknown>[];
+  children: RunSummary[];
+}
+
+export interface ApprovalItem {
+  id: string;
+  run_id: string;
+  action_class: string;
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  approvers: string[];
+  created_at: string;
+}
+
+export interface InboxEntry { id: string; kind: string; run_id: string | null; reason: string; context: Record<string, unknown>; created_at: string; }
+
+export interface LifecycleEvent { from: string | null; to: string; actor: string; reason: string; at: string; }
+export interface LifecycleInfo { state: string; reason: string; history: LifecycleEvent[]; }

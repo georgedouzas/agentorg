@@ -1,0 +1,26 @@
+.view { padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+.title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.filterActive { border-color: var(--accent); color: var(--accent); }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+.rowMain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rowTitle { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowSub { font-size: 11px; color: var(--muted); }
+.status { font-size: 11px; font-weight: 600; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.status_succeeded { color: var(--green); border-color: var(--green); }
+.status_failed, .status_cancelled { color: var(--red); border-color: var(--red); }
+.status_awaiting_approval { color: var(--gold); border-color: var(--gold); }
+.status_running, .status_queued { color: var(--accent); border-color: var(--accent); }
+.detail { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.pre { white-space: pre-wrap; word-break: break-word; margin: 0; font-family: ui-monospace, monospace; font-size: 11px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.button { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+.approve { border-color: var(--green); color: var(--green); }
+.reject { border-color: var(--red); color: var(--red); }
+.textarea { width: 100%; min-height: 80px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-family: ui-monospace, monospace; font-size: 11px; box-sizing: border-box; }
+.empty { color: var(--muted); font-size: 13px; }
+.banner { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.bannerState { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.bannerReason { color: var(--muted); flex: 1; min-width: 0; }

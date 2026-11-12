@@ -4,10 +4,10 @@ import json
 import os
 from typing import Any
 
-from ._tags import tags
+from ._tags import tool
 
 
-@tags('setup')
+@tool('read', tags=('setup',))
 def get_setup_status(spec_setup_steps: list[dict[str, Any]] | None = None) -> str:
     """Return the current setup checklist with per-step completion.
 

@@ -26,7 +26,6 @@ def test_construct_with_all_fields(org_dict_normal: dict[str, Any]) -> None:
         'admin_name',
         'admin_email',
         'visibility',
-        'budget',
     ],
 )
 def test_missing_field_raises(org_dict_minimal: dict[str, Any], missing: str) -> None:
@@ -43,11 +42,9 @@ def test_visibility_rejects_unknown_value(org_dict_minimal: dict[str, Any]) -> N
         Org(**org_dict_minimal)
 
 
-def test_budget_rejects_unknown_value(org_dict_minimal: dict[str, Any]) -> None:
-    """Budget is one of low, medium, high."""
-    org_dict_minimal['budget'] = 'enormous'
-    with pytest.raises(ValidationError):
-        Org(**org_dict_minimal)
+def test_org_has_no_budget_field() -> None:
+    """The budget lives in `operations.budget`, not on the org."""
+    assert 'budget' not in Org.model_fields
 
 
 @pytest.mark.parametrize(

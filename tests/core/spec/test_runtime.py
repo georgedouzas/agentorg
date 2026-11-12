@@ -122,7 +122,7 @@ def test_runtime_construction(runtime_dict_normal: dict[str, Any]) -> None:
     """Runtime wraps an Infra, EnvVars, and a list of SetupStep."""
     runtime = Runtime.model_validate(runtime_dict_normal)
     assert runtime.infra.packaging == 'docker'
-    assert runtime.env_vars.required[0].name == 'GOOGLE_API_KEY'
+    assert [var.name for var in runtime.env_vars.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'GOOGLE_API_KEY']
     assert runtime.setup[0].id == 'secrets'
 
 
@@ -139,3 +139,24 @@ def test_runtime_propagates_infra_validator(runtime_dict_minimal: dict[str, Any]
     bad = {**runtime_dict_minimal, 'infra': {**runtime_dict_minimal['infra'], 'vector_db': 'pgvector'}}
     with pytest.raises(ValidationError, match='pgvector'):
         Runtime.model_validate(bad)
+
+
+def test_runtime_always_requires_platform_env_vars(runtime_dict_minimal: dict[str, Any]) -> None:
+    """ANTHROPIC_API_KEY and AMQP_URL are required env vars of every org."""
+    runtime = Runtime.model_validate(runtime_dict_minimal)
+    assert [var.name for var in runtime.env_vars.required][:2] == ['ANTHROPIC_API_KEY', 'AMQP_URL']
+
+
+def test_runtime_does_not_duplicate_declared_platform_env_var(runtime_dict_minimal: dict[str, Any]) -> None:
+    """A spec that already declares AMQP_URL keeps a single entry."""
+    broker = {'name': 'AMQP_URL', 'description': 'Broker.', 'required_label': 'Prod'}
+    runtime_dict_minimal['env_vars']['optional'] = [broker]
+    names = [var.name for var in Runtime.model_validate(runtime_dict_minimal).env_vars.required]
+    assert names == ['ANTHROPIC_API_KEY']
+
+
+def test_runtime_railway_adds_rabbitmq_setup_step(runtime_dict_minimal: dict[str, Any]) -> None:
+    """Railway deployments get a setup step that provisions RabbitMQ and sets AMQP_URL."""
+    runtime_dict_minimal['infra'] |= {'packaging': 'docker', 'api': 'railway'}
+    steps = Runtime.model_validate(runtime_dict_minimal).setup
+    assert [(step.id, step.variables) for step in steps] == [('rabbitmq', ['AMQP_URL'])]

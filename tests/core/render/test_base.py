@@ -67,3 +67,15 @@ def test_spec_py_is_copied_into_rendered_package(write_spec_py: Callable[..., Pa
     copied = output / 'src' / 'acme' / 'spec.py'
     assert copied.exists()
     assert copied.read_text() == spec_py.read_text()
+
+
+def test_railway_render_lists_rabbitmq_setup_step(spec_dict_minimal: dict[str, Any], tmp_path: Path) -> None:
+    """A Railway org's rendered README carries the step that provisions RabbitMQ and sets AMQP_URL."""
+    spec_dict_minimal['runtime']['infra'] |= {'packaging': 'docker', 'api': 'railway'}
+    spec_py = tmp_path / 'spec' / 'spec.py'
+    spec_py.parent.mkdir()
+    spec_py.write_text(f'from agentorg.core.spec import Spec\nspec = Spec.model_validate({spec_dict_minimal!r})\n')
+    render(spec_py, tmp_path / 'out', template='full')
+    readme = (tmp_path / 'out' / 'README.md').read_text()
+    assert 'Provision RabbitMQ' in readme
+    assert '`AMQP_URL`' in readme

@@ -9,7 +9,8 @@ import litellm
 from agentfield import Agent
 from agentfield.memory import ScopedMemoryClient
 
-from ._tags import tags
+from ._node import current_node
+from ._tags import tool
 
 PREFIX = 'kn:'
 PREVIEW_WRITE_MSG = '(Preview mode: knowledge writes are disabled. Set `AGENTORG_PREVIEW_MODE=false` to disable it.)'
@@ -103,11 +104,7 @@ async def similarity_units(
 
 
 def _node() -> Agent:
-    node = Agent.get_current()
-    if node is None:
-        msg = 'Knowledge tools must run inside a reasoner execution.'
-        raise RuntimeError(msg)
-    return node
+    return current_node()
 
 
 def _scope() -> ScopedMemoryClient:
@@ -123,7 +120,7 @@ def _matches_metadata(unit: dict[str, Any], metadata_filter: dict[str, Any]) -> 
     return all(md.get(k) == v for k, v in metadata_filter.items())
 
 
-@tags('knowledge')
+@tool('write', tags=('knowledge',))
 async def write_knowledge(
     knowledge_type: str,
     name: str,
@@ -168,7 +165,7 @@ async def write_knowledge(
     return f"Saved {knowledge_type} '{name}' to knowledge."
 
 
-@tags('knowledge')
+@tool('read', tags=('knowledge',))
 async def read_knowledge(knowledge_type: str, name: str) -> str:
     """Read a knowledge unit by type and name.
 
@@ -185,7 +182,7 @@ async def read_knowledge(knowledge_type: str, name: str) -> str:
     return str(unit['content'])
 
 
-@tags('knowledge')
+@tool('read', tags=('knowledge',))
 async def list_knowledge(knowledge_type: str = '', metadata_filter: dict[str, Any] | None = None) -> str:
     """List knowledge units, optionally filtered by type and metadata.
 
@@ -218,7 +215,7 @@ async def list_knowledge(knowledge_type: str = '', metadata_filter: dict[str, An
     return '\n'.join(lines)
 
 
-@tags('knowledge')
+@tool('read', tags=('knowledge',))
 async def search_knowledge(query: str, knowledge_types: list[str] | None = None, top_k: int = 10) -> str:
     """Search knowledge units ranked by embedding similarity.
 
@@ -238,7 +235,7 @@ async def search_knowledge(query: str, knowledge_types: list[str] | None = None,
     )
 
 
-@tags('knowledge')
+@tool('write', tags=('knowledge',))
 async def delete_knowledge(knowledge_type: str, name: str) -> str:
     """Delete a knowledge unit and its embedding.
 

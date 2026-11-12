@@ -14,11 +14,14 @@ import { DashboardView } from './components/Views/DashboardView';
 import { KnowledgeView } from './components/Views/KnowledgeView';
 import { SettingsView } from './components/Views/SettingsView';
 import { MasterView } from './components/Views/MasterView';
+import { RunsView } from './components/Views/RunsView';
+import { InboxView } from './components/Views/InboxView';
+import { LifecycleBanner } from './components/Shell/LifecycleBanner';
 import { ParameterSetupModal } from './components/Views/ParameterSetupModal';
 import type { AgentItem, WorkflowItem, SelectedAgent } from './types';
 import styles from './App.module.css';
 
-type Tab = 'dashboard' | 'knowledge' | 'settings' | 'master';
+type Tab = 'dashboard' | 'knowledge' | 'runs' | 'inbox' | 'settings' | 'master';
 
 // True when this build is rendered by `agentorg ui` for the live preview iframe. In
 // that mode we skip first-run friction (parameter setup modal, setup-status block) so
@@ -133,26 +136,6 @@ export default function App() {
     setSelectedAgent(agent);
   }
 
-  async function handlePanelOpen(title: string, endpoint: string) {
-    setPanel({ open: true, title, content: 'Loading…' });
-    try {
-      const data = await apiFetch<string | Record<string, unknown>>(endpoint);
-      let content = '';
-      if (typeof data === 'string') {
-        content = data;
-      } else if (data && typeof data === 'object') {
-        const obj = data as Record<string, unknown>;
-        content = (obj['content'] as string | undefined)
-          ?? (obj['body'] as string | undefined)
-          ?? (obj['text'] as string | undefined)
-          ?? JSON.stringify(data, null, 2);
-      }
-      setPanel(prev => ({ ...prev, content }));
-    } catch (e) {
-      setPanel(prev => ({ ...prev, content: `Error: ${(e as Error).message}` }));
-    }
-  }
-
   function closePanel() {
     setPanel(prev => ({ ...prev, open: false }));
   }
@@ -197,6 +180,7 @@ export default function App() {
       />
 
       <main className={styles.main}>
+        <LifecycleBanner actor={identity.userId ?? 'default'} />
         <nav className={styles.tabNav}>
           <button
             className={`${styles.tabBtn} ${activeTab === 'dashboard' ? styles.tabBtnActive : ''}`}
@@ -217,6 +201,18 @@ export default function App() {
             <KnowledgeIcon /> Knowledge
           </button>
           <button
+            className={`${styles.tabBtn} ${activeTab === 'runs' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('runs')}
+          >
+            Runs
+          </button>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'inbox' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('inbox')}
+          >
+            Inbox
+          </button>
+          <button
             className={`${styles.tabBtn} ${activeTab === 'settings' ? styles.tabBtnActive : ''}`}
             onClick={() => setActiveTab('settings')}
           >
@@ -230,6 +226,8 @@ export default function App() {
           {activeTab === 'knowledge' && (
             <KnowledgeView config={config} />
           )}
+          {activeTab === 'runs' && <RunsView />}
+          {activeTab === 'inbox' && <InboxView actor={identity.userId ?? 'default'} />}
           {activeTab === 'settings' && (
             <SettingsView
               orgName={config.app_name}

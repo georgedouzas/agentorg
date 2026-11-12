@@ -55,3 +55,41 @@ export async function readSSE(res: Response, handler: (ev: Record<string, unknow
     }
   }
 }
+
+export type RunEvent = Record<string, unknown> & { type?: string };
+
+// Read a run's SSE stream: each block carries an `event:` name and a JSON `data:` line.
+export async function readRunStream(res: Response, onEvent: (name: string, data: RunEvent) => void): Promise<void> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+    const blocks = buf.split('\n\n');
+    buf = blocks.pop() ?? '';
+    for (const block of blocks) {
+      const lines = block.split('\n');
+      const name = lines.find(l => l.startsWith('event: '))?.slice(7) ?? 'message';
+      const dataLine = lines.find(l => l.startsWith('data: '));
+      if (!dataLine) continue;
+      try { onEvent(name, JSON.parse(dataLine.slice(6)) as RunEvent); } catch { /* skip malformed block */ }
+    }
+  }
+}
+
+// Stream a chat message to an agent or unit as a run.
+export function postRun(target: string, userId: string, body: Record<string, unknown>, signal: AbortSignal): Promise<Response> {
+  return fetch(`${API_BASE}/api/v1/reasoners/${encodeURIComponent(target)}/stream?user_id=${encodeURIComponent(userId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
+// Decide an approval as `actor`.
+export function decideApproval(id: string, actor: string, approved: boolean, comment = '', edited?: Record<string, unknown>): Promise<unknown> {
+  return apiPost(`/api/v1/approvals/${encodeURIComponent(id)}`, { approved, actor, comment, edited_arguments: edited ?? null });
+}

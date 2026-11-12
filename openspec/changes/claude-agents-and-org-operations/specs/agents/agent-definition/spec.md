@@ -97,7 +97,7 @@ Each agent MAY list MCP servers. Each server declares:
 - `transport`: one of `stdio`, `http`, `sse`
 - connection details: `command`/`args` or `url`
 - `env`: environment-variable names, never literal secrets
-- optionally `allowed_tools`, `read_tools` and `write_tools`
+- optionally `allowed_tools`, `read_tools` and `outbound_tools`
 
 MCP tools not listed in `read_tools` SHALL be treated as write tools.
 

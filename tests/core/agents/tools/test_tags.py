@@ -1,59 +1,47 @@
 """Tests for the tags module."""
 
-import pytest
-
-from agentorg.core.agents.tools import tags
+from agentorg.core.agents.tools import read_knowledge, side_effect_of, tool, write_knowledge
 
 
-@pytest.mark.parametrize(
-    "tags_vals",
-    [
-        ['tag1', 'tag2'],
-        ['tag2', 'tag1'],
-    ],
-)
-def test_tags_decorator(tags_vals):
-    """Test that the tags decorator correctly attaches tags to a tool."""
+def test_tool_sets_side_effect_outbound_and_tags() -> None:
+    """The decorator records the side effect, the outbound flag and the tags on the function."""
 
-    @tags(*tags_vals)
-    def tool():
-        pass
+    @tool('read', outbound=True, tags=('crm',))
+    def lookup() -> None:
+        """Look up."""
 
-    assert tool.tags == tags_vals
+    assert (lookup.side_effect, lookup.outbound, lookup.tags) == ('read', True, ['crm'])  # type: ignore[attr-defined]
 
 
-@pytest.mark.parametrize(
-    "tags_vals",
-    [
-        ['tag1', 'tag2'],
-        ['tag2', 'tag1'],
-    ],
-)
-def test_tags_decorator_async(tags_vals):
-    """Test that the tags decorator correctly attaches tags to an async tool."""
+def test_tool_defaults_to_write_without_tags() -> None:
+    """A bare `tool()` marks the function as a non-outbound write with no tags."""
 
-    @tags(*tags_vals)
-    async def tool():
-        pass
+    @tool()
+    async def send() -> None:
+        """Send."""
 
-    assert tool.tags == tags_vals
+    assert (send.side_effect, send.outbound, send.tags) == ('write', False, [])  # type: ignore[attr-defined]
 
 
-def test_empty_tags_decorator():
-    """Test that the default tags decorator attaches no tags to a tool."""
+def test_tool_returns_original_function() -> None:
+    """The decorator returns the exact function it received."""
 
-    @tags()
-    def tool():
-        pass
-
-    assert tool.tags == []
-
-
-def test_tags_returns_original_function():
-    """The decorator must return the exact function it received, not a wrapper."""
-
-    async def tool(x: int) -> int:
+    async def lookup(x: int) -> int:
+        """Look up."""
         return x
 
-    decorated_tool = tags('tag')(tool)
-    assert decorated_tool is tool
+    assert tool('read')(lookup) is lookup
+
+
+def test_side_effect_of_treats_undecorated_tool_as_write() -> None:
+    """A tool without the decorator is governed as a write."""
+
+    def plain() -> None:
+        """Plain."""
+
+    assert side_effect_of(plain) == 'write'
+
+
+def test_side_effect_of_reads_builtin_knowledge_tools() -> None:
+    """The shipped knowledge tools declare reads and writes correctly."""
+    assert (side_effect_of(read_knowledge), side_effect_of(write_knowledge)) == ('read', 'write')

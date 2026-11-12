@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { setUserId } from '../api';
 
-const NAME_KEY = 'agno_user_name';
-const RECENT_KEY = 'agno_recent_users';
+const NAME_KEY = 'agentorg_user_name';
+const RECENT_KEY = 'agentorg_recent_users';
 
 // True when the rendered org is embedded in `agentorg ui`'s preview iframe. Master UI
 // sets VITE_AGENTORG_PREVIEW_MODE on the Vite subprocess; the value is baked into the
