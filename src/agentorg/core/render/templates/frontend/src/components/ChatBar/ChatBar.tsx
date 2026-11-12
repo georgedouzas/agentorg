@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
 import { marked } from 'marked';
-import { API_BASE, api } from '../../api';
+import { decideApproval, postRun, readRunStream } from '../../api';
 import type { ChatMessage, HitlState, SelectedAgent } from '../../types';
+import { applyRunEvent, finalText } from '../../chatEvents';
 import styles from './ChatBar.module.css';
 
 interface CachedAgentState {
@@ -97,8 +98,7 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
     abortRef.current = abortCtrl;
 
     try {
-      // Persist a stable session id per (user, agent) so agno's memory can scope chat history
-      // for this conversation; a refresh of the same tab continues the same session.
+      // A stable session id per (user, agent) keeps the agent's conversation memory across turns.
       const sessionKey = `session_${userId}_${selected.id}`;
       let sessionId = sessionStorage.getItem(sessionKey);
       if (!sessionId) {
@@ -106,60 +106,26 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
         sessionStorage.setItem(sessionKey, sessionId);
       }
 
-      // Stream agno events from the org's reasoner via SSE: tokens land into the assistant
-      // bubble live, <thinking>...</thinking> traces are hidden on the fly.
-      const res = await fetch(`${API_BASE}/api/v1/reasoners/${encodeURIComponent(selected.id)}/stream?user_id=${encodeURIComponent(userId)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: sessionId, user_id: userId }),
-        signal: abortCtrl.signal,
-      });
-
+      const res = await postRun(selected.id, userId, { message: text, session_id: sessionId, user_id: userId }, abortCtrl.signal);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const assistantId = nextId();
-      setMessages(prev => [...prev, {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        isMarkdown: true,
-        isStreaming: true,
-      }]);
-
-      let raw = '';
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      const stripThinking = (s: string) => {
-        let out = s.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
-        const idx = out.search(/<thinking>/i);
-        return (idx >= 0 ? out.slice(0, idx) : out).trimStart();
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        // sse-starlette uses CRLF line endings; normalise to LF before splitting.
-        buf += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
-        const blocks = buf.split('\n\n');
-        buf = blocks.pop() ?? '';
-        for (const block of blocks) {
-          const dataLine = block.split('\n').find(l => l.startsWith('data: '));
-          if (!dataLine) continue;
-          let ev: { event?: string; content?: string; error?: string };
-          try { ev = JSON.parse(dataLine.slice(6)) as typeof ev; } catch { continue; }
-          if (ev.event === 'RunContent' && ev.content) {
-            raw += ev.content;
-            const display = stripThinking(raw);
-            updateLastAssistant(m => ({ ...m, content: display }));
-          } else if (ev.event === 'RunCompleted' && ev.content) {
-            raw = ev.content;
-            updateLastAssistant(m => ({ ...m, content: stripThinking(raw), isStreaming: false }));
-          } else if (ev.event === 'RunError') {
-            updateLastAssistant(m => ({ ...m, content: ev.error || 'An error occurred', isStreaming: false }));
-          }
-        }
-      }
+      setMessages(prev => [...prev, { id: nextId(), role: 'assistant', content: '', isMarkdown: true, isStreaming: true }]);
+      let streamed = '';
+      await readRunStream(res, (name, data) => applyRunEvent(name, data, {
+        appendText: chunk => {
+          streamed = streamed ? `${streamed}\n\n${chunk}` : chunk;
+          const shown = streamed;
+          updateLastAssistant(m => ({ ...m, content: shown }));
+        },
+        toolStarted: name => { updateLastAssistant(m => ({ ...m, toolsCalled: [...(m.toolsCalled ?? []), name] })); },
+        toolFinished: () => undefined,
+        approvalRequested: (approvalId, tool) => setHitlState({ approvalId, message: `Waiting for approval to run ${tool}` }),
+        approvalDecided: () => setHitlState(null),
+        finish: (status, output, reason) => {
+          const shown = finalText(streamed, status, output, reason);
+          updateLastAssistant(m => ({ ...m, content: shown, isStreaming: false }));
+        },
+      }));
       updateLastAssistant(m => ({ ...m, isStreaming: false }));
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
@@ -196,26 +162,11 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
 
   async function handleHitlContinue(approved: boolean) {
     if (!hitlState) return;
-    const body: Record<string, unknown> = {
-      workflow_id: hitlState.workflowId,
-      run_id: hitlState.runId,
-      session_id: hitlState.sessionId,
-      approved,
-    };
-    if (hitlState.requiresInput && hitlInput.trim()) {
-      body['input'] = hitlInput.trim();
-    }
+    const { approvalId } = hitlState;
+    const comment = hitlInput.trim();
     setHitlState(null);
     setHitlInput('');
-    try {
-      await fetch(api('/api/workflow/continue'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-    } catch {
-      // ignore
-    }
+    try { await decideApproval(approvalId, userId, approved, comment); } catch { /* the inbox shows it is still pending */ }
   }
 
   const placeholder = selected
@@ -249,11 +200,11 @@ export function ChatBar({ selected, userId }: ChatBarProps) {
       {hitlState && (
         <div className={styles.hitlBar}>
           <span className={styles.hitlMsg}>{hitlState.message}</span>
-          {hitlState.requiresInput && (
+          {(
             <input
               className={styles.hitlInput}
               type="text"
-              placeholder="Your response…"
+              placeholder="Comment (sent with a rejection)…"
               value={hitlInput}
               onChange={e => setHitlInput(e.target.value)}
             />

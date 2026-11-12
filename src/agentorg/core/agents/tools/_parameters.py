@@ -5,20 +5,17 @@ from typing import Any
 
 from agentfield import Agent
 
-from ._tags import tags
+from ._node import current_node
+from ._tags import tool
 
 KEY = 'org_parameters'
 
 
 def _get_node() -> Agent:
-    node = Agent.get_current()
-    if node is None:
-        error_msg = 'Parameter tools must run inside a reasoner execution.'
-        raise RuntimeError(error_msg)
-    return node
+    return current_node()
 
 
-@tags('parameters')
+@tool('read', tags=('parameters',))
 async def get_org_parameters() -> str:
     """Read the org instance parameters.
 
@@ -29,7 +26,7 @@ async def get_org_parameters() -> str:
     return json.dumps({'parameters': state.get('parameters', {}) if state else {}})
 
 
-@tags('parameters')
+@tool('write', tags=('parameters',))
 async def set_org_parameter(
     name: str,
     value: str | int | float | bool | dict[str, Any] | list[Any],
@@ -50,7 +47,7 @@ async def set_org_parameter(
     return json.dumps({'parameters': state['parameters']})
 
 
-@tags('parameters')
+@tool('write', tags=('parameters',))
 async def reset_org_parameters() -> str:
     """Delete the org instance parameters.
 

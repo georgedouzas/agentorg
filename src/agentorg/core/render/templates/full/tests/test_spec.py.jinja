@@ -1,49 +1,26 @@
-"""Factory wiring tests that confirm the spec's agents, teams, and workflows register as reasoners."""
+"""Tests that the spec's agents and units register on the node as tagged reasoners."""
+
+from typing import Any
 
 from agentfield import Agent
 
-from agentorg.core.adapters.agno import register_agents, register_teams, register_workflows
-from agentorg.core.agents.framework.agno import register_master
+from agentorg.core.adapters.claude import register_org
 
 from {{ org.package_name }}.spec import spec
 
-EXPECTED_AGENT_COUNT = len(spec.ai.agents)
-EXPECTED_TEAM_COUNT = len(spec.ai.teams)
-EXPECTED_WORKFLOW_COUNT = len(spec.ai.workflows)
+
+async def _run_target(target: str, message: str, session_id: str | None, user_id: str) -> dict[str, Any]:
+    return {'status': 'succeeded', 'output': target}
 
 
-def _node() -> Agent:
-    """A standalone in-process node — no control plane, no registration."""
-    return Agent(node_id='test-node', auto_register=False, enable_did=False, vc_enabled=False, dev_mode=True)
+def test_register_org_registers_every_agent_and_unit() -> None:
+    """Every agent and every unit of the spec becomes a reasoner, agents first."""
+    names = register_org(Agent(node_id=spec.org.slug), spec, _run_target)
+    assert names == [agent.id for agent in spec.ai.agents] + [unit.id for unit in spec.ai.root.iter_units()]
 
 
-def test_register_master_registers_one_reasoner() -> None:
-    """`register_master` registers the master agent as a single reasoner."""
-    name = register_master(_node())
-    assert name == 'master'
-
-
-def test_register_agents_registers_every_spec_agent() -> None:
-    """`register_agents` registers one reasoner per spec agent and returns their names."""
-    names = register_agents(_node(), spec)
-    assert len(names) == EXPECTED_AGENT_COUNT
-    assert all(names), 'every agent must produce a non-empty reasoner name'
-
-
-def test_register_teams_registers_every_spec_team() -> None:
-    """`register_teams` registers one reasoner per spec team."""
-    assert len(register_teams(_node(), spec)) == EXPECTED_TEAM_COUNT
-
-
-def test_register_workflows_registers_every_spec_workflow() -> None:
-    """`register_workflows` registers one reasoner per spec workflow."""
-    assert len(register_workflows(_node(), spec)) == EXPECTED_WORKFLOW_COUNT
-
-
-def test_registered_agents_are_exposed_as_reasoner_routes() -> None:
-    """Every registered agent becomes a `/reasoners/{name}` endpoint on the node."""
-    node = _node()
-    names = register_agents(node, spec)
-    paths = {str(r.path) for r in node.routes}
-    for name in names:
-        assert f'/reasoners/{name}' in paths, f'{name} not exposed as a reasoner route'
+def test_registered_reasoners_carry_org_tag() -> None:
+    """Every reasoner carries the org slug, so control-plane policies can target the org."""
+    node = Agent(node_id=spec.org.slug)
+    register_org(node, spec, _run_target)
+    assert all(spec.org.slug in reasoner['tags'] for reasoner in node.reasoners)

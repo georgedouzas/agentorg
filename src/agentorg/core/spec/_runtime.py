@@ -57,8 +57,28 @@ class SetupStep(SpecModel):
 
 
 class Runtime(SpecModel):
-    """How and where the org runs."""
+    """How and where the org runs; the platform env vars and the hosted-broker step are always included."""
 
     infra: Infra
     env_vars: EnvVars
     setup: list[SetupStep]
+
+    @model_validator(mode='after')
+    def _include_platform_requirements(self) -> 'Runtime':
+        declared = {var.name for var in self.env_vars.required + self.env_vars.optional}
+        platform = [
+            EnvVar(name='ANTHROPIC_API_KEY', description='Anthropic API key of the agents.', required_label='Always'),
+            EnvVar(name='AMQP_URL', description='RabbitMQ URL that carries runs and events.', required_label='Always'),
+        ]
+        missing = [var for var in platform if var.name not in declared]
+        if missing:
+            self.env_vars.__dict__['required'] = [*missing, *self.env_vars.required]
+        if self.infra.api == 'railway' and 'rabbitmq' not in {step.id for step in self.setup}:
+            step = SetupStep(
+                id='rabbitmq',
+                title='Provision RabbitMQ',
+                description='Add a RabbitMQ service (Railway template or CloudAMQP) and set AMQP_URL to its URL.',
+                variables=['AMQP_URL'],
+            )
+            self.__dict__['setup'] = [*self.setup, step]
+        return self

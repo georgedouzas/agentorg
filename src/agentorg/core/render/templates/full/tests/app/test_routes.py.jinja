@@ -86,3 +86,55 @@ async def test_get_knowledge_filters_by_agent_id(client) -> None:  # noqa: ANN00
     r = await client.get('/api/v1/knowledge?agent_id=does-not-exist')
     assert r.status_code == 200
     assert r.json() == []
+
+
+async def test_get_units_lists_the_unit_tree(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/units` lists every unit with its governance model."""
+    units = (await client.get('/api/v1/units')).json()
+    assert units
+    assert {'id', 'model', 'members', 'lead'} <= set(units[0])
+
+
+async def test_get_agents_summarises_spec_agents(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/agents` shows each agent's persona, autonomy, tools and triggers."""
+    agents = (await client.get('/api/v1/agents')).json()
+    assert agents
+    assert {'persona', 'autonomy', 'tools', 'triggers', 'unit_path'} <= set(agents[0])
+
+
+async def test_runs_and_inbox_start_as_lists(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/runs`, `/approvals` and `/inbox` return lists."""
+    for path in ('/api/v1/runs', '/api/v1/approvals', '/api/v1/inbox'):
+        response = await client.get(path)
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+
+
+async def test_unknown_run_and_approval(client) -> None:  # noqa: ANN001
+    """An unknown run is 404 and deciding an unknown approval is 409."""
+    assert (await client.get('/api/v1/runs/nope')).status_code == 404
+    decision = {'approved': True, 'actor': 'admin@example.com'}
+    assert (await client.post('/api/v1/approvals/nope', json=decision)).status_code == 409
+
+
+async def test_lifecycle_reports_state_and_rejects_illegal_transition(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/lifecycle` reports the state and history, and an illegal transition is refused."""
+    lifecycle = (await client.get('/api/v1/lifecycle')).json()
+    assert lifecycle['state'] in ('draft', 'trial', 'active', 'paused', 'retired')
+    assert lifecycle['history']
+    response = await client.post('/api/v1/lifecycle', json={'to': 'draft', 'actor': 'admin', 'reason': 'test'})
+    assert response.status_code == 409
+
+
+async def test_health_reports_broker(client) -> None:  # noqa: ANN001
+    """`GET /api/v1/health` reports the broker, which the preview does not use."""
+    assert (await client.get('/api/v1/health')).json()['broker'] == 'disabled'
+
+
+async def test_disable_and_enable_agent(client) -> None:  # noqa: ANN001
+    """An agent can be disabled and enabled again, and unknown targets are 404."""
+    agent_id = (await client.get('/api/v1/agents')).json()[0]['id']
+    for enabled in (False, True):
+        body = {'enabled': enabled, 'actor': 'admin@example.com'}
+        assert (await client.post(f'/api/v1/agents/{agent_id}/enabled', json=body)).json()['enabled'] is enabled
+    assert (await client.post('/api/v1/agents/ghost/enabled', json={'enabled': False, 'actor': 'a'})).status_code == 404

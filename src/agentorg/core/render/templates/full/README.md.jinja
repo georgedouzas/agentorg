@@ -2,41 +2,33 @@
 
 {{ org.description }}
 
+## Organisation
+
+| Unit | Model | Lead | Members |
+| --- | --- | --- | --- |
+{% for unit in ai.units -%}
+| {{ unit.name }} | {{ unit.model }} | {{ unit.lead or '' }} | {{ unit.members | join(', ') }} |
+{% endfor %}
 ## Agents
 
-{% for group in ui.agent_groups %}### {{ group.label }}
-
-| Agent | Role |
-| --- | --- |
-{% for aid in group.ids -%}
-{% set agent = ai.agents | selectattr('id', 'equalto', aid) | first -%}
-| {{ agent.name }} | {{ agent.role }} |
-{% endfor %}
-
-{% endfor %}## Workflows
-
-{% for group in ui.workflow_groups %}### {{ group.label }}
-
-{% for wid in group.ids -%}
-{% set wf = ai.workflows | selectattr('id', 'equalto', wid) | first -%}
-#### {{ wf.name }}
-
-{{ wf.description }}
-
-| Step | Name | Agents | HITL |
+| Agent | Role | Model | Autonomy |
 | --- | --- | --- | --- |
-{% for step in wf.steps -%}
-{% if step.parallel is defined -%}
-{% set agent_names = step.parallel | map(attribute='agent') | map('replace', '-', ' ') | map('title') | list -%}
-| {{ loop.index }} | {{ step.name }} | {{ agent_names | join(', ') }} (parallel) | No |
-{% else -%}
-{% set agent_name = (ai.agents | selectattr('id', 'equalto', step.agent) | first).name -%}
-| {{ loop.index }} | {{ step.name }} | {{ agent_name }} | {% if step.hitl %}Yes{% else %}No{% endif %} |
-{% endif -%}
+{% for agent in ai.agents -%}
+| {{ agent.name }} | {{ agent.role }} | {{ agent.model }} | {{ agent.autonomy }} |
 {% endfor %}
+{% if operations.triggers %}## Triggers
 
+| Trigger | Kind | Target |
+| --- | --- | --- |
+{% for trigger in operations.triggers -%}
+| {{ trigger.id }} | {{ trigger.kind }} | {{ trigger.target }} |
 {% endfor %}
-{% endfor %}
+{% endif %}## Requirements
+
+- `ANTHROPIC_API_KEY`: every agent runs on the Claude Agent SDK.
+- `AMQP_URL`: RabbitMQ carries runs, retries and events. {% if runtime.infra.packaging == 'docker' %}`docker compose up` starts it and points the API at it.{% else %}Run one yourself, for example `docker run -d -p 5672:5672 rabbitmq:3.13-management`, and set `AMQP_URL=amqp://guest:guest@localhost:5672/`.{% endif %}
+- An AgentField control plane for knowledge, identity and audit.
+
 ## Getting Started
 
 There are three common ways to land here. Pick the one that matches how you got the
@@ -210,4 +202,5 @@ variables are set.
 ## Learn More
 
 - [AgentField Documentation](https://www.agentfield.ai/docs) — the runtime, control plane, and reasoner model
-- [Agno Documentation](https://docs.agno.com) — for agents that use agno as their backend
+- [Claude Agent SDK](https://docs.claude.com/en/docs/agent-sdk/overview) — the harness every agent runs on
+- [RabbitMQ](https://www.rabbitmq.com/docs) — the broker that carries runs, retries and events

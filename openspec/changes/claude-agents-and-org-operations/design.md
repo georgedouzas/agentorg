@@ -51,19 +51,26 @@ and closes the client. Session continuity uses the SDK's `resume`. A table in th
 |---|---|
 | `model` (`opus`/`sonnet`/`haiku`) | `model` alias |
 | persona + principles + output contract | `system_prompt`: a compiled string, not the `claude_code` preset |
-| `builtin_tools` | `allowed_tools`: `Read Write Edit Glob Grep Bash WebSearch WebFetch TodoWrite` |
-| custom tools | one in-process server `create_sdk_mcp_server('custom', …)`; allowed as `mcp__custom__<name>` |
+| `builtin_tools` | `tools`: a subset of `Read Write Edit Glob Grep Bash WebSearch WebFetch TodoWrite`, so no other built-in exists |
+| custom tools | one in-process server `create_sdk_mcp_server('custom', …)`; exposed as `mcp__custom__<name>` |
 | org tools | in-process server `org` (`delegate`, `handoff`, `publish`, `escalate`, the knowledge tools) |
-| `mcp_servers` | `mcp_servers={name: stdio/http/sse config}`, with env resolved from `os.environ`; allowed as `mcp__<name>__<tool>` |
-| `skills` | copied into `<workspace>/.claude/skills/<name>/`; `setting_sources=['project']`; `Skill` added to `allowed_tools` |
+| `mcp_servers` | `mcp_servers={name: stdio/http/sse config}`; a stdio server gets its `env` names as process env, an http or sse server sends the first one as a bearer token; exposed as `mcp__<name>__<tool>` |
+| `skills` | copied into `<workspace>/.claude/skills/<name>/`; `skills=[names]`, which enables exactly those skills and loads only project settings |
 | `workspace` | `cwd` |
 | `max_turns` | `max_turns` |
-| `max_run_usd` | `max_budget_usd` when the installed SDK supports it; otherwise enforced from streamed usage with `interrupt()` |
+| `max_run_usd` | `max_budget_usd`; an exceeded budget ends the query with an `error_max_budget_usd` result |
 | `timeout_s` | `asyncio.timeout` around the stream, then `interrupt()` |
-| permissions | `permission_mode='default'` and `can_use_tool` → `_policy.decide` |
+| `output` (`json`) | `output_format={'type': 'json_schema', 'schema': …}` |
+| permissions | `permission_mode='default'`, `allowed_tools=[]` and `can_use_tool` → `_policy.decide` |
+| isolation | `setting_sources=[]` when the agent has no skills |
 
-`disallowed_tools` always contains `Task` and `NotebookEdit`. The workspace never contains a `settings.json`, so
-`setting_sources=['project']` loads skills only.
+`disallowed_tools` always contains `Task` and `NotebookEdit`. The workspace never contains a `settings.json`, so the
+project settings that `skills` loads hold nothing but the copied skills.
+
+- *Why `allowed_tools` stays empty*: the SDK auto-approves every tool listed there without calling `can_use_tool`, which
+  would bypass `_policy`. `tools` limits which built-ins exist, and every call still reaches the policy.
+- *SDK version*: confirmed against `claude-agent-sdk` 0.2.180, which provides `max_budget_usd`, `tools`, `skills` and
+  `output_format` natively.
 
 - *Why not the `claude_code` preset prompt*: org agents are not coding assistants, and the preset's identity text conflicts
   with personas. The tools carry their own usage descriptions.
@@ -108,12 +115,14 @@ Pydantic validation errors already contain the field path, so master tools retur
 | `_bus.py` | publish to and subscribe on the `events` topic exchange; carries the causal chain depth; existing knowledge memory events are bridged in |
 | `_webhooks.py` | `/hooks/{id}` route, HMAC verification, idempotency, 503 when the broker is down |
 | `_consumers.py` | external `queue` trigger consumers |
-| `_comms.py` | the org MCP tools; `delegate` goes through `app.call` so the AgentField DAG records it |
+| `_comms.py` | the org MCP tools; `delegate` and `escalate` create child runs through the dispatcher, linked by `parent_id`, which is the audit trail of delegation |
 | `_units.py` | the model engines: pipeline steps with review holds, hub entry, the pool dispatcher, council fan-out and decision |
 | `_lifecycle.py` | the state machine, the circuit breaker and the budget watcher |
 | `_notify.py` | dashboard inbox, email (SMTP env vars), webhook and AMQP channels |
 
-`start_operations(app, spec)` wires all of these on node startup and is the single call the template adds.
+`start_operations(app, spec)` wires all of these on node startup and is the single call the template adds. It also
+supplies the `run_target` callable that `register_org` gives every agent and unit reasoner, so the adapter never
+imports the operations runtime.
 
 - *Run store on the org DB, not AgentField memory*: run history needs filtered queries and atomic status transitions, and
   AgentField memory is a key-value scope. Knowledge and per-user state remain in AgentField; identity, audit and policies are
@@ -130,8 +139,8 @@ The topology is declared idempotently on startup, under the org slug prefix `<sl
 | Object | Kind | Purpose |
 |---|---|---|
 | `runs` | direct exchange | routing key = target id |
-| `runs.<target_id>` | quorum queue, `x-max-priority=4`, DLX → `runs.dead` | one per agent and unit; competing consumers on every worker |
-| `runs.retry.<n>` | queue with message TTL = 30s·2ⁿ, DLX → `runs` | delayed redelivery without a plugin, so it works on CloudAMQP and Railway |
+| `runs.<target_id>` | classic durable queue, `x-max-priority=4`, DLX → `dead` | one per agent and unit; competing consumers on every worker; classic because quorum queues do not support `x-max-priority` |
+| `runs.retry.<n>` | fanout exchange and queue with message TTL = 30s·2ⁿ, DLX → `runs` | delayed redelivery without a plugin; messages are published with the target as routing key, which the dead-lettering keeps, so they return to the right run queue |
 | `runs.dead` | queue | consumed by the `on_failure` handler |
 | `events` | topic exchange | routing key = event name; one durable queue per event trigger, bound by name |
 
@@ -312,6 +321,9 @@ The effective autonomy is the minimum along the path, and the governed classes a
   - `aio-pika`'s robust connection reconnects and re-declares the topology.
 - [Several workers could each run the scheduler] → A DB lease guarantees a single scheduler. The lease expires after 45s, so
   a dead worker's schedules resume on another.
+- [A parent waiting on a delegated child holds a worker slot, so delegation chains longer than `max_concurrent` on one
+  worker can deadlock] → Chains are bounded by the tree depth (at most 6) and children usually land on other workers.
+  Raise `max_concurrent` above the deepest chain, and revisit with slot release while waiting if it shows up in practice.
 - [Refused claims cause requeue churn when an agent is saturated] → Refused messages go through the 30s retry queue, not
   an immediate requeue. Saturation is visible as queue depth on the dashboard.
 - [Testing needs a broker] → Unit tests use an in-memory fake implementing the small `_broker` surface. Integration tests use
@@ -333,4 +345,3 @@ first boot.
 
 - The email transport for notifications: plain SMTP env vars, or a provider API. This does not affect the specs: `email` is
   a channel either way.
-- Whether `max_budget_usd` exists in the pinned SDK version. This decides which branch of the D2 mapping is used.

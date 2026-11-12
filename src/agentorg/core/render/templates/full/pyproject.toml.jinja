@@ -26,14 +26,7 @@ classifiers = [
 dependencies = [
     "agentorg",
     "agentfield>=0.1.84",
-    "agno>=2.0",
     "fastapi[standard]",
-    # Platform agents default to google:gemini models; agno does not pull google-genai
-    # transitively, so the rendered org must declare it explicitly or model instantiation
-    # raises ImportError on first reasoner build. Upper bound: google-genai 2.9 renamed
-    # `step_delta` to `stepdelta`, but agno 2.6 still imports the old name; until agno
-    # catches up the rendered org must stay on the older symbol.
-    "google-genai>=2.2.0,<2.9.0",
 ]
 
 [project.urls]

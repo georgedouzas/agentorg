@@ -3,96 +3,50 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from ..spec import Spec
+from ..spec import Agent, Spec, Step, Unit
 
 
-def _runnable_name(obj: object) -> str:
-    """Best-effort stable name: `.id`, then `.name`, then `.__name__`."""
-    return str(getattr(obj, 'id', None) or getattr(obj, 'name', None) or getattr(obj, '__name__', None) or '')
-
-
-def _tool_name(tool: object) -> str:
-    """The callable name of a tool (function `__name__`, or class `__name__` for agno toolkits)."""
-    return str(getattr(tool, '__name__', None) or type(tool).__name__)
-
-
-def _skill_ref(skill: object) -> str:
-    """A best-effort string ref for a skill - the agno SkillLoader's `path` or class name."""
-    return str(getattr(skill, 'path', None) or getattr(skill, 'url', None) or type(skill).__name__)
-
-
-def _model_id(model: object) -> str:
-    """The model identifier - agno wraps strings into objects with `.id`; bare strings fall through."""
-    return str(getattr(model, 'id', None) or getattr(model, 'name', None) or model or '')
-
-
-def _agent_summary(agent: object) -> dict[str, Any]:
-    name = _runnable_name(agent)
+def _agent_summary(agent: Agent) -> dict[str, Any]:
     return {
-        'id': name,
-        'name': getattr(agent, 'name', None) or name,
-        'role': getattr(agent, 'role', '') or '',
-        'model': _model_id(getattr(agent, 'model', None)),
-        'instructions': getattr(agent, 'instructions', '') or '',
-        'tools': [_tool_name(t) for t in (getattr(agent, 'tools', None) or [])],
-        'skills': [_skill_ref(s) for s in (getattr(agent, 'skills', None) or [])],
+        'id': agent.id,
+        'name': agent.name,
+        'role': agent.role,
+        'model': agent.model,
+        'autonomy': agent.autonomy,
+        'tools': list(agent.builtin_tools or []) + [fn.__name__ for fn in agent.tools],
+        'mcp_servers': [server.name for server in agent.mcp_servers],
+        'skills': agent.skills,
     }
 
 
-def _team_summary(team: object) -> dict[str, Any]:
-    name = _runnable_name(team)
+def _unit_summary(unit: Unit) -> dict[str, Any]:
+    steps = [member if isinstance(member, Step) else Step(member=member) for member in unit.members]
     return {
-        'id': name,
-        'name': getattr(team, 'name', None) or name,
-        'role': getattr(team, 'role', '') or '',
-        'mode': getattr(team, 'mode', None) or 'route',
-        'model': _model_id(getattr(team, 'model', None)),
-        'instructions': getattr(team, 'instructions', '') or '',
-        'tools': [_tool_name(t) for t in (getattr(team, 'tools', None) or [])],
-        'skills': [_skill_ref(s) for s in (getattr(team, 'skills', None) or [])],
-        'members': [_runnable_name(m) for m in (getattr(team, 'members', None) or []) if _runnable_name(m)],
-    }
-
-
-def _step_summary(step: object) -> dict[str, Any]:
-    parallel = getattr(step, 'steps', None) if type(step).__name__ == 'Parallel' else None
-    if parallel is not None:
-        return {'name': getattr(step, 'name', '') or 'Parallel', 'parallel': [_step_summary(s) for s in parallel]}
-    agent = getattr(step, 'agent', None)
-    hitl = bool(
-        getattr(step, 'requires_output_review', False)
-        or getattr(step, 'requires_confirmation', False)
-        or getattr(step, 'requires_user_input', False),
-    )
-    return {
-        'name': getattr(step, 'name', '') or '',
-        'agent': _runnable_name(agent) if agent is not None else None,
-        'hitl': hitl,
-    }
-
-
-def _workflow_summary(workflow: object) -> dict[str, Any]:
-    name = _runnable_name(workflow)
-    return {
-        'id': name,
-        'name': getattr(workflow, 'name', None) or name,
-        'description': getattr(workflow, 'description', '') or '',
-        'steps': [_step_summary(s) for s in (getattr(workflow, 'steps', None) or [])],
+        'id': unit.id,
+        'name': unit.name,
+        'model': unit.model,
+        'lead': unit.lead,
+        'members': [member if isinstance(member, str) else member.id for member in unit.member_refs],
+        'steps': [
+            {'member': step.member if isinstance(step.member, str) else step.member.id, 'review': step.review}
+            for step in steps
+        ]
+        if unit.model == 'pipeline'
+        else [],
     }
 
 
 def jinja_context(spec: Spec) -> dict[str, Any]:
     """Convert the Spec to a plain dict for Jinja templates.
 
-    Pydantic fields (org / runtime / parameters / knowledge / ui) round-trip through `model_dump`. The `ai` slot is
-    agno-native so we hand-shim it via the summary helpers above. Templates access fields directly: `{{ org.name }}`,
-    `{{ ui.app.icon }}`, `{{ ai.agents }}`, etc.
+    Every domain except `ai` round-trips through `model_dump`. The `ai` slot holds agent and unit summaries, because
+    agents carry Python callables as tools. Templates access fields directly: `{{ org.name }}`, `{{ ai.units }}`.
     """
     base = spec.model_dump(mode='json', exclude={'ai'})
     base['year'] = datetime.now(tz=UTC).year
     base['ai'] = {
-        'agents': [_agent_summary(a) for a in spec.ai.agents],
-        'teams': [_team_summary(t) for t in spec.ai.teams],
-        'workflows': [_workflow_summary(w) for w in spec.ai.workflows],
+        'root': spec.ai.root.id,
+        'agents': [_agent_summary(agent) for agent in spec.ai.agents],
+        'units': [_unit_summary(unit) for unit in spec.ai.root.iter_units()],
     }
     return base

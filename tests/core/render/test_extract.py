@@ -1,4 +1,4 @@
-"""Tests for extract module."""
+"""Tests for the extract module."""
 
 from typing import Any
 
@@ -7,59 +7,39 @@ from agentorg.core.spec import Spec
 
 
 def test_pydantic_fields_round_trip(spec_dict_normal: dict[str, Any]) -> None:
-    """Org, runtime, parameters, knowledge, ui round-trip through model_dump as plain dicts."""
-    spec = Spec.model_validate(spec_dict_normal)
-    data = jinja_context(spec)
-    assert data['org']['name'] == 'Acme Organization'
-    assert data['runtime']['infra']['packaging'] == 'docker'
+    """Every domain except `ai` is a plain JSON dump of the spec."""
+    data = jinja_context(Spec.model_validate(spec_dict_normal))
+    assert data['org']['slug'] == 'acme-org'
+    assert data['operations']['triggers'][0]['id'] == 'weekly-report'
     assert data['knowledge']['types'][0]['id'] == 'report'
-    assert data['ui']['app']['icon'] == '🔬'
 
 
 def test_year_is_attached(spec_dict_minimal: dict[str, Any]) -> None:
-    """`year` is set from the current UTC year and exposed for copyright lines."""
-    data = jinja_context(Spec.model_validate(spec_dict_minimal))
-    assert isinstance(data['year'], int)
-    assert data['year'] >= 2026
+    """The current year is available for licence headers."""
+    assert isinstance(jinja_context(Spec.model_validate(spec_dict_minimal))['year'], int)
 
 
-def test_ai_namespace_replaces_pydantic_dump(spec_dict_normal: dict[str, Any]) -> None:
-    """`ai` is the hand-shimmed namespace; `model_dump` does not produce it because agno objects are not Pydantic."""
-    data = jinja_context(Spec.model_validate(spec_dict_normal))
-    assert set(data['ai']) == {'agents', 'teams', 'workflows'}
-    assert len(data['ai']['agents']) == 1
-    assert len(data['ai']['teams']) == 1
-    assert len(data['ai']['workflows']) == 1
+def test_ai_holds_agent_and_unit_summaries(spec_dict_normal: dict[str, Any]) -> None:
+    """Agents and units are summarised as plain dicts, with the root unit named."""
+    ai = jinja_context(Spec.model_validate(spec_dict_normal))['ai']
+    assert ai['root'] == 'research'
+    assert ai['agents'][1] == {
+        'id': 'researcher',
+        'name': 'Researcher',
+        'role': 'Gathers sources.',
+        'model': 'sonnet',
+        'autonomy': 'read_only',
+        'tools': ['read', 'glob', 'grep', 'web_search', 'web_fetch', 'todo'],
+        'mcp_servers': [],
+        'skills': [],
+    }
+    assert [unit['id'] for unit in ai['units']] == ['research', 'reporting']
 
 
-def test_agent_summary_extracts_id_name_role_model(spec_dict_normal: dict[str, Any]) -> None:
-    """An agno Agent surfaces as {id, name, role, model, instructions, tools, skills}."""
-    data = jinja_context(Spec.model_validate(spec_dict_normal))
-    agent = data['ai']['agents'][0]
-    assert agent['id'] == 'researcher'
-    assert agent['name'] == 'Researcher'
-    assert set(agent) == {'id', 'name', 'role', 'model', 'instructions', 'tools', 'skills'}
-    assert isinstance(agent['tools'], list)
-    assert isinstance(agent['skills'], list)
-
-
-def test_team_summary_carries_members(spec_dict_normal: dict[str, Any]) -> None:
-    """A team's members are flattened to a list of member ids."""
-    data = jinja_context(Spec.model_validate(spec_dict_normal))
-    team = data['ai']['teams'][0]
-    assert team['id'] == 'research-team'
-    assert team['members'] == ['researcher']
-
-
-def test_workflow_summary_carries_steps(spec_dict_normal: dict[str, Any]) -> None:
-    """A workflow's steps are summarised as `{name, agent, hitl}` dicts."""
-    data = jinja_context(Spec.model_validate(spec_dict_normal))
-    workflow = data['ai']['workflows'][0]
-    assert workflow['id'] == 'pipeline'
-    assert workflow['steps'][0] == {'name': 'Gather', 'agent': 'researcher', 'hitl': False}
-
-
-def test_empty_ai_lists_render_as_empty(spec_dict_minimal: dict[str, Any]) -> None:
-    """A spec with no agents/teams/workflows produces empty lists, not missing keys."""
-    data = jinja_context(Spec.model_validate(spec_dict_minimal))
-    assert data['ai'] == {'agents': [], 'teams': [], 'workflows': []}
+def test_pipeline_units_list_steps_with_review(spec_dict_normal: dict[str, Any]) -> None:
+    """Pipeline units list their steps and review gates, other models list none."""
+    units = {unit['id']: unit for unit in jinja_context(Spec.model_validate(spec_dict_normal))['ai']['units']}
+    steps = [{'member': 'writer', 'review': 'none'}, {'member': 'editor', 'review': 'human'}]
+    assert units['reporting']['steps'] == steps
+    assert units['research']['steps'] == []
+    assert (units['research']['lead'], units['research']['members']) == ('analyst', ['researcher', 'reporting'])

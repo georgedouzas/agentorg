@@ -13,8 +13,24 @@ services:
     networks:
       - {{ org.slug }}
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: {{ org.slug }}-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - {{ org.slug }}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      retries: 20
+
   {{ org.slug }}-db:
-    image: agnohq/pgvector:18
+    image: pgvector/pgvector:pg17
     container_name: {{ org.slug }}-db
     restart: unless-stopped
     environment:
@@ -55,12 +71,16 @@ services:
       - DB_USER=${DB_USER:-ai}
       - DB_PASS=${DB_PASS:-ai}
       - DB_DATABASE=${DB_DATABASE:-ai}
-{% for v in runtime.env_vars.required %}      - {{ v.name }}=${{ '{' }}{{ v.name }}{{ '}' }}
-{% endfor %}{% for v in runtime.env_vars.optional %}      - {{ v.name }}=${{ '{' }}{{ v.name }}:-{{ '}' }}
+{% if runtime.infra.database == 'postgres' %}      - DATABASE_URL=postgresql://${DB_USER:-ai}:${DB_PASS:-ai}@{{ org.slug }}-db:5432/${DB_DATABASE:-ai}
+{% endif %}{% for v in runtime.env_vars.required %}{% if v.name == 'AMQP_URL' %}      - AMQP_URL=${AMQP_URL:-amqp://guest:guest@rabbitmq:5672/}
+{% else %}      - {{ v.name }}=${{ '{' }}{{ v.name }}{{ '}' }}
+{% endif %}{% endfor %}{% for v in runtime.env_vars.optional %}      - {{ v.name }}=${{ '{' }}{{ v.name }}:-{{ '}' }}
 {% endfor %}    depends_on:
       control-plane:
         condition: service_started
       {{ org.slug }}-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - {{ org.slug }}
@@ -90,3 +110,4 @@ networks:
 volumes:
   pgdata:
   agentfield-data:
+  rabbitmq-data:

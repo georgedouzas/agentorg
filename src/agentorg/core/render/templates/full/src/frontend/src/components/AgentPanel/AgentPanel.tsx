@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
 import { marked } from 'marked';
-import { API_BASE, api, apiFetch } from '../../api';
+import { apiFetch, decideApproval, postRun, readRunStream } from '../../api';
 import type { AppConfig, ChatMessage, HitlState, SelectedAgent } from '../../types';
+import { applyRunEvent, finalText } from '../../chatEvents';
 import styles from './AgentPanel.module.css';
 
 type PanelTab = 'chat' | 'config';
@@ -13,8 +14,17 @@ interface AgentInfo {
   name: string;
   role: string;
   model: string;
+  autonomy: string;
+  persona: { tone: string; verbosity: string };
   tools: string[];
+  mcp_servers: string[];
   instructions: string;
+  triggers: { id: string; kind: string; cron?: string; event?: string; queue?: string }[];
+}
+
+function triggerLabel(trigger: AgentInfo['triggers'][number]): string {
+  const detail = trigger.cron ?? trigger.event ?? trigger.queue ?? '';
+  return `${trigger.kind.toUpperCase()} ${trigger.id}${detail ? ` (${detail})` : ''}`;
 }
 
 function DescriptionPane({ agentId }: { agentId: string }) {
@@ -43,8 +53,13 @@ function DescriptionPane({ agentId }: { agentId: string }) {
       )}
 
       <div className={styles.badgeStack}>
+        {info.role && <MetaBadge label="Role" value={info.role} />}
         {info.model && <MetaBadge label="Model" value={info.model.toUpperCase()} />}
+        {info.autonomy && <MetaBadge label="Autonomy" value={info.autonomy.replace('_', ' ').toUpperCase()} />}
+        {info.persona && <MetaBadge label="Persona" value={`${info.persona.tone} · ${info.persona.verbosity}`.toUpperCase()} />}
         {toolsLabel && <MetaBadge label="Tools" value={toolsLabel} />}
+        {info.mcp_servers?.length > 0 && <MetaBadge label="MCP" value={info.mcp_servers.join(', ').toUpperCase()} />}
+        {info.triggers?.map(trigger => <MetaBadge key={trigger.id} label="Trigger" value={triggerLabel(trigger)} />)}
       </div>
     </div>
   );
@@ -143,7 +158,7 @@ function ChatPane({ selected, userId }: { selected: SelectedAgent; userId: strin
     abortRef.current = ctrl;
 
     try {
-      // Stable session id per (user, agent) so agno's memory threads turns of the same chat.
+      // A stable session id per (user, agent) keeps the agent's conversation memory across turns.
       const sessionKey = `session_${userId}_${selected.id}`;
       let sessionId = localStorage.getItem(sessionKey);
       if (!sessionId) {
@@ -151,70 +166,27 @@ function ChatPane({ selected, userId }: { selected: SelectedAgent; userId: strin
         localStorage.setItem(sessionKey, sessionId);
       }
 
-      // Stream agno events via SSE: tokens land in the assistant bubble live, reasoning
-      // traces (`<thinking>...</thinking>`) are hidden — including unclosed ones mid-stream.
-      const res = await fetch(`${API_BASE}/api/v1/reasoners/${encodeURIComponent(selected.id)}/stream?user_id=${encodeURIComponent(userId)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: sessionId, user_id: userId }),
-        signal: ctrl.signal,
-      });
-
+      const res = await postRun(selected.id, userId, { message: text, session_id: sessionId, user_id: userId }, ctrl.signal);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const assistantId = nextId();
-      setMessages(prev => [...prev, {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        isMarkdown: true,
-        isStreaming: true,
-      }]);
-
-      let raw = '';
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      const stripThinking = (s: string) => {
-        let out = s.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
-        const idx = out.search(/<thinking>/i);
-        return (idx >= 0 ? out.slice(0, idx) : out).trimStart();
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        // sse-starlette uses CRLF line endings; normalise to LF before splitting.
-        buf += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
-        const blocks = buf.split('\n\n');
-        buf = blocks.pop() ?? '';
-        for (const block of blocks) {
-          const dataLine = block.split('\n').find(l => l.startsWith('data: '));
-          if (!dataLine) continue;
-          let ev: { event?: string; content?: string; error?: string; tool_name?: string };
-          try { ev = JSON.parse(dataLine.slice(6)) as typeof ev; } catch { continue; }
-          if (ev.event === 'RunContent' && ev.content) {
-            raw += ev.content;
-            const display = stripThinking(raw);
-            updateLastAssistant(m => ({ ...m, content: display }));
-          } else if (ev.event === 'RunCompleted' && ev.content) {
-            raw = ev.content;
-            updateLastAssistant(m => ({ ...m, content: stripThinking(raw), isStreaming: false }));
-          } else if (ev.event === 'ToolCallStarted' && ev.tool_name) {
-            setCurrentTool(ev.tool_name);
-            updateLastAssistant(m => ({
-              ...m,
-              toolsCalled: [...(m.toolsCalled ?? []), ev.tool_name as string],
-            }));
-          } else if (ev.event === 'ToolCallCompleted') {
-            setCurrentTool(null);
-          } else if (ev.event === 'RunError') {
-            updateLastAssistant(m => ({ ...m, content: ev.error || 'An error occurred', isStreaming: false }));
-          }
-        }
-      }
+      setMessages(prev => [...prev, { id: nextId(), role: 'assistant', content: '', isMarkdown: true, isStreaming: true }]);
+      let streamed = '';
+      await readRunStream(res, (name, data) => applyRunEvent(name, data, {
+        appendText: chunk => {
+          streamed = streamed ? `${streamed}\n\n${chunk}` : chunk;
+          const shown = streamed;
+          updateLastAssistant(m => ({ ...m, content: shown }));
+        },
+        toolStarted: name => { setCurrentTool(name); updateLastAssistant(m => ({ ...m, toolsCalled: [...(m.toolsCalled ?? []), name] })); },
+        toolFinished: () => setCurrentTool(null),
+        approvalRequested: (approvalId, tool) => setHitlState({ approvalId, message: `Waiting for approval to run ${tool}` }),
+        approvalDecided: () => setHitlState(null),
+        finish: (status, output, reason) => {
+          const shown = finalText(streamed, status, output, reason);
+          updateLastAssistant(m => ({ ...m, content: shown, isStreaming: false }));
+        },
+      }));
       updateLastAssistant(m => ({ ...m, isStreaming: false }));
-      setCurrentTool(null);
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         setMessages(prev => [...prev, { id: nextId(), role: 'assistant', content: `Error: ${(err as Error).message}`, isMarkdown: false, isStreaming: false }]);
@@ -240,22 +212,11 @@ function ChatPane({ selected, userId }: { selected: SelectedAgent; userId: strin
 
   async function handleHitl(approved: boolean) {
     if (!hitlState) return;
-    const body: Record<string, unknown> = {
-      workflow_id: hitlState.workflowId,
-      run_id: hitlState.runId,
-      session_id: hitlState.sessionId,
-      approved,
-    };
-    if (hitlState.requiresInput && hitlInput.trim()) body['input'] = hitlInput.trim();
+    const { approvalId } = hitlState;
+    const comment = hitlInput.trim();
     setHitlState(null);
     setHitlInput('');
-    try {
-      await fetch(api('/api/workflow/continue'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-    } catch { /* ignore */ }
+    try { await decideApproval(approvalId, userId, approved, comment); } catch { /* the inbox shows it is still pending */ }
   }
 
   return (
@@ -294,8 +255,8 @@ function ChatPane({ selected, userId }: { selected: SelectedAgent; userId: strin
       {hitlState && (
         <div className={styles.hitlBar}>
           <span className={styles.hitlMsg}>{hitlState.message}</span>
-          {hitlState.requiresInput && (
-            <input className={styles.hitlInput} type="text" placeholder="Your response…"
+          {(
+            <input className={styles.hitlInput} type="text" placeholder="Comment (sent with a rejection)…"
               value={hitlInput} onChange={e => setHitlInput(e.target.value)} />
           )}
           <button className={styles.hitlApprove} onClick={() => void handleHitl(true)}>Approve</button>

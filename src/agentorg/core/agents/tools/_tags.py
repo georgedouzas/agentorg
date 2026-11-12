@@ -1,23 +1,34 @@
-"""Tag decorator that attaches AgentField skill tags to a tool function."""
+"""Decorator that declares a tool's side effect and its AgentField skill tags."""
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 T = TypeVar('T', bound=Callable)
 
+SideEffect = Literal['read', 'write']
 
-def tags(*labels: str) -> Callable[[T], T]:
-    """Attach skill tags to a tool function for per-agent node registration.
+
+def tool(side_effect: SideEffect = 'write', *, outbound: bool = False, tags: tuple[str, ...] = ()) -> Callable[[T], T]:
+    """Declare how a tool function affects the world and which skill tags it carries.
 
     Arguments:
-        *labels: Tag strings the control plane targets policies against.
+        side_effect: `read` for tools that only observe, `write` for tools that change state.
+        outbound: Whether the tool sends a message to a person outside the org, such as an email or a chat message.
+        tags: Skill tags the control plane targets policies against.
 
     Returns:
-        decorator: A no-op wrapper that sets `fn.tags = list(labels)`.
+        decorator: A decorator that sets `side_effect`, `outbound` and `tags` on the function and returns it unchanged.
     """
 
     def decorator(fn: T) -> T:
-        fn.tags = list(labels)  # type: ignore[attr-defined]
+        fn.side_effect = side_effect  # type: ignore[attr-defined]
+        fn.outbound = outbound  # type: ignore[attr-defined]
+        fn.tags = list(tags)  # type: ignore[attr-defined]
         return fn
 
     return decorator
+
+
+def side_effect_of(fn: Callable) -> SideEffect:
+    """Return a tool's declared side effect, treating an undecorated tool as `write`."""
+    return getattr(fn, 'side_effect', 'write')
