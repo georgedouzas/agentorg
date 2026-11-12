@@ -27,12 +27,12 @@ Advancing past Configure SHALL require `budget.monthly_usd` to be set.
 - **WHEN** the user asks to advance from Configure with no monthly budget set
 - **THEN** advancement is refused with a blocker naming the budget
 
-### Requirement: Build stage owns agents, teams, workflows, communication and triggers
+### Requirement: Build stage owns agents, units and triggers
 The Build stage SHALL own these tools:
 - add, update and remove for agents, including persona, model, autonomy, built-in tools, custom tools, MCP servers, skills,
   workspace, memory, limits and output;
-- add, update and remove for teams and workflows;
-- set topology, coordinator and reporting lines;
+- add, update and remove for units, including the model, lead, members, routing, decision rule, review policy and replicas;
+- move an agent or unit to another parent unit;
 - add, update and remove for triggers.
 
 Each tool SHALL return validation errors to the agent as text, not raise them.
@@ -62,7 +62,7 @@ SHALL return each prompt's output, tool calls and cost.
 - **THEN** the result lists both outputs and the cost of each run
 
 ### Requirement: Written spec uses the declarative model
-The spec writer SHALL emit `spec.py` that builds agents, teams, workflows and operations from the agentorg spec models only.
+The spec writer SHALL emit `spec.py` that builds agents, units and operations from the agentorg spec models only.
 It SHALL import no agent framework.
 
 #### Scenario: No framework imports

@@ -7,13 +7,13 @@
 
 ## 2. Agent definition spec models
 
-- [ ] 2.1 Create `core/spec/_agents.py` with `Agent`, `Persona`, `Referral`, `McpServer`, `Limits`, `Output`, `Team`, `Workflow` and `Step`, plus the `Autonomy`/`BuiltinTool` literals, and export them from `core/spec/__init__.py`. Verify with `tests/core/spec/test_agents.py`, which covers model tier rejection, autonomy-derived default tools, contradictory grants and MCP tool filtering fields.
-- [ ] 2.2 Rewrite `core/spec/_ai.py` as `AI(agents, teams, workflows)` with these validations: unique ids across agents and teams, referral targets, team lead/members, workflow step agents and an acyclic `reports_to`. Verify with `tests/core/spec/test_ai.py` covering each rejection scenario in `specs/agents/agent-definition` and `specs/operations/agent-communication`.
+- [ ] 2.1 Create `core/spec/_agents.py` with `Agent`, `Persona`, `Referral`, `McpServer`, `Limits`, `Output`, `Unit` and `Step`, the `Model`/`Routing`/`Decision` literals, plus the `Autonomy`/`BuiltinTool` literals, and export them from `core/spec/__init__.py`. Verify with `tests/core/spec/test_agents.py`, which covers model tier rejection, autonomy-derived default tools, contradictory grants and MCP tool filtering fields.
+- [ ] 2.2 Rewrite `core/spec/_ai.py` as `AI(agents, root)` with these validations: unique ids across agents and units, every agent in exactly one unit, referral targets, the per-model rules (solo size, hub lead, council size and odd majority, pool routing), span and depth limits, and the inheritance of owners, autonomy ceilings, budgets and governed classes. Verify with `tests/core/spec/test_ai.py` covering each rejection scenario in `specs/agents/agent-definition` and `specs/operations/org-structure`, including the 4-million-instance spec validating.
 - [ ] 2.3 Replace `core/agents/tools/_tags.py` with the public `tool(side_effect=..., outbound=...)` decorator, and export it as `agentorg.tool`. Verify with `tests/core/agents/tools/test_tags.py` that an unmarked tool reads as `write`.
 
 ## 3. Operations spec models
 
-- [ ] 3.1 Create `core/spec/_operations.py` with `Operations` and these models: the `kind`-discriminated triggers (`ScheduleTrigger`, `EventTrigger`, `WebhookTrigger`, `QueueTrigger`), `RunsPolicy`, `Communication`, `Governance`, `Budget`, `Notifications` (including the `amqp` channel with `exchange`) and `Lifecycle`, all with the D9 defaults. Verify with `tests/core/spec/test_operations.py` covering cron validation, the overlap/catch-up enums, the queue trigger fields, the hub-requires-coordinator rule and the default values.
+- [ ] 3.1 Create `core/spec/_operations.py` with `Operations` and these models: the `kind`-discriminated triggers (`ScheduleTrigger`, `EventTrigger`, `WebhookTrigger`, `QueueTrigger`), `RunsPolicy`, `Communication`, `Governance`, `Budget`, `Notifications` (including the `amqp` channel with `exchange`) and `Lifecycle`, all with the D9 defaults. Verify with `tests/core/spec/test_operations.py` covering cron validation, the overlap/catch-up enums, the queue trigger fields and the default values.
 - [ ] 3.2 Add `operations` to `Spec`, remove `Org.budget`, and add the cross-domain checks to `Spec`'s validator: trigger targets, env var references for MCP servers, webhook secrets and queue `url_env`, output knowledge types, and prompt template variables. Verify with `tests/core/spec/test_base.py` covering each cross-domain rejection.
 - [ ] 3.3 Add the four D10 archetype fixture specs (support desk, research/reporting, ops monitoring, content pipeline) under `tests/core/spec/`. Verify that each validates in `test_base.py`.
 
@@ -22,7 +22,7 @@
 - [ ] 4.1 Create `core/adapters/claude/_tools.py` with `as_sdk_tool(fn)`, which derives a schema from the signature and the description from the docstring. Verify with `tests/core/adapters/claude/test_tools.py` for sync, async and pydantic-typed callables.
 - [ ] 4.2 Create `core/adapters/claude/_prompt.py`, which compiles persona, principles (with parameter substitution), referrals and the output contract into a system prompt. Verify with `test_prompt.py` covering the referral and placeholder-substitution scenarios.
 - [ ] 4.3 Create `core/adapters/claude/_options.py`, which maps an `Agent` to `ClaudeAgentOptions` per the design.md D2 table: always disallow `Task`/`NotebookEdit`, copy skills into the workspace, resolve MCP env from the environment, and set the workspace `cwd` per mode. Verify with `test_options.py`, with one assertion per spec field and an isolation check that a host-level skill is absent.
-- [ ] 4.4 Create `core/adapters/claude/_runtime.py` with `register_org(node, spec)`. It registers agent, team, workflow and master reasoners with the `agent`/`team`/`workflow`/`master` tags and the org slug, and registers custom tools as node skills. Verify with `test_runtime.py` using a fake SDK client: the tags, the reasoner names, and the skills are registered once.
+- [ ] 4.4 Create `core/adapters/claude/_runtime.py` with `register_org(node, spec)`. It registers agent, unit and master reasoners with the `agent`, `unit` plus model, and `master` tags and the org slug, and registers custom tools as node skills. Verify with `test_runtime.py` using a fake SDK client: the tags, the reasoner names, and the skills are registered once.
 
 ## 5. Operations runtime core
 
@@ -31,7 +31,8 @@
 - [ ] 5.2 Create `core/operations/_policy.py` with `decide(...)`, which combines autonomy, side-effect class, governed classes and lifecycle state. Verify with a table-driven `test_policy.py` covering every autonomy × class × lifecycle state, including the trial-forces-approval and autonomous-still-governed cases.
 - [ ] 5.3 Create `core/operations/_runner.py`, which runs one run through the SDK client. It streams events, records cost/tokens, enforces `max_turns`/`max_run_usd`/`timeout_s`, wires `can_use_tool` to `_policy`, resumes sessions per `memory`, writes output to the knowledge type, and validates JSON output. Verify with `test_runner.py` using a fake client for each limit failure reason and for denial-as-tool-result.
 - [ ] 5.4 Create `core/operations/_queue.py`, with these parts:
-  - per-target consumers (single-active-consumer, prefetch = `concurrency`) and the per-worker semaphore;
+  - competing per-target consumers on every worker and the per-worker semaphore;
+  - the `replicas` cap enforced in `claim`, with refused claims sent to `runs.retry.0`;
   - claim-then-ack with duplicate drop;
   - retries through `runs.retry.<n>`, with non-retryable reasons skipped;
   - the `runs.dead` consumer applying `on_failure`;
@@ -51,8 +52,15 @@
 
 ## 7. Communication, governance and lifecycle
 
-- [ ] 7.1 Create `core/operations/_comms.py`, the org MCP tools. `delegate` goes through `app.call` and enforces topology, depth and re-entrancy. `handoff` updates the session owner. `publish` emits `custom.*` events. `escalate` creates an inbox item. Verify with `test_comms.py` covering the hierarchy denial, re-entrant denial and handoff routing scenarios.
-- [ ] 7.2 Create `core/operations/_workflows.py` with linear steps, output chaining, review holds, and a single re-run on rejection with a comment. Verify with `test_workflows.py` covering the review gate and double-rejection failure.
+- [ ] 7.1 Create `core/operations/_comms.py`, the org MCP tools. Each agent gets only the primitives its position in the unit tree permits. `delegate` goes through `app.call` and enforces the tree and re-entrancy. `handoff` updates the session owner. `publish` emits `custom.*` events. `escalate` climbs the tree to the human inbox. Verify with `test_comms.py` covering the member-to-member denial, sibling-unit denial, re-entrant denial, escalation path and handoff routing scenarios.
+- [ ] 7.2 Create `core/operations/_units.py` with the five model engines:
+  - pipeline steps with review holds and a single re-run on rejection;
+  - hub entry at the lead;
+  - the pool dispatcher (`round_robin`, `least_loaded`, `skill_match`, no-match escalation);
+  - council fan-out with isolated members and the `majority`/`judge`/`unanimous` decisions.
+
+  Verify with `test_units.py` covering every scenario in `specs/operations/org-structure`.
+- [ ] 7.2a Enforce unit scoping at runtime: effective autonomy as the minimum along the path, governed classes as the union, approvals routed to the nearest owners, and unit budget caps with reason `unit_budget`. Verify with `test_policy.py` and `test_lifecycle.py` cases for the autonomy ceiling, the loosening attempt and unit budget exhaustion.
 - [ ] 7.3 Create `core/operations/_approvals.py` with held-action futures, approve / reject / approve-with-edits, timeouts per `on_timeout`, and the `approval.decided` event. Verify with `test_approvals.py` covering the edited-arguments and timeout-reject cases.
 - [ ] 7.4 Create `core/operations/_lifecycle.py` with the state machine and allowed transitions, and the per-state permissions (pausing cancels the run, event and queue consumers; resuming re-attaches them). Add the failure-rate breaker, budget alert and exhaustion pause, per-agent enable/disable (cancels that target's consumer), and `lifecycle.changed`. Verify with `test_lifecycle.py` covering the illegal transition, paused-holds-queue, breaker trip and budget pause.
 - [ ] 7.5 Create `core/operations/_notify.py` with the dashboard, email, webhook and AMQP channels. Verify with `test_notify.py` that the webhook channel POSTs JSON for an escalation, and that the AMQP channel publishes a persistent message with routing key `run.failed`.
@@ -70,10 +78,10 @@
 
 ## 9. Master agent
 
-- [ ] 9.1 Update `master/_models.py` and `master/_seed.py` to the new agent, team, workflow and operations shapes, with the budget placeholder and no `Org.budget`. Verify that `tests/master` seed tests pass.
+- [ ] 9.1 Update `master/_models.py` and `master/_seed.py` to the new agent, unit and operations shapes, with the budget placeholder and no `Org.budget`. Verify that `tests/master` seed tests pass.
 - [ ] 9.2 Extend `master/_tools.py`:
   - Configure gets the budget, lifecycle and approvers tools.
-  - Build gets the full agent fields, plus the topology, reporting-line and trigger tools.
+  - Build gets the full agent fields, plus the unit tools (add, update, remove, move) and the trigger tools. The Build prompt proposes the root model by org size per design.md D12.
   - Refine gets the governance and notifications tools.
 
   Each tool returns validation errors as text. Verify with `tests/master/test_tools.py` that an invalid cron returns an error and leaves the spec unchanged.

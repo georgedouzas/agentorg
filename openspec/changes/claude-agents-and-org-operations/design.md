@@ -30,7 +30,7 @@ See proposal.md for the motivation. These parts of the current state shape the a
 
 - Durable execution across restarts for in-flight runs. Queued runs are durable on the broker. A run interrupted mid-execution
   fails with reason `interrupted` and follows the retry policy.
-- A generic workflow DSL (branches, loops, parallel steps). Workflows stay linear; branching is done by a lead agent that
+- A generic workflow DSL (branches, loops, parallel steps). Pipelines stay linear; branching is done by a hub lead that
   delegates.
 
 ## Decisions
@@ -74,10 +74,10 @@ and closes the client. Session continuity uses the SDK's `resume`. A table in th
 
 - **`core/spec/_agents.py`**:
   - `Agent`, `Persona`, `Referral`, `McpServer`, `Limits`, `Output`;
-  - `Team`;
-  - `Workflow`, `Step`;
+  - `Unit`, `Step` (pipeline review), the `Model`, `Routing` and `Decision` literals;
   - the `BuiltinTool` and `Autonomy` literals.
-- **`core/spec/_ai.py`**: `AI(agents, teams, workflows)`, which validates unique ids, references, the `reports_to` DAG and
+- **`core/spec/_ai.py`**: `AI(agents, root)`, which validates unique ids, references, unit membership, the per-model rules,
+  span and depth limits and
   the derived default tools.
 - **`core/spec/_operations.py`**:
   - `Operations(triggers, runs, communication, governance, budget, notifications, lifecycle)`;
@@ -109,7 +109,7 @@ Pydantic validation errors already contain the field path, so master tools retur
 | `_webhooks.py` | `/hooks/{id}` route, HMAC verification, idempotency, 503 when the broker is down |
 | `_consumers.py` | external `queue` trigger consumers |
 | `_comms.py` | the org MCP tools; `delegate` goes through `app.call` so the AgentField DAG records it |
-| `_workflows.py` | the linear step engine with review holds |
+| `_units.py` | the model engines: pipeline steps with review holds, hub entry, the pool dispatcher, council fan-out and decision |
 | `_lifecycle.py` | the state machine, the circuit breaker and the budget watcher |
 | `_notify.py` | dashboard inbox, email (SMTP env vars), webhook and AMQP channels |
 
@@ -130,7 +130,7 @@ The topology is declared idempotently on startup, under the org slug prefix `<sl
 | Object | Kind | Purpose |
 |---|---|---|
 | `runs` | direct exchange | routing key = target id |
-| `runs.<target_id>` | quorum queue, `x-max-priority=4`, DLX → `runs.dead` | one per agent, team and workflow; consumer prefetch = the agent's `concurrency` |
+| `runs.<target_id>` | quorum queue, `x-max-priority=4`, DLX → `runs.dead` | one per agent and unit; competing consumers on every worker |
 | `runs.retry.<n>` | queue with message TTL = 30s·2ⁿ, DLX → `runs` | delayed redelivery without a plugin, so it works on CloudAMQP and Railway |
 | `runs.dead` | queue | consumed by the `on_failure` handler |
 | `events` | topic exchange | routing key = event name; one durable queue per event trigger, bound by name |
@@ -144,8 +144,9 @@ Acknowledging on start rather than on finish avoids re-executing a run the SDK h
 a heartbeat. On startup, a worker fails any `running` rows whose owner's heartbeat is stale with reason `interrupted`.
 
 Other behaviour:
-- **Per-agent concurrency across workers** comes from a single active consumer (`x-single-active-consumer`) on each
-  `runs.<target>` queue, with prefetch = `concurrency`.
+- **The per-agent `replicas` cap across workers** is enforced at claim time. `claim` succeeds only while the agent's
+  `running` count is below `replicas`, in the same DB transaction. A refused claim republishes the message to
+  `runs.retry.0`. Workers compete on every queue, so a pool with thousands of replicas spreads across all workers.
 - **The per-worker cap** comes from a semaphore sized `max_concurrent`.
 - **Scheduling** happens on exactly one worker, which holds a DB lease row renewed every 15s.
 - **Pausing** cancels the run, event and queue consumers, so messages wait on the broker. Resuming re-attaches them.
@@ -171,8 +172,8 @@ A `session_owner` row maps `session_id` to `agent_id`. The chat stream endpoint 
 
 ### D7. Rendered project
 
-- **`app/main.py.jinja`** imports `register_org` from `agentorg.core.adapters.claude`, which registers agents, teams,
-  workflows and the master, and calls `start_operations`.
+- **`app/main.py.jinja`** imports `register_org` from `agentorg.core.adapters.claude`, which registers agents, units and
+  the master, and calls `start_operations`.
 - **`app/routes.py.jinja`** gains these routes:
   - `/runs`, `/runs/{id}`, `/runs/{id}/cancel`;
   - `/approvals`, `/approvals/{id}`;
@@ -216,7 +217,9 @@ The tool-slice tables in `_agent.py` are extended per the `master/interview-auth
 | `memory` | `session` | Chat continuity without cross-user persistence |
 | `max_turns`, `timeout_s` | 30, 600 | Bounded runaway cost |
 | `per_run_usd` | 2.0 | Typical research run cost with headroom |
-| topology | `hierarchy` | Mirrors real orgs; `hub` for small orgs, `mesh` for experts |
+| root model | by size: 1 agent → `solo`; 2–12 → `hub`; more → `hub` of nested units | The master proposes it; see D12 |
+| pool `routing` | `least_loaded` | Even load without tags |
+| `replicas` | 1 | One instance until the user scales a role |
 | `max_delegation_depth` / `max_chain_depth` | 3 / 5 | Stops loops while allowing lead → specialist → helper |
 | governed classes | `external_write`, `outbound_message` | Irreversible or customer-visible actions |
 | lifecycle initial | `trial`, 50 runs | Shadow period before full autonomy |
@@ -225,24 +228,73 @@ The tool-slice tables in `_agent.py` are extended per the `master/interview-auth
 
 The parameter set must express these four common orgs without extensions:
 
-1. **Support desk**:
+1. **Support desk** (a root `hub` with a `pool` of support agents):
    - a `webhook` trigger from the helpdesk, or a `queue` trigger fed by the CRM, targets `triage` (`haiku`, `read_only`);
    - `triage` hands off to `billing` and `tech`;
    - `outbound_message` is governed;
    - `escalate` reaches humans.
-2. **Research and reporting**:
-   - a weekly `schedule` targets team `research`, whose lead delegates to analysts;
+2. **Research and reporting** (a `hub`):
+   - a weekly `schedule` targets `hub` unit `research`, whose lead delegates to analysts;
    - the output goes to knowledge type `report`;
    - a `knowledge.created` event triggers a `summariser` that publishes to a webhook channel.
-3. **Ops monitoring**:
+3. **Ops monitoring** (`solo` units under a root `hub`):
    - an hourly `schedule` with `overlap='skip'` runs `monitor`, which has a metrics MCP server marked `read`;
    - on anomaly, `monitor` calls `publish('custom.incident')`, which triggers `responder`;
    - `on_failure='escalate'`, with an `amqp` notification channel feeding the on-call system.
-4. **Content pipeline**:
-   - a workflow runs `research` → `draft` (`review=true`) → `publish`;
+4. **Content pipeline** (a `pipeline`), plus a fifth archetype, **Credit decisions**: a `council` of 3 underwriters with
+   `decision='majority'` and governed `external_write`:
+   - a `pipeline` unit runs `research` → `draft` (`review='human'`) → `publish`;
    - the publish step's CMS MCP write tool is governed.
 
 The spec unit tests encode each archetype as a fixture spec that must validate.
+
+### D12. Governance models: a closed set, composed by nesting
+
+Every org, from 1 agent to millions of instances, is one tree of units, and every unit uses one of five models. The set
+covers the coordination patterns that keep reappearing in practice, and each has semantics the runtime can enforce
+mechanically:
+
+| Model | Real-world analogue | Entry point | Who decides | Typical use |
+|---|---|---|---|---|
+| `solo` | a single professional | the agent | the agent | personal assistant, monitor |
+| `pipeline` | an assembly line, editorial flow | first step | each step plus review gates | content, ETL-like flows, approvals chains |
+| `hub` | a manager and their team | the lead | the lead | research, projects, departments |
+| `pool` | a call centre, a dispatch desk | the deterministic dispatcher | the routing rule | support, triage, high-volume work |
+| `council` | a committee, an expert panel | all members | the decision rule | credit, hiring, risk calls |
+
+Hierarchy is not a model; it is what nested hubs produce. Matrix structures are expressed as a hub whose members are pools,
+for example a shared specialist pool.
+
+**Why a closed set.** Every model maps to a fixed engine in `_units.py` with known failure modes. A user-defined model
+could not be validated before runtime, which is the failure this project exists to avoid.
+
+**Rejected alternatives:**
+- *`mesh` (any agent to any agent)*: unbounded conversations, cycles and cost. Peers collaborate through a `council` or
+  through events instead.
+- *Free-form graphs*: they cannot be validated for termination or ownership.
+- *Market or auction models*: the cost and benefit of bidding are unclear for LLM agents. A `pool` with `skill_match`
+  covers routing by capability.
+
+**Why the limits.** A span of 12 bounds a lead's context and delegation fan-out; LLM leads degrade on long member lists.
+Pools allow 100 because their dispatcher is code. A depth of 6 bounds escalation latency and delegation chains. At these
+limits, 12⁵ hubs × 100 pool members × replicas comfortably exceeds any realistic org, so size is never the constraint;
+structure is.
+
+**Information hiding is the scaling rule.** A unit is a black box with one entry point. Agents only reach downward (lead
+to members), upward (escalate) and sideways inside a pool (handoff). Sibling units only interact through events. So adding
+a unit never changes the prompts or tools of agents outside it, and per-agent context stays constant as the org grows.
+
+**Decision rights** are layered and only ever tighten going down the tree:
+- Org level: governed action classes, approvers and budget.
+- Unit level: `owners`, `max_autonomy`, `monthly_usd`, and additional governed classes.
+- Agent level: `autonomy`.
+
+The effective autonomy is the minimum along the path, and the governed classes are the union along the path.
+
+**Runtime mapping:**
+- every unit is a reasoner tagged `unit` and its model, with its own `runs.<unit_id>` queue;
+- the `pool` dispatcher and the `council` aggregation run in the worker, not in an agent;
+- `pipeline` steps are child runs linked to the pipeline run.
 
 ## Risks / Trade-offs
 
@@ -260,8 +312,8 @@ The spec unit tests encode each archetype as a fixture spec that must validate.
   - `aio-pika`'s robust connection reconnects and re-declares the topology.
 - [Several workers could each run the scheduler] → A DB lease guarantees a single scheduler. The lease expires after 45s, so
   a dead worker's schedules resume on another.
-- [Per-agent concurrency relies on single-active-consumer] → `x-single-active-consumer` requires RabbitMQ 3.8 or newer;
-  3.13 is pinned in compose.
+- [Refused claims cause requeue churn when an agent is saturated] → Refused messages go through the 30s retry queue, not
+  an immediate requeue. Saturation is visible as queue depth on the dashboard.
 - [Testing needs a broker] → Unit tests use an in-memory fake implementing the small `_broker` surface. Integration tests use
   `testcontainers[rabbitmq]` and are skipped when Docker is unavailable.
 - [Sixth domain model] → `CLAUDE.md` is updated to describe `operations` and the Claude runtime.

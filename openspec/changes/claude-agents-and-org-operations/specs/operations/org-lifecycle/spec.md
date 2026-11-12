@@ -75,13 +75,17 @@ When more than `operations.lifecycle.max_failure_rate` of runs fail within the l
 - **WHEN** 11 of the last 20 runs failed
 - **THEN** the org transitions to `paused` with reason `failure_rate`
 
-### Requirement: Individual agents can be disabled
-An approver SHALL be able to disable or enable a single agent at runtime without changing the spec. A disabled agent SHALL
-reject new runs and delegations and SHALL skip its triggers.
+### Requirement: Individual agents and units can be disabled
+An approver SHALL be able to disable or enable a single agent or unit at runtime without changing the spec. A disabled agent
+or unit SHALL reject new runs and delegations and SHALL skip its triggers. Disabling a unit disables everything nested in it.
 
 #### Scenario: Disabled agent skipped
 - **WHEN** agent `outreach` is disabled and its schedule fires
 - **THEN** no run is created and the skip is logged
+
+#### Scenario: Disabled unit cascades
+- **WHEN** unit `sales` is disabled
+- **THEN** work addressed to `sales` or to any agent nested in it is rejected
 
 ### Requirement: Lifecycle is observable
 The node SHALL expose these lifecycle endpoints:

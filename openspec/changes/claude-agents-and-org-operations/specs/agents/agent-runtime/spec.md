@@ -9,12 +9,12 @@ policy-taggable, streamable, cost-accounted and audited.
 
 ### Requirement: Each agent is exposed as a tagged reasoner
 The rendered node SHALL register every declared agent as a reasoner named by its `id`. The reasoner SHALL carry the tag
-`agent` and the org slug. Teams SHALL carry `team` and workflows `workflow`. Custom tools SHALL also be registered as node
+`agent` and the org slug. Each unit SHALL be registered as a reasoner carrying `unit` and its model name, such as `hub`. Custom tools SHALL also be registered as node
 skills, so control-plane policies and the MCP shim can address them.
 
 #### Scenario: Policy targeting by tag
 - **WHEN** an operator creates a control-plane policy for tag `agent`
-- **THEN** it applies to every declared agent reasoner and to no workflow reasoner
+- **THEN** it applies to every declared agent reasoner and to no unit reasoner
 
 ### Requirement: Agents run on the Claude agent harness
 Each run SHALL execute on the Claude agent harness with the agent's model, compiled system prompt, allowed tools, MCP
@@ -59,7 +59,7 @@ SHALL be returned to the agent as tool results, not raised as errors.
 - **THEN** the agent receives a denial message and the run continues
 
 ### Requirement: Org communication tools are available to every agent
-Every agent SHALL receive the org tools its topology permits: `delegate`, `handoff`, `publish`, `escalate` and the
+Every agent SHALL receive the org tools its position in the unit tree permits: `delegate`, `handoff`, `publish`, `escalate` and the
 knowledge tools. They SHALL appear alongside its declared tools.
 
 #### Scenario: Knowledge tools present

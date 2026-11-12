@@ -11,13 +11,13 @@ missed fires.
 ### Requirement: Triggers are a closed set of kinds
 `operations.triggers` SHALL accept exactly five kinds: `manual`, `schedule`, `event`, `webhook` and `queue`. Each trigger has:
 - a unique `id`;
-- a `target`, which is an agent, team or workflow id;
+- a `target`, which is an agent or unit id;
 - a `prompt` template.
 
-Every agent, team and workflow SHALL be manually triggerable without declaring a manual trigger.
+Every agent and unit SHALL be manually triggerable without declaring a manual trigger.
 
 #### Scenario: Unknown target rejected
-- **WHEN** a trigger targets an id that is not a declared agent, team or workflow
+- **WHEN** a trigger targets an id that is not a declared agent or unit
 - **THEN** spec validation fails
 
 #### Scenario: Implicit manual trigger

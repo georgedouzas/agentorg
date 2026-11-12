@@ -17,7 +17,7 @@ one-sentence `role`. Arbitrary runnables and framework objects SHALL be rejected
 - **THEN** loading the spec fails with a validation error naming the offending entry
 
 #### Scenario: Duplicate ids rejected
-- **WHEN** two agents, or an agent and a team, share the same `id`
+- **WHEN** two agents, or an agent and a unit, share the same `id`
 - **THEN** spec validation fails naming the duplicated id
 
 ### Requirement: Persona shapes the agent's voice and judgement
@@ -35,7 +35,7 @@ The persona SHALL be compiled into the agent's system prompt together with the o
 - **THEN** the compiled system prompt instructs the agent to decline billing requests and name `finance`
 
 #### Scenario: Referral to unknown agent rejected
-- **WHEN** an `out_of_scope` entry refers to an id that is not a declared agent or team
+- **WHEN** an `out_of_scope` entry refers to an id that is not a declared agent or unit
 - **THEN** spec validation fails
 
 ### Requirement: Model is selected from Claude tiers
@@ -121,7 +121,7 @@ skill reference. The listed skills SHALL be the only skills available to the age
 Each agent SHALL declare `workspace`, defaulting to `ephemeral`:
 - `ephemeral`: a fresh directory per run, deleted afterwards
 - `persistent`: one directory per agent, kept across runs
-- `shared`: one directory per team, shared by its members
+- `shared`: one directory per unit, shared by its members
 
 #### Scenario: Ephemeral cleanup
 - **WHEN** a run of an `ephemeral` agent finishes
