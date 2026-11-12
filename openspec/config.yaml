@@ -1,6 +1,9 @@
 schema: spec-driven
 
 context: |
+  The engineering constitution in openspec/constitution.md binds all work in this project. Read
+  it before planning a change, follow its code conventions in every artifact and task, and keep
+  the Project Profile at its end current as the project develops.
   CLAUDE.md is the authority on architecture, package discipline, module structure and code style; designs and tasks must follow it
   Keep the three core layers separate: spec/ (Pydantic models), render/ (Jinja materialisation), tools/ (runtime helpers shipped to rendered orgs)
   agentorg never imports agno; runnables are plain async callables or objects with .arun()
