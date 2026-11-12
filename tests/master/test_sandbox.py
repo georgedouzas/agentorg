@@ -2,7 +2,13 @@
 
 import pytest
 
-from agentorg.master import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
+from agentorg.master import (
+    SkillValidationError,
+    ToolValidationError,
+    compile_tool,
+    validate_skill_source,
+    validate_tool_source,
+)
 
 VALID_TOOL_SOURCE = '\n'.join(
     [
@@ -251,3 +257,11 @@ def test_validate_skill_source_rejects_empty_body():
     body = '---\nname: x\ndescription: y\n---\n\n   \n\n'
     with pytest.raises(SkillValidationError, match='at least one non-empty line'):
         validate_skill_source('some-skill', body)
+
+
+async def test_compile_tool_returns_the_named_function() -> None:
+    """A validated tool source compiles into its callable async function."""
+    source = 'async def shout(text: str) -> str:\n    """Shout."""\n    return text.upper()\n'
+    shout = compile_tool('shout', source)
+    assert shout.__name__ == 'shout'
+    assert await shout('hi') == 'HI'

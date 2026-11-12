@@ -15,6 +15,7 @@ def _agents(*ids: str, **fields: object) -> list[dict[str, Any]]:
 def test_ai_validates_solo_org(ai_dict_minimal: dict[str, Any]) -> None:
     """A single agent in a solo root unit is a valid org."""
     ai = AI.model_validate(ai_dict_minimal)
+    assert ai.root is not None
     assert ai.root.model == 'solo'
     assert ai.agent('assistant').name == 'Assistant'
 
@@ -79,9 +80,9 @@ def test_ai_accepts_majority_council_with_choice_output() -> None:
     """Members with a `choice` json output satisfy a majority council."""
     output = {'format': 'json', 'json_schema': {'type': 'object', 'properties': {'choice': {'type': 'string'}}}}
     root = {'id': 'board', 'name': 'Board', 'model': 'council', 'decision': 'majority', 'members': ['a', 'b', 'c']}
-    assert (
-        AI.model_validate({'agents': _agents('a', 'b', 'c', output=output), 'root': root}).root.decision == 'majority'
-    )
+    council = AI.model_validate({'agents': _agents('a', 'b', 'c', output=output), 'root': root}).root
+    assert council is not None
+    assert council.decision == 'majority'
 
 
 def test_ai_rejects_unit_budget_above_parent() -> None:
@@ -116,6 +117,18 @@ def test_ai_validates_four_million_instance_org() -> None:
         return {'id': prefix, 'name': prefix, 'model': 'hub', 'lead': lead, 'members': children}
 
     ai = AI.model_validate({'agents': agents, 'root': build(0, 'org')})
-    assert ai.root.depth() == 5
+    assert ai.depth == 5
     assert sum(agent.replicas for agent in ai.agents) > 4_000_000
-    assert max(len(unit.members) for unit in ai.root.iter_units() if unit.model == 'hub') == 12
+    assert max(len(unit.members) for unit in ai.units if unit.model == 'hub') == 12
+
+
+def test_ai_without_agents_needs_no_root() -> None:
+    """An org that has no agents yet has no root unit, no units and no depth."""
+    ai = AI.model_validate({'agents': []})
+    assert (ai.root, ai.units, ai.depth) == (None, [], 0)
+
+
+def test_ai_rejects_agents_without_root() -> None:
+    """Agents cannot exist outside the unit tree."""
+    with pytest.raises(ValidationError, match='root unit'):
+        AI.model_validate({'agents': _agents('a')})

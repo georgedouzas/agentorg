@@ -78,34 +78,34 @@
 
 ## 9. Master agent
 
-- [ ] 9.1 Update `master/_models.py` and `master/_seed.py` to the new agent, unit and operations shapes, with the budget placeholder and no `Org.budget`. Verify that `tests/master` seed tests pass.
-- [ ] 9.2 Extend `master/_tools.py`:
+- [x] 9.1 Update `master/_models.py` and `master/_seed.py` to the new agent, unit and operations shapes, with the budget placeholder and no `Org.budget`. Verify that `tests/master` seed tests pass.
+- [x] 9.2 Extend `master/_tools.py`:
   - Configure gets the budget, lifecycle and approvers tools.
   - Build gets the full agent fields, plus the unit tools (add, update, remove, move) and the trigger tools. The Build prompt proposes the root model by org size per design.md D12.
   - Refine gets the governance and notifications tools.
 
   Each tool returns validation errors as text. Verify with `tests/master/test_tools.py` that an invalid cron returns an error and leaves the spec unchanged.
-- [ ] 9.3 Port `master/_agent.py` stage agents to the SDK, serving each stage's slice as the `stage` MCP server with no built-in tools. Add the `_stages.py` blockers: Configure needs the budget, Build needs at least one agent. Verify with `tests/master/test_agent.py` that Discover has no agent/trigger tools and that the Build stage cannot call `bash`.
-- [ ] 9.4 Port `master/_agent_sandbox.py` and `master/_sandbox.py` to run agents through `_runner` in preview mode and report outputs, tool calls and cost. Verify with `tests/master/test_agent_sandbox.py` using a fake client.
-- [ ] 9.5 Rewrite `master/_writer.py` to emit `spec.py` with only `agentorg` spec-model and custom-tool imports. Verify with `tests/master/test_writer.py` that it round-trips each D10 archetype and that no framework import appears.
-- [ ] 9.6 Update `master/ui/_server.py` and `master/ui/_preview.py` for SDK message streaming. Verify that `tests/master/ui/test_server.py` passes.
+- [x] 9.3 Port `master/_agent.py` stage agents to the SDK, serving each stage's slice as the `stage` MCP server with no built-in tools. Add the `_stages.py` blockers: Configure needs the budget, Build needs at least one agent. Verify with `tests/master/test_agent.py` that Discover has no agent/trigger tools and that the Build stage cannot call `bash`.
+- [x] 9.4 Port `master/_agent_sandbox.py` and `master/_sandbox.py` to run agents through `_runner` in preview mode and report outputs, tool calls and cost. Verify with `tests/master/test_agent_sandbox.py` using a fake client.
+- [x] 9.5 Rewrite `master/_writer.py` to emit `spec.py` with only `agentorg` spec-model and custom-tool imports. Verify with `tests/master/test_writer.py` that it round-trips each D10 archetype and that no framework import appears.
+- [x] 9.6 Update `master/ui/_server.py` and `master/ui/_preview.py` for SDK message streaming. Verify that `tests/master/ui/test_server.py` passes.
 
 ## 10. Remove agno completely
 
-- [ ] 10.1 Delete `core/adapters/agno/`, `core/agents/framework/`, `core/agents/skills/` (agno loaders; keep pinned skill refs only if `_options.py` uses them, moved under `core/adapters/claude/`) and the `AgnoAgent`/`Agent` aliases in `core/agents/__init__.py`. Verify that the package imports cleanly with `uv run python -c "import agentorg"`.
-- [ ] 10.2 Delete `tests/core/adapters/agno/` and `tests/core/agents/framework/`, and remove the agno fixtures from `tests/conftest.py` files and `tests/cli/test_new.py`. Verify that `uv run nox -s tests` collects without import errors.
-- [ ] 10.3 Remove `agno` from `pyproject.toml` and regenerate `uv.lock`. Verify that `uv tree | grep -i agno` returns nothing.
-- [ ] 10.4 Update `CLAUDE.md` (Claude runtime, sixth `operations` domain, mandatory RabbitMQ next to the control plane), `openspec/config.yaml` context, `README.md` and `mkdocs.yml`. Verify that `grep -rni agno src tests docs README.md mkdocs.yml CLAUDE.md pyproject.toml openspec/config.yaml` returns nothing.
+- [x] 10.1 Delete `core/adapters/agno/`, `core/agents/framework/`, `core/agents/skills/` (agno loaders; keep pinned skill refs only if `_options.py` uses them, moved under `core/adapters/claude/`) and the `AgnoAgent`/`Agent` aliases in `core/agents/__init__.py`. Verify that the package imports cleanly with `uv run python -c "import agentorg"`.
+- [x] 10.2 Delete `tests/core/adapters/agno/` and `tests/core/agents/framework/`, and remove the agno fixtures from `tests/conftest.py` files and `tests/cli/test_new.py`. Verify that `uv run nox -s tests` collects without import errors.
+- [x] 10.3 Remove `agno` from `pyproject.toml` and regenerate `uv.lock`. Verify that `uv tree | grep -i agno` returns nothing.
+- [x] 10.4 Update `CLAUDE.md` (Claude runtime, sixth `operations` domain, mandatory RabbitMQ next to the control plane), `openspec/config.yaml` context, `README.md` and `mkdocs.yml`. Verify that `grep -rni agno src tests docs README.md mkdocs.yml CLAUDE.md pyproject.toml openspec/config.yaml` returns nothing.
 
 ## 11. Integration verification
 
 - [ ] 11.1 Render the support-desk archetype with docker packaging and boot the stack, including `rabbitmq`. Send a signed webhook and confirm that a run reaches `awaiting_approval` on an `outbound_message` tool and completes after approval in the Inbox.
 - [ ] 11.1a On the same stack, publish a message to the CRM `queue` trigger's queue and confirm that a run is created. Then restart the `rabbitmq` container while a second run is `queued`, and confirm that it runs exactly once afterwards.
 - [ ] 11.1b Scale the node to two workers and confirm that an hourly schedule fires once and that each enqueued run executes on exactly one worker.
-- [ ] 11.2 Run `uv run pytest tests/core/render/test_base.py::test_each_shipped_template_renders` and verify that it passes.
-- [ ] 11.3 Run `uv run nox -s formatting` and verify that it leaves no diff on a second run.
-- [ ] 11.4 Run `uv run nox -s checks` and verify that it passes.
-- [ ] 11.5 Run `uv run nox -s tests` and verify that it passes.
+- [x] 11.2 Run `uv run pytest tests/core/render/test_base.py::test_each_shipped_template_renders` and verify that it passes.
+- [x] 11.3 Run `uv run nox -s formatting` and verify that it leaves no diff on a second run.
+- [x] 11.4 Run `uv run nox -s checks` and verify that it passes.
+- [x] 11.5 Run `uv run nox -s tests` and verify that it passes.
 
 ## Workflow follow-up
 

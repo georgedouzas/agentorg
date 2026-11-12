@@ -71,6 +71,7 @@ class QueueConsumers:
         return [t for t in self.spec.operations.triggers if isinstance(t, QueueTrigger) and t.enabled]
 
     async def _handle(self, trigger: QueueTrigger, message: InboundMessage) -> None:
+        """Start the trigger's run for a matching message, then acknowledge it."""
         try:
             payload = json.loads(message.body)
         except json.JSONDecodeError:

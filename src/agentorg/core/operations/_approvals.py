@@ -36,6 +36,7 @@ class Approvals:
         self._waiting: dict[str, asyncio.Future[None]] = {}
 
     async def _request(self, run: Run, action_class: str, tool_name: str, arguments: dict[str, Any]) -> Approval:
+        """Store an approval request, hold the run and notify the approvers."""
         approval = Approval(
             run_id=run.id,
             action_class=action_class,
@@ -53,6 +54,7 @@ class Approvals:
         return approval
 
     async def _wait(self, approval_id: str) -> Approval:
+        """Wait for a decision on the approval, applying the timeout."""
         future = asyncio.get_running_loop().create_future()
         self._waiting[approval_id] = future
         timeout_s = self.spec.operations.governance.approval_timeout_h * 3600
@@ -69,11 +71,13 @@ class Approvals:
         return stored  # type: ignore[return-value]
 
     async def _time_out(self, approval_id: str) -> None:
+        """Decide an approval that nobody decided in time."""
         status = 'approved' if self.spec.operations.governance.on_timeout == 'approve' else 'timed_out'
         if await self.store.decide_approval(approval_id, status=status, decided_by='timeout'):
             await self.publish('approval.decided', {'approval_id': approval_id, 'status': status})
 
     async def _resume(self, run: Run, approval: Approval) -> None:
+        """Return a held run to running and record the decision in its transcript."""
         await self.store.transition(run.id, 'running')
         event = {
             'type': 'approval_decided',

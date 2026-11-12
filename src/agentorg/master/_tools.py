@@ -2,12 +2,12 @@
 
 import re
 from pathlib import Path
-from typing import Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from ..core.spec import (
-    AI,
+    Agent,
     AppUI,
     EmptyState,
     EnvVar,
@@ -17,6 +17,7 @@ from ..core.spec import (
     Knowledge,
     KnowledgeType,
     KnowledgeTypeMetadataField,
+    Operations,
     Org,
     OverviewBlock,
     Parameter,
@@ -26,12 +27,19 @@ from ..core.spec import (
     SetupStep,
     Spec,
 )
-from ._models import AgentSpec, CustomSkill, CustomTool, StepSpec, TeamSpec, WorkflowSpec
-from ._sandbox import SkillValidationError, ToolValidationError, validate_skill_source, validate_tool_source
+from ._models import CustomSkill, CustomTool, UnitDraft
+from ._sandbox import (
+    SkillValidationError,
+    ToolValidationError,
+    compile_tool,
+    validate_skill_source,
+    validate_tool_source,
+)
 from ._seed import PLACEHOLDER_VALUES
 from ._stages import STAGE_LABELS, STAGES, advance
 from ._state import Discovery, get_state
-from ._writer import write_spec
+from ._structure import assemble_ai
+from ._writer import render_spec, write_spec
 
 ItemT = TypeVar('ItemT', bound=BaseModel)
 
@@ -61,23 +69,6 @@ def _remove(items: list[ItemT], key_field: str, key_value: object) -> tuple[list
     return new_items, len(new_items) != len(items)
 
 
-def _replace_ai(
-    *,
-    agents: list[object] | None = None,
-    teams: list[object] | None = None,
-    workflows: list[object] | None = None,
-) -> None:
-    """Replace `spec.ai` with a new `AI` carrying the updated lists (only changed lists are passed)."""
-    state = get_state()
-    ai = state.spec.ai
-    state.spec.ai = AI(
-        framework=ai.framework,
-        agents=agents if agents is not None else list(ai.agents),
-        teams=teams if teams is not None else list(ai.teams),
-        workflows=workflows if workflows is not None else list(ai.workflows),
-    )
-
-
 def _org_placeholders(spec: Spec) -> list[tuple[str, str]]:
     """Return placeholder entries for the seed-valued fields on `spec.org`."""
     fields = ('name', 'slug', 'package_name', 'description', 'repository', 'admin_name', 'admin_email')
@@ -85,17 +76,13 @@ def _org_placeholders(spec: Spec) -> list[tuple[str, str]]:
 
 
 def _ai_placeholders(spec: Spec) -> list[tuple[str, str]]:
-    """Return placeholder entries for empty agent/team/workflow collections + toolless agents."""
+    """Return placeholder entries for an org without agents and for agents without any tools."""
     out: list[tuple[str, str]] = []
     if not spec.ai.agents:
         out.append(('ai.agents', '(empty)'))
     for agent in spec.ai.agents:
-        if isinstance(agent, AgentSpec) and not agent.tools and not agent.skills:
-            out.append((f'ai.agents[{agent.agent_id}].tools_or_skills', '(empty)'))
-    if not spec.ai.teams:
-        out.append(('ai.teams', '(empty)'))
-    if not spec.ai.workflows:
-        out.append(('ai.workflows', '(empty)'))
+        if not agent.tools and not agent.mcp_servers and not agent.skills:
+            out.append((f'ai.agents[{agent.id}].tools', '(builtin only)'))
     return out
 
 
@@ -167,7 +154,6 @@ def set_org_identity(
     admin_name: str | None = None,
     admin_email: str | None = None,
     visibility: Literal['public', 'private'] | None = None,
-    budget: Literal['low', 'medium', 'high'] | None = None,
 ) -> str:
     """Update fields on `spec.org`.
 
@@ -184,7 +170,6 @@ def set_org_identity(
         admin_name: Admin / maintainer name.
         admin_email: Admin / maintainer email.
         visibility: `public` or `private`.
-        budget: Guidance tier for fleet size and tool depth (`low` / `medium` / `high`).
 
     Returns:
         message: Confirmation listing the fields that changed, or a validation-error
@@ -213,7 +198,6 @@ def set_org_identity(
         'admin_name': admin_name,
         'admin_email': admin_email,
         'visibility': visibility,
-        'budget': budget,
     }
     changed = {k: v for k, v in updates.items() if v is not None}
     if not changed:
@@ -234,216 +218,526 @@ def set_org_identity(
     return f"Updated org fields: {', '.join(sorted(changed))}."
 
 
+def _first_error(error: ValidationError | ValueError) -> str:
+    """Return a short description of a validation error."""
+    if isinstance(error, ValidationError):
+        return '; '.join(f"{'.'.join(str(p) for p in e['loc']) or 'value'}: {e['msg']}" for e in error.errors()[:3])
+    return str(error)
+
+
+def _rebuild_spec(**changes: Any) -> str | None:  # noqa: ANN401
+    """Replace spec fields with `changes` when the whole spec still validates; return the error otherwise."""
+    state = get_state()
+    fields = {name: getattr(state.spec, name) for name in Spec.model_fields}
+    try:
+        state.spec = Spec(**{**fields, **changes})
+    except (ValidationError, ValueError) as error:
+        return _first_error(error)
+    return None
+
+
+def _sync_structure() -> str:
+    """Assemble the agent and unit drafts into the spec and describe whether the structure is complete."""
+    state = get_state()
+    try:
+        ai = assemble_ai(state.agents, state.units)
+    except (ValidationError, ValueError) as error:
+        state.structure_error = _first_error(error)
+        return f'The structure is not complete yet: {state.structure_error}'
+    problem = _rebuild_spec(ai=ai)
+    state.structure_error = problem
+    if problem is not None:
+        return f'The spec does not validate: {problem}'
+    return 'The org structure is valid and live in the preview.'
+
+
+def _unit(unit_id: str) -> UnitDraft | None:
+    """Return the unit draft with id `unit_id`, or None."""
+    return next((unit for unit in get_state().units if unit.id == unit_id), None)
+
+
+def _detach(member_id: str) -> None:
+    """Remove `member_id` from every unit's members and lead slot."""
+    for unit in get_state().units:
+        if member_id in unit.members:
+            unit.members.remove(member_id)
+        if unit.lead == member_id:
+            unit.lead = None
+
+
+def add_or_update_unit(
+    *,
+    unit_id: str,
+    name: str,
+    model: Literal['solo', 'pipeline', 'hub', 'pool', 'council'],
+    parent_id: str | None = None,
+    routing: Literal['round_robin', 'least_loaded', 'skill_match'] = 'least_loaded',
+    decision: Literal['majority', 'judge', 'unanimous'] | None = None,
+    owners: list[str] | None = None,
+    max_autonomy: Literal['read_only', 'propose', 'act', 'autonomous'] | None = None,
+    monthly_usd: float | None = None,
+    approval_required: list[str] | None = None,
+) -> str:
+    """Add or update a unit of the org; its agents join with `add_or_update_agent(unit_id=...)`.
+
+    Models: `solo` (one agent), `pipeline` (members run in order), `hub` (a lead delegates to members), `pool`
+    (a dispatcher routes work to one member), `council` (3-9 members answer, a decision rule combines them).
+    Leave `parent_id` empty for the root unit; nested units name their parent.
+
+    Arguments:
+        unit_id: Lowercase kebab-case id; matching an existing unit updates it and keeps its members.
+        name: Display name.
+        model: The governance model.
+        parent_id: The parent unit's id, or none for the root unit.
+        routing: Pool routing rule.
+        decision: Council decision rule.
+        owners: Approver emails for actions inside this unit.
+        max_autonomy: Ceiling on the autonomy of agents inside this unit.
+        monthly_usd: Monthly budget cap of this unit.
+        approval_required: Action classes this unit governs in addition to the org's.
+
+    Returns:
+        message: Confirmation and whether the org structure is complete.
+    """
+    existing = _unit(unit_id)
+    fields: dict[str, Any] = {
+        'id': unit_id,
+        'name': name,
+        'model': model,
+        'parent_id': parent_id,
+        'routing': routing,
+        'decision': decision,
+        'owners': owners or [],
+        'max_autonomy': max_autonomy,
+        'monthly_usd': monthly_usd,
+        'approval_required': approval_required or [],
+    }
+    if existing is not None:
+        fields |= {'lead': existing.lead, 'members': existing.members, 'step_reviews': existing.step_reviews}
+        fields |= {'step_instructions': existing.step_instructions}
+    try:
+        draft = UnitDraft.model_validate(fields)
+    except ValidationError as error:
+        return f'Unit not saved: {_first_error(error)}'
+    state = get_state()
+    state.units = [unit for unit in state.units if unit.id != unit_id] + [draft]
+    return f"{'Updated' if existing else 'Added'} unit '{unit_id}'. {_sync_structure()}"
+
+
+def set_pipeline_step(
+    *,
+    unit_id: str,
+    member_id: str,
+    instruction: str = '',
+    review: Literal['none', 'lead', 'human'] = 'none',
+) -> str:
+    """Set the instruction and review gate of one member's step in a pipeline unit.
+
+    Arguments:
+        unit_id: The pipeline unit.
+        member_id: The agent or unit that runs the step.
+        instruction: What the step does with the previous step's output.
+        review: `human` pauses for a person's approval, `lead` asks the nearest lead, `none` continues.
+
+    Returns:
+        message: Confirmation and whether the org structure is complete.
+    """
+    unit = _unit(unit_id)
+    if unit is None or unit.model != 'pipeline':
+        return f"No pipeline unit '{unit_id}'."
+    unit.step_instructions[member_id] = instruction
+    unit.step_reviews[member_id] = review
+    return f"Set step '{member_id}' of '{unit_id}'. {_sync_structure()}"
+
+
+def remove_unit(unit_id: str) -> str:
+    """Remove an empty unit; move or remove its members and nested units first.
+
+    Arguments:
+        unit_id: The unit to remove.
+
+    Returns:
+        message: Confirmation, or why the unit cannot be removed.
+    """
+    state = get_state()
+    unit = _unit(unit_id)
+    if unit is None:
+        return f"No unit named '{unit_id}'."
+    nested = [u.id for u in state.units if u.parent_id == unit_id]
+    if unit.members or unit.lead or nested:
+        held = [*unit.members, *([unit.lead] if unit.lead else []), *nested]
+        return f"Unit '{unit_id}' still holds {held}; move them first."
+    state.units = [u for u in state.units if u.id != unit_id]
+    return f"Removed unit '{unit_id}'. {_sync_structure()}"
+
+
 def add_or_update_agent(
     *,
     agent_id: str,
     name: str,
     role: str,
-    in_scope: list[str],
-    workflow: list[str],
+    unit_id: str,
+    as_lead: bool = False,
+    tone: Literal['direct', 'warm', 'formal', 'playful'] = 'direct',
+    verbosity: Literal['terse', 'balanced', 'thorough'] = 'balanced',
+    instructions: str = '',
+    in_scope: list[str] | None = None,
+    out_of_scope: dict[str, str] | None = None,
+    model: Literal['opus', 'sonnet', 'haiku'] = 'sonnet',
+    autonomy: Literal['read_only', 'propose', 'act', 'autonomous'] = 'propose',
+    builtin_tools: list[str] | None = None,
     tools: list[str] | None = None,
+    mcp_servers: list[dict[str, Any]] | None = None,
     skills: list[str] | None = None,
-    model: str = 'google:gemini-2.5-flash',
-    when_to_act: list[str] | None = None,
-    out_of_scope: list[str] | None = None,
-    style: list[str] | None = None,
-    principles: list[str] | None = None,
-    introduction: str = '',
-    description: str = '',
-    additional_context: str = '',
+    workspace: Literal['ephemeral', 'persistent', 'shared'] = 'ephemeral',
+    memory: Literal['none', 'session', 'user'] = 'session',
+    max_turns: int = 30,
+    max_run_usd: float | None = None,
+    timeout_s: int = 600,
+    output_format: Literal['text', 'json'] = 'text',
+    output_schema: dict[str, Any] | None = None,
+    knowledge_type: str | None = None,
+    replicas: int = 1,
+    tags: list[str] | None = None,
 ) -> str:
-    """Add or update a user-defined agent.
+    """Add or update an agent and place it in a unit, as a member or as the unit's lead.
 
     Arguments:
-        agent_id: Stable identifier; matching an existing agent triggers an update.
+        agent_id: Lowercase kebab-case id; matching an existing agent updates it.
         name: Display name.
-        role: One-line description of the agent's responsibility.
+        role: One sentence on what the agent is responsible for.
+        unit_id: The unit the agent belongs to; create it first with `add_or_update_unit`.
+        as_lead: Make the agent the unit's lead instead of a member (hubs need one; pools and judge councils may).
+        tone: `direct`, `warm`, `formal` or `playful`.
+        verbosity: `terse`, `balanced` or `thorough`.
+        instructions: How the agent works, in prose.
         in_scope: Topics the agent owns.
-        workflow: Steps the agent follows for an in-scope request.
-        tools: Names of built-in or custom tools the agent uses.
-        skills: Names of skill-catalog refs (keys of `DEFAULT_SKILLS_REFS`) the agent uses.
-        model: Model the agent runs on.
-        when_to_act: Rules for when the agent engages.
-        out_of_scope: Topics the agent declines.
-        style: Tone and format rules.
-        principles: Org-wide rules the agent follows.
-        introduction: Greeting on first turn.
-        description: Description of the agent.
-        additional_context: Extra context for the system prompt.
+        out_of_scope: Topics the agent declines, mapped to the agent or unit it refers them to.
+        model: `opus` for leads and hard reasoning, `sonnet` by default, `haiku` for fast triage.
+        autonomy: `read_only`, `propose` (writes need approval), `act`, or `autonomous`.
+        builtin_tools: Harness tools from read, write, edit, glob, grep, bash, web_search, web_fetch, todo; defaults
+            follow the autonomy.
+        tools: Names of custom tools registered with `emit_custom_tool`.
+        mcp_servers: MCP servers, each with name, transport (stdio/http/sse), command/args or url, env (env var
+            names), and optional allowed_tools, read_tools, outbound_tools.
+        skills: Names of skills registered with `emit_custom_skill`.
+        workspace: `ephemeral`, `persistent` or `shared` (with its unit).
+        memory: `none`, `session` or `user`.
+        max_turns: Turn cap per run.
+        max_run_usd: USD cap per run; the org's per-run budget when unset.
+        timeout_s: Wall-clock cap per run in seconds.
+        output_format: `text` or `json`.
+        output_schema: JSON schema of the output when `output_format` is `json`.
+        knowledge_type: Knowledge type the agent's successful outputs are filed under.
+        replicas: Parallel instances of this agent.
+        tags: Skill tags pools route work by.
 
     Returns:
-        message: `Added` or `Updated` confirmation.
+        message: Confirmation and whether the org structure is complete, or why the agent was not saved.
     """
-    # Tools use BARE names (`run_sqlite_query`), not the `custom:` prefix (that's for
-    # skills only). Normalise at the entry point so the LLM can't break the rendered
-    # spec.py with `tools=['custom:foo']` (which would emit `import custom:foo` and
-    # syntax-error on reload).
-    normalised_tools = [t.removeprefix('custom:') for t in (tools or [])]
-    spec = AgentSpec(
-        agent_id=agent_id,
-        name=name,
-        role=role,
-        model=model,
-        tools=normalised_tools,
-        skills=skills or [],
-        in_scope=in_scope,
-        workflow=workflow,
-        when_to_act=when_to_act or [],
-        out_of_scope=out_of_scope or [],
-        style=style or [],
-        principles=principles or [],
-        introduction=introduction,
-        description=description,
-        additional_context=additional_context,
-    )
-    new_agents, existed = _upsert(list(get_state().spec.ai.agents), 'agent_id', agent_id, spec)
-    _replace_ai(agents=new_agents)
-    return f"{'Updated' if existed else 'Added'} agent '{agent_id}'."
+    state = get_state()
+    unit = _unit(unit_id)
+    if unit is None:
+        return f"No unit named '{unit_id}'. Create it first with add_or_update_unit."
+    unknown_tools = [name for name in tools or [] if name not in state.functions]
+    if unknown_tools:
+        return f'Unknown custom tools {unknown_tools}; register them with emit_custom_tool first.'
+    fields: dict[str, Any] = {
+        'id': agent_id,
+        'name': name,
+        'role': role,
+        'persona': {
+            'tone': tone,
+            'verbosity': verbosity,
+            'instructions': instructions,
+            'in_scope': in_scope or [],
+            'out_of_scope': [{'topic': topic, 'refer_to': target} for topic, target in (out_of_scope or {}).items()],
+        },
+        'model': model,
+        'autonomy': autonomy,
+        'builtin_tools': builtin_tools,
+        'tools': [state.functions[name] for name in tools or []],
+        'mcp_servers': mcp_servers or [],
+        'skills': skills or [],
+        'workspace': workspace,
+        'memory': memory,
+        'limits': {'max_turns': max_turns, 'max_run_usd': max_run_usd, 'timeout_s': timeout_s},
+        'output': {'format': output_format, 'json_schema': output_schema, 'knowledge_type': knowledge_type},
+        'replicas': replicas,
+        'tags': tags or [],
+    }
+    try:
+        agent = Agent.model_validate(fields)
+    except ValidationError as error:
+        return f'Agent not saved: {_first_error(error)}'
+    existed = any(a.id == agent_id for a in state.agents)
+    state.agents = [a for a in state.agents if a.id != agent_id] + [agent]
+    _detach(agent_id)
+    if as_lead:
+        unit.lead = agent_id
+    else:
+        unit.members.append(agent_id)
+    return f"{'Updated' if existed else 'Added'} agent '{agent_id}' in '{unit_id}'. {_sync_structure()}"
 
 
 def remove_agent(agent_id: str) -> str:
-    """Remove the agent with the given `agent_id`.
+    """Remove the agent with the given id from the org and its unit.
 
     Arguments:
-        agent_id: Stable identifier of the agent to remove.
+        agent_id: The agent to remove.
 
     Returns:
-        message: Confirmation, or a not-found message.
+        message: Confirmation and whether the org structure is complete, or a not-found message.
     """
-    new_agents, removed = _remove(list(get_state().spec.ai.agents), 'agent_id', agent_id)
-    if not removed:
+    state = get_state()
+    if not any(agent.id == agent_id for agent in state.agents):
         return f"No agent named '{agent_id}'."
-    _replace_ai(agents=new_agents)
-    return f"Removed agent '{agent_id}'."
+    state.agents = [agent for agent in state.agents if agent.id != agent_id]
+    _detach(agent_id)
+    return f"Removed agent '{agent_id}'. {_sync_structure()}"
 
 
-def add_or_update_team(
+def add_or_update_trigger(
     *,
-    team_id: str,
-    name: str,
-    role: str,
-    workflow: list[str],
-    member_ids: list[str],
-    mode: Literal['coordinate', 'route', 'broadcast', 'tasks'] = 'coordinate',
-    model: str = 'google:gemini-2.5-flash',
-    tools: list[str] | None = None,
-    skills: list[str] | None = None,
-    in_scope: list[str] | None = None,
-    out_of_scope: list[str] | None = None,
-    when_to_act: list[str] | None = None,
-    style: list[str] | None = None,
-    principles: list[str] | None = None,
-    introduction: str = '',
-    description: str = '',
-    additional_context: str = '',
+    trigger_id: str,
+    kind: Literal['schedule', 'event', 'webhook', 'queue'],
+    target: str,
+    prompt: str,
+    cron: str | None = None,
+    timezone: str = 'UTC',
+    overlap: Literal['skip', 'queue', 'allow'] = 'skip',
+    catch_up: Literal['skip', 'run_once'] = 'skip',
+    event: str | None = None,
+    filter: dict[str, Any] | None = None,  # noqa: A002 - the spec field is named filter
+    secret_env: str | None = None,
+    queue: str | None = None,
+    url_env: str | None = None,
+    enabled: bool = True,
 ) -> str:
-    """Add or update a team that coordinates existing agents.
+    """Add or update a trigger that starts runs of an agent or unit without a person asking.
 
     Arguments:
-        team_id: Stable identifier; matching an existing team triggers an update.
-        name: Display name.
-        role: One-line description of the team's responsibility.
-        workflow: Steps the team follows when coordinating its members.
-        member_ids: `agent_id`s of the team's members.
-        mode: Coordination mode.
-        model: Model the team's orchestrator runs on.
-        tools: Names of built-in or custom tools available at the team level (in addition to
-            anything its members can call).
-        skills: Skill-catalog refs the team's orchestrator can use. Plain catalog refs
-            (`'superpowers'`) load the whole catalog; granular refs (`'superpowers/negotiation'`)
-            load a single subfolder.
-        in_scope: Topics the team handles.
-        out_of_scope: Topics the team declines.
-        when_to_act: Rules for when the team engages.
-        style: Tone and format rules.
-        principles: Org-wide rules the team follows.
-        introduction: Greeting on first turn.
-        description: Description of the team.
-        additional_context: Extra context for the system prompt.
+        trigger_id: Lowercase kebab-case id.
+        kind: `schedule` (cron), `event` (org event), `webhook` (signed HTTP call) or `queue` (external AMQP queue).
+        target: The agent or unit the trigger runs.
+        prompt: The run's input; may use {now}, {trigger_id}, {event}, {body}, {message} and parameter names.
+        cron: 5-field cron expression, for schedules.
+        timezone: IANA timezone of the cron, for schedules.
+        overlap: What a schedule does while its previous run is active: skip, queue or allow.
+        catch_up: What a schedule does with fires missed during downtime: skip or run_once.
+        event: Event name, built in or `custom.*`, for event triggers.
+        filter: Payload fields that must match, for event and queue triggers.
+        secret_env: Env var holding the HMAC secret, for webhooks; declare it with add_or_update_env_var.
+        queue: Queue name, for queue triggers.
+        url_env: Env var of a different broker, for queue triggers.
+        enabled: Whether the trigger fires.
 
     Returns:
-        message: `Added` or `Updated` confirmation.
+        message: Confirmation, or the validation error with the spec unchanged.
     """
-    normalised_tools = [t.removeprefix('custom:') for t in (tools or [])]
-    spec = TeamSpec(
-        team_id=team_id,
-        name=name,
-        role=role,
-        model=model,
-        member_ids=member_ids,
-        mode=mode,
-        tools=normalised_tools,
-        skills=skills or [],
-        workflow=workflow,
-        in_scope=in_scope or [],
-        out_of_scope=out_of_scope or [],
-        when_to_act=when_to_act or [],
-        style=style or [],
-        principles=principles or [],
-        introduction=introduction,
-        description=description,
-        additional_context=additional_context,
-    )
-    new_teams, existed = _upsert(list(get_state().spec.ai.teams), 'team_id', team_id, spec)
-    _replace_ai(teams=new_teams)
-    return f"{'Updated' if existed else 'Added'} team '{team_id}'."
+    specific: dict[str, dict[str, Any]] = {
+        'schedule': {'cron': cron, 'timezone': timezone, 'overlap': overlap, 'catch_up': catch_up},
+        'event': {'event': event, 'filter': filter or {}},
+        'webhook': {'secret_env': secret_env},
+        'queue': {'queue': queue, 'filter': filter or {}, 'url_env': url_env},
+    }
+    trigger = {'kind': kind, 'id': trigger_id, 'target': target, 'prompt': prompt, 'enabled': enabled, **specific[kind]}
+    others = [t.model_dump() for t in get_state().spec.operations.triggers if t.id != trigger_id]
+    error = _set_operations(triggers=[*others, trigger])
+    if error:
+        return f"Trigger '{trigger_id}' not saved: {error}"
+    return f"Saved {kind} trigger '{trigger_id}' on '{target}'."
 
 
-def remove_team(team_id: str) -> str:
-    """Remove the team with the given `team_id`.
+def remove_trigger(trigger_id: str) -> str:
+    """Remove the trigger with the given id.
 
     Arguments:
-        team_id: Stable identifier of the team to remove.
+        trigger_id: The trigger to remove.
 
     Returns:
         message: Confirmation, or a not-found message.
     """
-    new_teams, removed = _remove(list(get_state().spec.ai.teams), 'team_id', team_id)
-    if not removed:
-        return f"No team named '{team_id}'."
-    _replace_ai(teams=new_teams)
-    return f"Removed team '{team_id}'."
+    triggers = get_state().spec.operations.triggers
+    if not any(t.id == trigger_id for t in triggers):
+        return f"No trigger named '{trigger_id}'."
+    _set_operations(triggers=[t.model_dump() for t in triggers if t.id != trigger_id])
+    return f"Removed trigger '{trigger_id}'."
 
 
-def add_or_update_workflow(
+def _set_operations(**sections: Any) -> str | None:  # noqa: ANN401
+    """Replace operations sections when the whole spec still validates; return the error otherwise."""
+    current = get_state().spec.operations.model_dump()
+    try:
+        operations = Operations.model_validate({**current, **sections})
+    except ValidationError as error:
+        return _first_error(error)
+    return _rebuild_spec(operations=operations)
+
+
+def _section_update(section: str, values: dict[str, Any]) -> str | None:
+    """Update fields of one operations section when the spec still validates."""
+    current = getattr(get_state().spec.operations, section).model_dump()
+    return _set_operations(**{section: {**current, **{k: v for k, v in values.items() if v is not None}}})
+
+
+def set_budget(
     *,
-    workflow_id: str,
-    name: str,
-    steps: list[dict],
-    description: str = '',
+    monthly_usd: float,
+    per_run_usd: float | None = None,
+    alert_at: float | None = None,
+    on_exhausted: Literal['pause', 'notify_only'] | None = None,
 ) -> str:
-    """Add or update a workflow defined by an ordered list of steps.
+    """Set the org's USD budget.
 
     Arguments:
-        workflow_id: Stable identifier; matching an existing workflow triggers an update.
-        name: Display name.
-        steps: A list of step dicts; each requires `name` and `agent_id`, optionally `requires_output_review`.
-        description: Optional description of what the workflow does.
+        monthly_usd: Monthly spending cap.
+        per_run_usd: Default cap of a single run.
+        alert_at: Fraction of the monthly cap that triggers an alert, such as 0.8.
+        on_exhausted: `pause` the org or `notify_only` when the cap is reached.
 
     Returns:
-        message: `Added` or `Updated` confirmation.
+        message: Confirmation, or the validation error.
     """
-    step_specs = [StepSpec(**s) for s in steps]
-    spec = WorkflowSpec(workflow_id=workflow_id, name=name, steps=step_specs, description=description)
-    new_workflows, existed = _upsert(list(get_state().spec.ai.workflows), 'workflow_id', workflow_id, spec)
-    _replace_ai(workflows=new_workflows)
-    return f"{'Updated' if existed else 'Added'} workflow '{workflow_id}'."
+    values = {
+        'monthly_usd': monthly_usd,
+        'per_run_usd': per_run_usd,
+        'alert_at': alert_at,
+        'on_exhausted': on_exhausted,
+    }
+    error = _section_update('budget', values)
+    return f'Budget not saved: {error}' if error else f'Budget set to {monthly_usd} USD per month.'
 
 
-def remove_workflow(workflow_id: str) -> str:
-    """Remove the workflow with the given `workflow_id`.
+def set_lifecycle(
+    *,
+    initial: Literal['draft', 'trial', 'active'] | None = None,
+    trial_max_runs: int | None = None,
+    max_failure_rate: float | None = None,
+    failure_window: int | None = None,
+) -> str:
+    """Set the org's initial lifecycle state, trial cap and failure-rate circuit breaker.
 
     Arguments:
-        workflow_id: Stable identifier of the workflow to remove.
+        initial: The state a new deployment starts in; `trial` holds every write for approval.
+        trial_max_runs: Runs allowed during the trial.
+        max_failure_rate: Failure fraction that auto-pauses the org.
+        failure_window: Number of recent runs the failure rate is measured over.
 
     Returns:
-        message: Confirmation, or a not-found message.
+        message: Confirmation, or the validation error.
     """
-    new_workflows, removed = _remove(list(get_state().spec.ai.workflows), 'workflow_id', workflow_id)
-    if not removed:
-        return f"No workflow named '{workflow_id}'."
-    _replace_ai(workflows=new_workflows)
-    return f"Removed workflow '{workflow_id}'."
+    values = {
+        'initial': initial,
+        'trial_max_runs': trial_max_runs,
+        'max_failure_rate': max_failure_rate,
+        'failure_window': failure_window,
+    }
+    error = _section_update('lifecycle', values)
+    return f'Lifecycle not saved: {error}' if error else 'Lifecycle settings saved.'
+
+
+def set_approvers(emails: list[str]) -> str:
+    """Set the people who approve governed actions when no unit owner is closer.
+
+    Arguments:
+        emails: Approver emails.
+
+    Returns:
+        message: Confirmation, or the validation error.
+    """
+    invalid = [email for email in emails if not _is_valid_email(email)]
+    if invalid:
+        return f'These do not look like emails: {invalid}.'
+    error = _section_update('governance', {'approvers': emails})
+    return f'Approvers not saved: {error}' if error else f'Approvers set: {", ".join(emails)}.'
+
+
+def set_governance(
+    *,
+    approval_required: list[str] | None = None,
+    approval_timeout_h: float | None = None,
+    on_timeout: Literal['reject', 'approve'] | None = None,
+    spend_threshold_usd: float | None = None,
+) -> str:
+    """Set which action classes need human approval and what happens when nobody decides.
+
+    Arguments:
+        approval_required: Classes from external_write, outbound_message, code_execution, knowledge_publish, spend.
+        approval_timeout_h: Hours before an undecided approval times out.
+        on_timeout: `reject` or `approve` on timeout.
+        spend_threshold_usd: Projected run cost above which `spend` applies.
+
+    Returns:
+        message: Confirmation, or the validation error.
+    """
+    values = {
+        'approval_required': approval_required,
+        'approval_timeout_h': approval_timeout_h,
+        'on_timeout': on_timeout,
+        'spend_threshold_usd': spend_threshold_usd,
+    }
+    error = _section_update('governance', values)
+    return f'Governance not saved: {error}' if error else 'Governance saved.'
+
+
+def set_notifications(
+    *,
+    channels: list[str],
+    email_to: list[str] | None = None,
+    webhook_url_env: str | None = None,
+    amqp_exchange: str | None = None,
+) -> str:
+    """Set where notifications go; the dashboard always receives them.
+
+    Arguments:
+        channels: Channels from dashboard, email, webhook, amqp.
+        email_to: Recipients for the email channel.
+        webhook_url_env: Env var holding the webhook URL; declare it with add_or_update_env_var.
+        amqp_exchange: Exchange for the amqp channel.
+
+    Returns:
+        message: Confirmation, or the validation error.
+    """
+    values = {
+        'channels': channels,
+        'email_to': email_to,
+        'webhook_url_env': webhook_url_env,
+        'amqp_exchange': amqp_exchange,
+    }
+    error = _section_update('notifications', values)
+    return f'Notifications not saved: {error}' if error else f'Notifications go to {", ".join(channels)}.'
+
+
+def set_run_policy(
+    *,
+    max_concurrent: int | None = None,
+    retries: int | None = None,
+    on_failure: Literal['notify', 'escalate', 'handoff'] | None = None,
+    fallback_agent: str | None = None,
+    retention_days: int | None = None,
+) -> str:
+    """Set concurrency, retries and what happens to runs that keep failing.
+
+    Arguments:
+        max_concurrent: Runs one worker executes at once.
+        retries: Automatic retries of a failed run.
+        on_failure: `notify`, `escalate` to the inbox, or `handoff` to the fallback agent.
+        fallback_agent: The agent that takes over failed runs under `handoff`.
+        retention_days: Days run history is kept.
+
+    Returns:
+        message: Confirmation, or the validation error.
+    """
+    values = {
+        'max_concurrent': max_concurrent,
+        'retries': retries,
+        'on_failure': on_failure,
+        'fallback_agent': fallback_agent,
+        'retention_days': retention_days,
+    }
+    error = _section_update('runs', values)
+    return f'Run policy not saved: {error}' if error else 'Run policy saved.'
 
 
 def add_or_update_parameter(
@@ -546,7 +840,7 @@ def record_discovery_summary(
     current_pain_or_alternative: str,
     user_confirmed: bool,
 ) -> str:
-    """Record your understanding of the business before drafting principles, description, or budget.
+    """Record your understanding of the business before drafting principles or the description.
 
     Call this during Stage 1 once you have probed enough that you can describe the
     business specifically. "Pharma company designing longevity drugs" is NOT enough -
@@ -554,8 +848,8 @@ def record_discovery_summary(
     will actually do, who the customers are. Each text field must be 100+ characters
     and reference real specifics from what the user told you, not generic placeholders.
 
-    `add_or_update_principle_section`, `set_org_identity(budget=...)`, and
-    `set_org_identity(description=...)` are blocked in Stage 1 until this tool succeeds.
+    `add_or_update_principle_section` and `set_org_identity(description=...)` are blocked in
+    Stage 1 until this tool succeeds.
 
     Arguments:
         what_the_group_does: 100+ chars. The concrete activity. "Designs small-molecule
@@ -623,9 +917,8 @@ def record_discovery_summary(
         current_pain_or_alternative=current_pain_or_alternative.strip(),
     )
     return (
-        'Recorded. You may now draft principle sections via add_or_update_principle_section, '
-        'set a substantive description via set_org_identity(description=...), and pick a '
-        'budget via set_org_identity(budget=...).'
+        'Recorded. You may now draft principle sections via add_or_update_principle_section '
+        'and set a substantive description via set_org_identity(description=...).'
     )
 
 
@@ -1050,6 +1343,11 @@ def emit_custom_tool(*, name: str, source: str, test_cases: list[dict]) -> str:
     state = get_state()
     new_tools, existed = _upsert(list(state.custom_tools), 'name', name, CustomTool(name=name, source=source))
     state.custom_tools = new_tools
+    function = compile_tool(name, source)
+    state.functions[name] = function
+    for agent in state.agents:
+        agent.__dict__['tools'] = [function if fn.__name__ == name else fn for fn in agent.tools]
+    _sync_structure()
     return f"{'Updated' if existed else 'Registered'} custom tool '{name}'."
 
 
@@ -1063,10 +1361,14 @@ def remove_custom_tool(name: str) -> str:
         message: Confirmation, or a not-found message.
     """
     state = get_state()
+    users = [agent.id for agent in state.agents if any(fn.__name__ == name for fn in agent.tools)]
+    if users:
+        return f"Custom tool '{name}' is used by {users}; update those agents first."
     new_tools, removed = _remove(list(state.custom_tools), 'name', name)
     if not removed:
         return f"No custom tool named '{name}'."
     state.custom_tools = new_tools
+    state.functions.pop(name, None)
     return f"Removed custom tool '{name}'."
 
 
@@ -1114,45 +1416,38 @@ def remove_custom_skill(name: str) -> str:
 
 
 async def sandbox_agent(*, agent_id: str, test_prompts: list[str]) -> str:
-    """Build the named agent for real and run the supplied prompts against it.
+    """Run a committed agent on real prompts in preview mode and report outputs, tool calls and cost.
 
-    The agent is instantiated via `make_agent` with tools and skills resolved from the
-    current state (built-in catalog, custom tools, GitHub skill catalogs, and custom
-    skills materialised on disk under a temp dir). The agent then runs each prompt via
-    `arun`, calling the REAL model and executing REAL tools - any external side effects
-    those tools have will happen.
-
-    Use this in Stage 4 (Capability Audit) AFTER warning the user about side-effect risk
-    and after they confirm the prompts to run.
+    The agent runs on the Claude agent harness with its real model, tools and MCP servers. Preview mode denies
+    consequential actions, so write tools report what they would do instead of doing it.
 
     Arguments:
-        agent_id: The `agent_id` of an existing `AgentSpec` in `spec.ai.agents`.
-        test_prompts: One or more prompts to run sequentially.
+        agent_id: The id of an agent added with `add_or_update_agent`.
+        test_prompts: One or more prompts to run in order: a happy path, an edge case and an error case.
 
     Returns:
-        report: A markdown report covering each prompt's response, tool calls, and errors.
+        report: A markdown report with each prompt's status, output, tool calls and cost.
     """
-    from ._agent_sandbox import sandbox_run  # noqa: PLC0415  (defer import; agno + skills loaders are heavy)
+    from ._agent_sandbox import sandbox_run  # noqa: PLC0415 - the runtime is heavy and only the Build stage needs it
 
     state = get_state()
-    agent_spec = next(
-        (a for a in state.spec.ai.agents if isinstance(a, AgentSpec) and a.agent_id == agent_id),
-        None,
-    )
-    if agent_spec is None:
+    if state.structure_error is not None:
+        return f'Finish the org structure first: {state.structure_error}'
+    if not any(agent.id == agent_id for agent in state.spec.ai.agents):
         return f"No agent named '{agent_id}'. Add it first via add_or_update_agent."
     if not test_prompts:
         return 'sandbox_agent needs at least one test prompt.'
-    return await sandbox_run(agent_spec, test_prompts, state.custom_tools, state.custom_skills)
+    return await sandbox_run(state.spec, agent_id, test_prompts, state.custom_skills)
 
 
-def get_current_spec() -> Spec:
-    """Return the working spec.
+def get_current_spec() -> str:
+    """Return the working spec as the spec.py source it would be written as.
 
     Returns:
-        spec: The current in-memory `Spec`.
+        source: The spec.py source of the current spec, custom tools included.
     """
-    return get_state().spec
+    state = get_state()
+    return render_spec(state.spec, custom_tools=state.custom_tools, custom_skills=state.custom_skills)
 
 
 def advance_to_next_stage() -> str:
@@ -1204,27 +1499,3 @@ def finalize_spec(output_path: str | Path) -> str:
         skill_dir.mkdir(parents=True, exist_ok=True)
         (skill_dir / 'SKILL.md').write_text(skill.skill_md)
     return f'Wrote {target}.'
-
-
-def request_redeploy() -> str:
-    """Write the working spec to `./spec.py` and instruct the operator to redeploy.
-
-    Used by the production master agent when the user is ready to apply pending in-memory edits to the deployed org. The
-    master mutates spec.py; the operator runs their own deploy pipeline (typically git push -> CI rebuild -> container
-    redeploy).
-    """
-    target = Path('spec.py').resolve()
-    state = get_state()
-    write_spec(state.spec, target, custom_tools=state.custom_tools, custom_skills=state.custom_skills)
-    for skill in state.custom_skills:
-        skill_dir = target.parent / 'skills' / skill.name
-        skill_dir.mkdir(parents=True, exist_ok=True)
-        (skill_dir / 'SKILL.md').write_text(skill.skill_md)
-    return (
-        f'Wrote {target}.\n\n'
-        'To apply on the running org, commit + push so your CI rebuilds and redeploys:\n'
-        '  git add spec.py skills/\n'
-        '  git commit -m "Update org spec"\n'
-        '  git push\n\n'
-        "Once the deploy completes the running org will reflect the changes."
-    )

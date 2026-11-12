@@ -7,12 +7,14 @@ from agentorg.master import (
     STAGES,
     add_or_update_agent,
     add_or_update_env_var,
+    add_or_update_unit,
     advance,
     current_stage,
     get_state,
     next_blockers,
     next_enabled,
     reset_state,
+    set_budget,
     set_org_identity,
     stage_summary,
 )
@@ -44,6 +46,7 @@ def _fill_stage2() -> None:
         admin_name='Maintainer',
         admin_email='maintainer@example.com',
     )
+    set_budget(monthly_usd=100)
     get_state().stage = 'discover'  # reset cursor; the test will call advance() to move it
 
 
@@ -132,13 +135,13 @@ def test_advance_through_all_five_stages():
     advance(get_state())  # discover -> configure
     advance(get_state())  # configure -> build
     assert current_stage(get_state()) == 'build'
+    add_or_update_unit(unit_id='desk', name='Desk', model='solo')
     add_or_update_agent(
         agent_id='broker',
         name='Broker',
         role='Match buyers with listings.',
+        unit_id='desk',
         in_scope=['First-time buyer questions.'],
-        workflow=['Restate request.', 'Pull listings.'],
-        tools=['read_knowledge'],
     )
     advance(get_state())  # build -> refine
     assert current_stage(get_state()) == 'refine'
@@ -164,3 +167,19 @@ def test_stage_summary_shape():
     assert summary['stages'] == list(STAGES)
     assert isinstance(summary['next_enabled'], bool)
     assert isinstance(summary['next_blockers'], list)
+
+
+def test_stage2_requires_monthly_budget() -> None:
+    """Configure names the missing monthly budget until set_budget is called."""
+    get_state().stage = 'configure'
+    assert any('budget' in blocker for blocker in next_blockers(get_state()))
+    set_budget(monthly_usd=50)
+    assert not any('budget' in blocker for blocker in next_blockers(get_state()))
+
+
+def test_stage3_requires_complete_structure() -> None:
+    """Build cannot be left while the unit tree is incomplete."""
+    get_state().stage = 'build'
+    add_or_update_unit(unit_id='research', name='Research', model='hub')
+    add_or_update_agent(agent_id='a', name='A', role='Works.', unit_id='research')
+    assert any('structure' in blocker for blocker in next_blockers(get_state()))

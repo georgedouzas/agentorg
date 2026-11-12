@@ -31,7 +31,7 @@ def _spec(spec_dict_minimal: dict[str, Any], **trigger: Any) -> Spec:
 
 def _scheduler(spec: Spec, store: Store, clock: Clock, worker: str = 'w1') -> tuple[Scheduler, Queued]:
     queued = Queued(store)
-    return Scheduler(spec, store, queued, admit_all, dict, worker, clock), queued
+    return Scheduler(spec, store, queued, admit_all, parameters=dict, worker_id=worker, clock=clock), queued
 
 
 START = datetime(2026, 11, 9, 7, 59, tzinfo=UTC)
@@ -107,7 +107,16 @@ async def test_scheduler_does_not_tick_while_paused(spec_dict_minimal: dict[str,
     clock = Clock(datetime(2026, 11, 1, 12, 0, tzinfo=UTC))
     queued = Queued(store)
     spec = _spec(spec_dict_minimal, cron='0 9 * * *', catch_up='run_once')
-    scheduler = Scheduler(spec, store, queued, admit_all, dict, 'w1', clock, paused=is_paused)
+    scheduler = Scheduler(
+        spec,
+        store,
+        queued,
+        admit_all,
+        parameters=dict,
+        worker_id='w1',
+        clock=clock,
+        paused=is_paused,
+    )
     paused = False
     await scheduler.tick()
     paused = True

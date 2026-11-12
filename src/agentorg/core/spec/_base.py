@@ -28,7 +28,8 @@ class Spec(SpecModel):
     ui: UI
 
     def _validate_targets(self) -> None:
-        targets = {agent.id for agent in self.ai.agents} | {unit.id for unit in self.ai.root.iter_units()}
+        """Require triggers and the fallback agent to name declared agents or units."""
+        targets = {agent.id for agent in self.ai.agents} | {unit.id for unit in self.ai.units}
         unknown = [trigger.id for trigger in self.operations.triggers if trigger.target not in targets]
         if unknown:
             msg = f'Triggers {unknown} target ids that are not declared agents or units.'
@@ -39,6 +40,7 @@ class Spec(SpecModel):
             raise ValueError(msg)
 
     def _validate_env_references(self) -> None:
+        """Require every referenced env var to be declared."""
         declared = {var.name for var in self.runtime.env_vars.required + self.runtime.env_vars.optional}
         referenced = {name for agent in self.ai.agents for server in agent.mcp_servers for name in server.env}
         for trigger in self.operations.triggers:
@@ -52,6 +54,7 @@ class Spec(SpecModel):
             raise ValueError(msg)
 
     def _validate_knowledge_types(self) -> None:
+        """Require output knowledge types to be declared."""
         types = {type_.id for type_ in self.knowledge.types}
         unknown = [agent.id for agent in self.ai.agents if agent.output.knowledge_type not in types | {None}]
         if unknown:
@@ -59,6 +62,7 @@ class Spec(SpecModel):
             raise ValueError(msg)
 
     def _validate_prompts(self) -> None:
+        """Require trigger prompts to use only known variables."""
         allowed = PROMPT_VARIABLES | {parameter.name for parameter in self.parameters}
         for trigger in self.operations.triggers:
             used = {field for _, field, _, _ in Formatter().parse(trigger.prompt) if field}
@@ -69,6 +73,7 @@ class Spec(SpecModel):
 
     @model_validator(mode='after')
     def _validate_references(self) -> 'Spec':
+        """Validate the references that span domains."""
         self._validate_targets()
         self._validate_env_references()
         self._validate_knowledge_types()

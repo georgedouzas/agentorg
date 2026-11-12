@@ -25,8 +25,8 @@ def test_default_spec_starts_with_no_agents():
     """The seed has no user-defined agents - the interview adds them via `add_or_update_agent`."""
     spec = default_spec()
     assert spec.ai.agents == []
-    assert spec.ai.teams == []
-    assert spec.ai.workflows == []
+    assert spec.ai.root is None
+    assert spec.operations.budget.monthly_usd is None
 
 
 def test_default_spec_has_sane_runtime_defaults():
@@ -35,4 +35,4 @@ def test_default_spec_has_sane_runtime_defaults():
     assert spec.runtime.infra.packaging == 'none'
     assert spec.runtime.infra.database == 'sqlite'
     assert spec.runtime.infra.vector_db == 'chromadb'
-    assert spec.runtime.env_vars.required == []
+    assert [var.name for var in spec.runtime.env_vars.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL']

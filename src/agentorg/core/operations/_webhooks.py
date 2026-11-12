@@ -28,6 +28,7 @@ def build_webhook_router(
     enqueue: Enqueue,
     admit: Admit,
     parameters: Parameters,
+    *,
     environ: Mapping[str, str],
     broker_healthy: Callable[[], bool],
 ) -> APIRouter:

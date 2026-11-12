@@ -7,13 +7,16 @@ from typing import Any
 
 import litellm
 from agentfield import Agent
-from agentfield.memory import ScopedMemoryClient
+from agentfield.memory import GlobalMemoryClient, ScopedMemoryClient
 
-from ._node import current_node
+from ._node import current_memory, current_node
 from ._tags import tool
 
 PREFIX = 'kn:'
 PREVIEW_WRITE_MSG = '(Preview mode: knowledge writes are disabled. Set `AGENTORG_PREVIEW_MODE=false` to disable it.)'
+
+
+MemoryScope = GlobalMemoryClient | ScopedMemoryClient
 
 
 def _preview_read_only() -> bool:
@@ -53,7 +56,7 @@ async def _embed(text: str, model: str | None) -> list[float] | None:
     return list(resp.data[0]['embedding'])
 
 
-async def _list_units(scope: ScopedMemoryClient) -> list[dict[str, Any]]:
+async def _list_units(scope: MemoryScope) -> list[dict[str, Any]]:
     """Hydrate every knowledge unit stored under the `kn:` prefix.
 
     Arguments:
@@ -68,7 +71,7 @@ async def _list_units(scope: ScopedMemoryClient) -> list[dict[str, Any]]:
 
 
 async def similarity_units(
-    scope: ScopedMemoryClient,
+    scope: MemoryScope,
     embedder: str | None,
     query: str,
     knowledge_types: list[str] | None,
@@ -90,7 +93,8 @@ async def similarity_units(
     if vec is not None:
         filters = {'knowledge_type': {'$in': knowledge_types}} if knowledge_types else None
         hits = await scope.similarity_search(vec, top_k=top_k, filters=filters)
-        units = [await scope.get(h.get('key') or h.get('id')) for h in hits if (h.get('key') or h.get('id'))]
+        keys = [str(h.get('key') or h.get('id')) for h in hits if h.get('key') or h.get('id')]
+        units = [await scope.get(key) for key in keys]
         return [u for u in units if u is not None]
     needle = query.lower()
     matches = [
@@ -104,18 +108,22 @@ async def similarity_units(
 
 
 def _node() -> Agent:
+    """Return the current or bound node."""
     return current_node()
 
 
-def _scope() -> ScopedMemoryClient:
-    return _node().memory.global_scope
+def _scope() -> MemoryScope:
+    """Return the org-wide memory scope that holds knowledge."""
+    return current_memory().global_scope
 
 
 def _embedder() -> str | None:
+    """Return the embedding model configured on the node."""
     return getattr(_node(), 'embedder_model', None)
 
 
 def _matches_metadata(unit: dict[str, Any], metadata_filter: dict[str, Any]) -> bool:
+    """Return whether a knowledge unit carries every metadata value of the filter."""
     md = unit.get('metadata') or {}
     return all(md.get(k) == v for k, v in metadata_filter.items())
 

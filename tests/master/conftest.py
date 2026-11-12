@@ -1,6 +1,10 @@
 """Shared fixtures - reset the master agent's state before each test so order doesn't matter."""
 
+from collections.abc import AsyncIterator
+from typing import Any, ClassVar
+
 import pytest
+from claude_agent_sdk import ResultMessage
 
 from agentorg.master import Discovery, get_state, reset_state
 
@@ -55,3 +59,58 @@ def seed_discovery() -> None:
             'survey 5x more topics per quarter without hiring more researchers.'
         ),
     )
+
+
+ECHO_TOOL_SOURCE = '\n'.join(
+    [
+        '"""Echo tool for master tests."""',
+        '',
+        'async def echo_tool(message: str) -> str:',
+        '    """Return the message unchanged."""',
+        '    return message',
+    ],
+)
+
+
+def build_hub_org() -> None:
+    """Build a valid org through the tools: a hub `research` led by `lead` with member `researcher`."""
+    from agentorg.master import add_or_update_agent, add_or_update_unit  # noqa: PLC0415 - fixture helper
+
+    add_or_update_unit(unit_id='research', name='Research', model='hub')
+    add_or_update_agent(agent_id='lead', name='Lead', role='Leads the research.', unit_id='research', as_lead=True)
+    add_or_update_agent(agent_id='researcher', name='Researcher', role='Gathers sources.', unit_id='research')
+
+
+class ScriptedClient:
+    """A fake SDK client that replays scripted messages and records what it was asked."""
+
+    calls: ClassVar[list['ScriptedClient']] = []
+
+    def __init__(self, options: Any, messages: list[object]) -> None:  # noqa: ANN401
+        """Keep the options and the messages to replay."""
+        self.options = options
+        self.messages = messages
+        self.prompt = ''
+        ScriptedClient.calls.append(self)
+
+    async def __aenter__(self) -> 'ScriptedClient':
+        """Open the fake session."""
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        """Close the fake session."""
+
+    async def query(self, prompt: str) -> None:
+        """Record the prompt."""
+        self.prompt = prompt
+
+    async def receive_response(self) -> AsyncIterator[object]:
+        """Replay the scripted messages."""
+        for message in self.messages:
+            yield message
+
+
+def result_message(result: str = 'Done.', session_id: str = 'sdk-1', **fields: Any) -> ResultMessage:  # noqa: ANN401
+    """Return an SDK result message with test defaults for the timing fields."""
+    defaults = {'duration_ms': 1, 'duration_api_ms': 1, 'is_error': False, 'num_turns': 1}
+    return ResultMessage(subtype='success', result=result, session_id=session_id, **{**defaults, **fields})

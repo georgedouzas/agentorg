@@ -25,7 +25,7 @@ def test_state_spec_assignment_validates():
     """`validate_assignment=True` on Spec models rejects bad direct assignments."""
     state = get_state()
     with pytest.raises(ValidationError):
-        state.spec.org.visibility = 'invalid'  # type: ignore[assignment]
+        state.spec.org.visibility = 'invalid'
 
 
 def test_state_default_construction_seeds_an_empty_workspace():

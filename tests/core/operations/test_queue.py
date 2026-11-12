@@ -45,7 +45,7 @@ def spec(spec_dict_minimal: dict[str, Any]) -> Spec:
 
 
 def _dispatcher(spec: Spec, store: Store, broker: FakeBroker, recorder: Recorder, worker: str = 'w1') -> Dispatcher:
-    return Dispatcher(spec, store, broker, recorder.execute, recorder.on_failure, worker_id=worker)
+    return Dispatcher(spec, store, broker, recorder.execute, on_failure=recorder.on_failure, worker_id=worker)
 
 
 async def test_dispatcher_runs_manual_before_schedule(spec: Spec, store: Store, fake_broker: FakeBroker) -> None:

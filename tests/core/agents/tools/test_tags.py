@@ -7,8 +7,9 @@ def test_tool_sets_side_effect_outbound_and_tags() -> None:
     """The decorator records the side effect, the outbound flag and the tags on the function."""
 
     @tool('read', outbound=True, tags=('crm',))
-    def lookup() -> None:
+    def lookup() -> str:
         """Look up."""
+        return 'found'
 
     assert (lookup.side_effect, lookup.outbound, lookup.tags) == ('read', True, ['crm'])  # type: ignore[attr-defined]
 
@@ -17,8 +18,9 @@ def test_tool_defaults_to_write_without_tags() -> None:
     """A bare `tool()` marks the function as a non-outbound write with no tags."""
 
     @tool()
-    async def send() -> None:
+    async def send() -> str:
         """Send."""
+        return 'sent'
 
     assert (send.side_effect, send.outbound, send.tags) == ('write', False, [])  # type: ignore[attr-defined]
 
@@ -36,8 +38,9 @@ def test_tool_returns_original_function() -> None:
 def test_side_effect_of_treats_undecorated_tool_as_write() -> None:
     """A tool without the decorator is governed as a write."""
 
-    def plain() -> None:
+    def plain() -> str:
         """Plain."""
+        return 'plain'
 
     assert side_effect_of(plain) == 'write'
 

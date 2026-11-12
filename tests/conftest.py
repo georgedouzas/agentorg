@@ -4,6 +4,8 @@ from typing import Any
 
 import pytest
 
+HELPDESK_VAR = 'HELPDESK_SECRET'
+APPLICATIONS_VAR = 'APPLICATIONS_SECRET'
 CHOICE_OUTPUT: dict[str, Any] = {
     'format': 'json',
     'json_schema': {
@@ -112,7 +114,7 @@ def _support_desk() -> dict[str, Any]:
                 'id': 'helpdesk',
                 'target': 'frontline',
                 'prompt': 'New ticket: {body}',
-                'secret_env': 'HELPDESK_SECRET',
+                'secret_env': HELPDESK_VAR,
             },
             {
                 'kind': 'queue',
@@ -260,7 +262,7 @@ def _credit_decisions() -> dict[str, Any]:
                 'id': 'applications',
                 'target': 'credit-board',
                 'prompt': 'Application: {body}',
-                'secret_env': 'APPLICATIONS_SECRET',
+                'secret_env': APPLICATIONS_VAR,
             },
         ],
         'governance': {'approval_required': ['external_write', 'outbound_message', 'spend']},

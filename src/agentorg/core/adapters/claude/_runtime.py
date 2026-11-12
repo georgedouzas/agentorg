@@ -17,6 +17,8 @@ class RunTarget(Protocol):
 
 
 def _register_reasoner(node: AgentFieldNode, name: str, tags: list[str], run_target: RunTarget) -> str:
+    """Register one target as a reasoner that hands its messages to `run_target`."""
+
     async def run(message: str, session_id: str | None = None, user_id: str = 'default') -> dict[str, Any]:
         return await run_target(name, message, session_id, user_id)
 
@@ -26,6 +28,7 @@ def _register_reasoner(node: AgentFieldNode, name: str, tags: list[str], run_tar
 
 
 def _register_skills(node: AgentFieldNode, spec: Spec) -> None:
+    """Register each custom tool once as a node skill with its tags."""
     registered: set[str] = {skill['id'] for skill in node.skills}
     for agent in spec.ai.agents:
         for fn in agent.tools:
@@ -52,7 +55,7 @@ def register_org(
         names: The registered reasoner names, agents first, then units, then the master.
     """
     names = [_register_reasoner(node, agent.id, ['agent', spec.org.slug], run_target) for agent in spec.ai.agents]
-    for unit in spec.ai.root.iter_units():
+    for unit in spec.ai.units:
         names.append(_register_reasoner(node, unit.id, ['unit', unit.model, spec.org.slug], run_target))
     if master is not None:
         node.reasoner(name='master', tags=['agent', 'master', spec.org.slug])(master)

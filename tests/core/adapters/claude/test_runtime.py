@@ -46,7 +46,7 @@ def test_register_org_registers_each_custom_tool_once(spec_dict_normal: dict[str
     """A tool shared by two agents becomes one node skill with its tags."""
     node = AgentFieldNode(node_id='acme-org')
 
-    async def run_target(*_: object) -> dict[str, Any]:
+    async def run_target(target_id: str, message: str, session_id: str | None, user_id: str) -> dict[str, Any]:
         return {}
 
     register_org(node, _spec(spec_dict_normal), run_target)

@@ -216,6 +216,14 @@ The same helper serves custom tools, org tools and master tools. `_stages.py` ga
 
 The tool-slice tables in `_agent.py` are extended per the `master/interview-authoring` spec.
 
+Two consequences of porting the master:
+- **Drafts, then assembly.** The interview builds units before their agents exist, so a valid tree is impossible
+  mid-build. The master keeps agents and flat unit drafts, with nesting given by `parent_id`, and assembles them into
+  the spec after every change. A failed assembly is reported to the agent, the last valid spec stays live, and Build
+  cannot advance until the tree assembles. `AI.root` is optional for an org with no agents yet.
+- **No production master in rendered orgs.** The old embedded master edited an interview state seeded from a blank
+  spec, not the deployed one, so it is removed. Rendered orgs are changed by re-running the interview on the spec.
+
 ### D9. Defaults
 
 | Field | Default | Reason |

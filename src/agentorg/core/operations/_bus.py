@@ -46,6 +46,7 @@ class EventBus:
         store: Store,
         broker: EventBroker,
         enqueue: Enqueue,
+        *,
         admit: Admit,
         parameters: Parameters,
     ) -> None:
@@ -75,6 +76,7 @@ class EventBus:
         await self.publish(f'knowledge.{action}', {'type': unit.get('type'), 'name': unit.get('name')})
 
     async def _handle(self, trigger: EventTrigger, message: Message) -> None:
+        """Start the trigger's run for a matching event, unless the chain is too long."""
         data = json.loads(message.body)
         payload, chain = data['payload'], data['chain']
         if any(payload.get(key) != value for key, value in trigger.filter.items()):

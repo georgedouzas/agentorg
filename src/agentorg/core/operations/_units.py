@@ -30,6 +30,7 @@ class HumanReview(Protocol):
 
 
 def _member_id(member: str | Unit) -> str:
+    """Return the id of an agent or unit member."""
     return member if isinstance(member, str) else member.id
 
 
@@ -50,14 +51,17 @@ class UnitEngine:
         self.human = human
 
     async def _finish(self, run: Run, output: object, reason: str | None = None) -> None:
+        """Record a unit run as succeeded, or failed with `reason`."""
         status: RunStatus = 'failed' if reason else 'succeeded'
         await self.store.transition(run.id, status, output=output, failure_reason=reason)
 
     async def _delegate_whole(self, run: Run, target: str) -> None:
+        """Run one member on the whole task and record its outcome."""
         result = await self.call_target(target, run.prompt, run)
         await self._finish(run, result.get('output'), None if result.get('status') == 'succeeded' else 'error')
 
     async def _pick(self, unit: Unit, run: Run) -> str | None:
+        """Return the pool member the routing rule selects, or None."""
         members = [_member_id(member) for member in unit.member_refs]
         if unit.routing == 'round_robin':
             turn = await self.store.get_value('round_robin', unit.id)
@@ -74,6 +78,7 @@ class UnitEngine:
         return members[loads.index(min(loads))]
 
     async def _pool(self, unit: Unit, run: Run) -> None:
+        """Route the work to one pool member, its lead, or the inbox."""
         member = await self._pick(unit, run)
         if member is None and unit.lead:
             member = unit.lead
@@ -85,6 +90,7 @@ class UnitEngine:
         await self._delegate_whole(run, member)
 
     async def _council(self, unit: Unit, run: Run) -> None:
+        """Ask every member independently and combine the answers by the decision rule."""
         members = [_member_id(member) for member in unit.member_refs]
         results = await asyncio.gather(*(self.call_target(member, run.prompt, run) for member in members))
         answers = {member: result.get('output') for member, result in zip(members, results, strict=True)}
@@ -111,6 +117,7 @@ class UnitEngine:
         await self._finish(run, {'decision': top, 'answers': answers})
 
     async def _review(self, unit: Unit, run: Run, step: Step, label: str, output: object) -> ReviewDecision:
+        """Return the review decision on a pipeline step's output."""
         if step.review == 'human':
             return await self.human.review(run, label, output)
         lead = next((u.lead for u in reversed(self.spec.ai.path_to(unit.id)) if u.lead), None)
@@ -122,6 +129,7 @@ class UnitEngine:
         return ReviewDecision(approved, '' if approved else verdict.strip()[len('REJECT') :].strip(), output)
 
     async def _pipeline(self, unit: Unit, run: Run) -> None:
+        """Run the pipeline steps in order with their review gates."""
         current: object = run.prompt
         for index, member in enumerate(unit.members):
             step = member if isinstance(member, Step) else Step(member=member)

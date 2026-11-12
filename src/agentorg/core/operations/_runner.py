@@ -58,6 +58,7 @@ OutputFiler = Callable[[Agent, Run, str], Awaitable[None]]
 
 
 def _content_text(content: object) -> str:
+    """Return the text of a tool result content."""
     if isinstance(content, list):
         return ''.join(str(item.get('text', '')) for item in content if isinstance(item, dict))
     return '' if content is None else str(content)
@@ -140,6 +141,7 @@ class Runner:
             self._subscribers.pop(run_id, None)
 
     async def _options(self, agent: Agent, run: Run, workspace: Path) -> ClaudeAgentOptions:
+        """Return the SDK options of one run, resuming the agent's session when it keeps memory."""
         resume = None
         if run.session_id and agent.memory != 'none':
             resume = await self.store.get_value('sdk_session', f'{agent.id}:{run.session_id}')
@@ -159,6 +161,7 @@ class Runner:
         )
 
     async def _converse(self, run: Run, options: ClaudeAgentOptions) -> ResultMessage | None:
+        """Send the prompt and stream the reply into the transcript and to subscribers."""
         result = None
         async with self.client_factory(options) as client:
             await client.query(run.prompt)
@@ -215,6 +218,7 @@ class Runner:
         output: object,
         reason: str | None,
     ) -> None:
+        """Store the run's outcome, cost and session, and file its output as knowledge."""
         usage = (result.usage if result else None) or {}
         cost = {
             'cost_usd': (result.total_cost_usd if result else None) or 0.0,

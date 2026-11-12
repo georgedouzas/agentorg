@@ -1,213 +1,101 @@
 """Tests for the agent module."""
 
-from agno.agent import Agent
+from typing import Any
+
+from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock
 
 from agentorg.master import (
-    ALL_PLACEHOLDERS_FILLED,
     MASTER_INSTRUCTIONS,
     MASTER_INTRODUCTION,
     MASTER_TOOLS,
-    QUESTION_TEMPLATES,
     STAGE_TOOLS,
+    StageAgent,
     add_or_update_agent,
-    add_or_update_agent_group,
-    add_or_update_knowledge_type,
-    add_or_update_parameter,
-    add_or_update_principle_section,
-    add_or_update_team,
-    add_or_update_workflow,
-    build_master_agent,
-    reset_state,
-    set_knowledge_empty,
+    add_or_update_trigger,
+    agent_for_current_stage,
+    finalize_spec,
+    get_state,
+    set_budget,
     set_org_identity,
-    set_ui_app,
-    set_ui_empty_state,
+    stage_instructions,
+    turn_context,
 )
-from agentorg.master._agent import _next_question, _placeholders_dependency, _working_spec_dependency
 
-from .conftest import advance_to_configure_stage, seed_discovery
-
-
-def test_build_master_agent_returns_a_raw_agno_agent():
-    """`build_master_agent` returns whichever per-stage agent is active (compat shim)."""
-    agent = build_master_agent()
-    assert isinstance(agent, Agent)
-    # The interview always starts on `discover`, so the shim returns the Discover agent.
-    assert agent.id == 'master-discover'
+from .conftest import ScriptedClient, result_message
 
 
-def test_build_master_agent_carries_every_patch_tool():
-    """The Discover agent only carries the Discover slice, not the full MASTER_TOOLS list."""
-    agent = build_master_agent()
-    # Sanity: it has its narrow slice, NOT the full union of tools.
-    assert list(agent.tools) == STAGE_TOOLS['discover']
-    # And MASTER_TOOLS still exists as the legacy union (other modules may reference it).
-    assert set(STAGE_TOOLS['discover']).issubset(set(MASTER_TOOLS))
+def _agent(stage: str, *messages: object) -> StageAgent:
+    ScriptedClient.calls = []
+    return StageAgent(stage, STAGE_TOOLS[stage], client_factory=lambda options: ScriptedClient(options, list(messages)))
 
 
-def test_master_instructions_reference_the_interview_workflow():
-    """The persona instructions cite live context, the staged flow, and the lifecycle tools."""
-    assert 'placeholders' in MASTER_INSTRUCTIONS
-    assert 'working_spec' in MASTER_INSTRUCTIONS
-    assert 'Stage 1' in MASTER_INSTRUCTIONS
-    assert 'Stage 2' in MASTER_INSTRUCTIONS
-    assert 'finalize_spec' in MASTER_INSTRUCTIONS
+def test_stage_agent_has_only_its_stage_tools() -> None:
+    """A stage agent exposes its stage tools through the `stage` server and no built-in tools."""
+    options = _agent('build').options()
+    assert options.tools == []
+    assert 'mcp__stage__add_or_update_agent' in options.allowed_tools
+    assert 'mcp__stage__set_budget' not in options.allowed_tools
+    assert list(options.mcp_servers) == ['stage']  # type: ignore[arg-type]
+    assert options.setting_sources == []
 
 
-def test_master_tools_include_finalize_and_emit_custom_tool():
-    """The lifecycle tools (sandbox emitter + finalizer) are wired in."""
-    tool_names = {getattr(t, '__name__', repr(t)) for t in MASTER_TOOLS}
-    assert 'emit_custom_tool' in tool_names
-    assert 'finalize_spec' in tool_names
-    assert 'set_org_identity' in tool_names
+def test_discover_lacks_agent_and_trigger_tools() -> None:
+    """Discover cannot add agents or triggers, and only Configure sets the budget."""
+    assert add_or_update_agent not in STAGE_TOOLS['discover']
+    assert add_or_update_trigger not in STAGE_TOOLS['discover']
+    assert [stage for stage, tools in STAGE_TOOLS.items() if set_budget in tools] == ['configure']
+    assert set_org_identity in STAGE_TOOLS['configure']
+    assert STAGE_TOOLS['handoff'] == [STAGE_TOOLS['handoff'][0], finalize_spec]
 
 
-def test_master_introduction_greets_and_explains_purpose():
-    """The opening message names the agent and tells the user what's coming."""
-    assert 'AgentOrg' in MASTER_INTRODUCTION
-    assert 'five stages' in MASTER_INTRODUCTION.lower()
+async def test_stage_agent_collects_text_and_tool_calls_and_resumes() -> None:
+    """A turn returns the assistant text and the tools called, and the next turn resumes the session."""
+    turn = [
+        AssistantMessage(content=[ToolUseBlock('t1', 'mcp__stage__set_budget', {'monthly_usd': 50})], model='sonnet'),
+        AssistantMessage(content=[TextBlock('Budget set.')], model='sonnet'),
+        result_message(session_id='sdk-7'),
+    ]
+    agent = _agent('configure', *turn)
+    reply = await agent.arun('Set the budget to 50.')
+    assert (reply.content, reply.tool_calls) == ('Budget set.', ['set_budget'])
+    assert ScriptedClient.calls[0].prompt.startswith('## Live context')
+    assert ScriptedClient.calls[0].prompt.endswith('Set the budget to 50.')
+    await agent.arun('Thanks.')
+    assert ScriptedClient.calls[1].options.resume == 'sdk-7'
 
 
-def test_build_master_agent_enables_conversation_history_and_live_context():
-    """History, dependency injection, and datetime are on - the conversation flows."""
-    agent = build_master_agent()
-    assert agent.add_history_to_context is True
-    assert agent.num_history_runs == 20
-    assert agent.add_dependencies_to_context is True
-    assert agent.add_datetime_to_context is True
-    assert agent.dependencies is not None
-    assert set(agent.dependencies) == {'working_spec', 'placeholders', 'next_question', 'stage'}
+async def test_stage_agent_falls_back_to_next_question_without_text() -> None:
+    """A turn that ends without text answers with the next interview question."""
+    reply = await _agent('configure', result_message()).arun('Hi')
+    assert reply.content.endswith('?')
 
 
-def test_working_spec_dependency_reflects_current_state():
-    """The `working_spec` callable returns a dict snapshot of the live spec on every call."""
-    reset_state()
-    advance_to_configure_stage()
-    set_org_identity(name='Dependency Org')
-    snapshot = _working_spec_dependency()
-    assert snapshot['org']['name'] == 'Dependency Org'
+def test_turn_context_carries_stage_blockers_and_spec_source() -> None:
+    """The live context names the stage, its blockers and the working spec source."""
+    context = turn_context()
+    assert '- stage: discover' in context
+    assert 'record_discovery_summary' in context
+    assert '"""Spec for Untitled org."""' in context
 
 
-def test_placeholders_dependency_reflects_current_state():
-    """The `placeholders` callable returns the live list of unfilled fields."""
-    reset_state()
-    paths_before = {p for p, _ in _placeholders_dependency()}
-    assert 'org.description' in paths_before
-
-    advance_to_configure_stage()
-    long_desc = (
-        'Test fixture: a substantive multi-sentence description that clears the Stage-2 '
-        'minimum of 200 characters. It explains what the group does, who it serves, and '
-        'how it differs from the alternatives so the rendered README has substance.'
-    )
-    set_org_identity(description=long_desc)
-    add_or_update_agent(
-        agent_id='r',
-        name='R',
-        role='r',
-        in_scope=['s'],
-        workflow=['w'],
-    )
-    paths_after = {p for p, _ in _placeholders_dependency()}
-    assert 'org.description' not in paths_after
-    assert 'ai.agents' not in paths_after
+def test_stage_instructions_describe_units_and_claude_agents() -> None:
+    """The Build prompt teaches units, autonomy, MCP servers and sandboxing."""
+    build = stage_instructions('build')
+    for phrase in ('`pool`', '`council`', 'autonomy', 'MCP servers', 'sandbox_agent'):
+        assert phrase in build
+    assert 'units' in MASTER_INSTRUCTIONS
+    assert 'Build' in MASTER_INTRODUCTION
 
 
-def test_next_question_picks_an_org_field_first_on_seed():
-    """When everything is at seed, the next question prioritises an org-level field."""
-    reset_state()
-    question = _next_question()
-    assert question in QUESTION_TEMPLATES.values()
-    # The first placeholder by priority is something on `org.`
-    lower = question.lower()
-    assert any(keyword in lower for keyword in ('organization', 'admin', 'repository'))
+def test_master_tools_cover_every_stage_tool_once() -> None:
+    """MASTER_TOOLS is the union of the stage tools without duplicates."""
+    names = [fn.__name__ for fn in MASTER_TOOLS]
+    assert len(names) == len(set(names))
+    assert {fn.__name__ for tools in STAGE_TOOLS.values() for fn in tools} == set(names)
 
 
-def test_next_question_advances_as_fields_are_filled():
-    """As org placeholders get set, `_next_question` moves on to the agents section."""
-    reset_state()
-    advance_to_configure_stage()
-    set_org_identity(
-        name='Org',
-        slug='org',
-        package_name='org',
-        description=(
-            'Test fixture description long enough to clear the Stage-2 200-char minimum, '
-            'so the underlying _next_question priority test can advance past the org '
-            'identity fields into the AI section as designed by the placeholder flow.'
-        ),
-        repository='https://example.com/org',
-        admin_name='Maintainer',
-        admin_email='m@example.com',
-    )
-    # All org placeholders set; UI app.name placeholder should still trigger before ai.agents.
-    # Set UI placeholders too.
-    set_ui_app(name='App', icon='icon', description='App description.')
-    set_ui_empty_state(icon='icon', title='Title', body='Body.')
-    set_knowledge_empty('Nothing yet.')
-
-    # Now the only remaining placeholder is ai.agents.
-    assert _next_question() == QUESTION_TEMPLATES['ai.agents']
-
-
-def test_next_question_returns_finalize_prompt_when_nothing_left():
-    """When every section is filled (or explicitly populated), the fallback nudges toward finalising."""
-    reset_state()
-    advance_to_configure_stage()
-    set_org_identity(
-        name='Org',
-        slug='org',
-        package_name='org',
-        description=(
-            'Test fixture description long enough to clear the Stage-2 200-char minimum, '
-            'so the underlying _next_question priority test can advance past the org '
-            'identity fields into the AI section as designed by the placeholder flow.'
-        ),
-        repository='https://example.com/org',
-        admin_name='Maintainer',
-        admin_email='m@example.com',
-    )
-    set_ui_app(name='App', icon='icon', description='App description.')
-    set_ui_empty_state(icon='icon', title='Title', body='Body.')
-    set_knowledge_empty('Nothing yet.')
-    add_or_update_agent(
-        agent_id='r',
-        name='R',
-        role='r',
-        in_scope=['Pre-purchase questions.'],
-        workflow=['Restate the request.'],
-        tools=['read_knowledge'],
-    )
-    add_or_update_team(team_id='t', name='T', role='r', workflow=['Coordinate.'], member_ids=['r'])
-    add_or_update_workflow(workflow_id='w', name='W', steps=[{'name': 's', 'agent_id': 'r'}])
-    add_or_update_knowledge_type(knowledge_type_id='note', label='Notes')
-    seed_discovery()
-    add_or_update_principle_section(
-        section_id='p1',
-        title='Mission',
-        body=(
-            'Test fixture: principle body long enough to clear the 200-char Stage-1 '
-            'minimum. The principle explains the rule and the trade-off it implies, '
-            'with concrete examples of when it applies and when it does not.'
-        ),
-    )
-    add_or_update_parameter(name='param', param_type='string', default='x', label='Param')
-    add_or_update_agent_group(label='All', ids=['r'])
-
-    assert _next_question() == ALL_PLACEHOLDERS_FILLED
-
-
-def test_agent_for_current_stage_returns_an_agent_with_the_stage_id():
-    """The routed agent's id matches the current stage (e.g. 'discover')."""
-    from agentorg.master import agent_for_current_stage  # noqa: PLC0415
-
-    agent = agent_for_current_stage()
-    assert agent.id == 'master-discover'
-
-
-def test_agent_for_current_stage_follows_the_stage_cursor():
-    """Moving the cursor changes which agent is returned."""
-    from agentorg.master import agent_for_current_stage, get_state  # noqa: PLC0415
-
-    get_state().stage = 'build'
-    assert agent_for_current_stage().id == 'master-build'
+def test_agent_for_current_stage_follows_the_stage_cursor() -> None:
+    """The cached workflow hands out the agent of the current stage."""
+    get_state().stage = 'refine'
+    agent: Any = agent_for_current_stage()
+    assert agent.stage == 'refine'

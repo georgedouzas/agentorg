@@ -13,6 +13,7 @@ from agentorg.core.spec import Spec
 from .conftest import Queued
 
 SIGNING_KEY = 'test-signing-key'
+HOOK_VAR = 'HELPDESK_SECRET'
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def spec(spec_dict_minimal: dict[str, Any]) -> Spec:
                 'id': 'helpdesk',
                 'target': 'assistant',
                 'prompt': 'Ticket: {body}',
-                'secret_env': 'HELPDESK_SECRET',
+                'secret_env': HOOK_VAR,
             },
         ],
     }
@@ -44,7 +45,15 @@ def _client(
 ) -> httpx.AsyncClient:
     app = FastAPI()
     app.include_router(
-        build_webhook_router(spec, store, queued, admit, dict, {'HELPDESK_SECRET': SIGNING_KEY}, lambda: healthy),
+        build_webhook_router(
+            spec,
+            store,
+            queued,
+            admit,
+            dict,
+            environ={'HELPDESK_SECRET': SIGNING_KEY},
+            broker_healthy=lambda: healthy,
+        ),
     )
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://org')
 
@@ -111,6 +120,7 @@ async def test_webhook_returns_409_when_target_refuses_work(spec: Spec, store: S
 
 async def test_webhook_unknown_trigger_is_404(spec: Spec, store: Store) -> None:
     """A path that names no webhook trigger is not found."""
+
     async with _client(spec, store, Queued(store)) as client:
         response = await client.post('/hooks/nope', content=b'{}')
     assert response.status_code == 404

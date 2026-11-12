@@ -3,7 +3,7 @@
 import asyncio
 import json
 import shutil
-import subprocess
+import subprocess  # nosec B404 - only runs `docker info`
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -101,7 +101,7 @@ class FakeBroker:
     external: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)
     bindings: dict[str, list[str]] = field(default_factory=dict)
     healthy: bool = True
-    tasks: set[asyncio.Task[None]] = field(default_factory=set)
+    tasks: set[asyncio.Future[None]] = field(default_factory=set)
 
     @property
     def is_healthy(self) -> bool:
@@ -122,7 +122,7 @@ class FakeBroker:
             self.queues.setdefault(queue, []).append(message)
             self.queues[queue].sort(key=lambda held: -held.priority)
             return
-        task = asyncio.get_running_loop().create_task(handlers[0](message))
+        task: asyncio.Future[None] = asyncio.ensure_future(handlers[0](message))
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
 
@@ -236,7 +236,8 @@ def docker_available() -> bool:
     docker = shutil.which('docker')
     if docker is None:
         return False
-    return subprocess.run([docker, 'info'], capture_output=True, check=False).returncode == 0  # noqa: S603
+    probe = [docker, 'info']
+    return subprocess.run(probe, capture_output=True, check=False).returncode == 0  # noqa: S603  # nosec B603
 
 
 @pytest.fixture(scope='session')

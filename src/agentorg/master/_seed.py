@@ -8,6 +8,7 @@ from ..core.spec import (
     EnvVars,
     Infra,
     Knowledge,
+    Operations,
     Org,
     Principles,
     Runtime,
@@ -70,7 +71,6 @@ def default_spec() -> Spec:
             admin_name=PLACEHOLDER_ADMIN_NAME,
             admin_email=PLACEHOLDER_EMAIL,
             visibility='private',
-            budget='medium',
         ),
         runtime=Runtime(
             infra=Infra(
@@ -85,7 +85,8 @@ def default_spec() -> Spec:
             env_vars=EnvVars(required=[], optional=[]),
             setup=[],
         ),
-        ai=AI(agents=[], teams=[], workflows=[]),
+        ai=AI(agents=[]),
+        operations=Operations(),
         parameters=[],
         knowledge=Knowledge(principles=Principles(sections=[]), types=[]),
         ui=UI(

@@ -6,8 +6,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from agentfield.agent import Agent as AgentFieldNode
 from claude_agent_sdk import ClaudeSDKClient
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter
 
 from .._errors import ConfigurationError
 from ..agents.tools import bind_node, write_knowledge
@@ -54,6 +55,8 @@ def database_url(spec: Spec, environ: Mapping[str, str], data_dir: Path, *, prev
 
 
 class _NoBroker:
+    """Event broker that drops events, used by the live preview."""
+
     async def publish_event(self, name: str, payload: dict[str, Any], chain: list[str]) -> None:
         del name, payload, chain
 
@@ -92,7 +95,14 @@ class OrgRuntime:
         self.store = Store(database_url(spec, environ, data_dir, preview=self.preview))
         self.broker = Broker(amqp_url, spec.org.slug) if amqp_url else None
         self.notifier = Notifier(spec, self.store, environ=environ, broker=self.broker)
-        self.bus = EventBus(spec, self.store, self.broker or _NoBroker(), self.enqueue, self.admit, self.parameters)
+        self.bus = EventBus(
+            spec,
+            self.store,
+            self.broker or _NoBroker(),
+            self.enqueue,
+            admit=self.admit,
+            parameters=self.parameters,
+        )
         self.lifecycle = Lifecycle(spec, self.store, self.bus.publish, self.notifier.notify, self._apply_lifecycle)
         self.approvals = Approvals(spec, self.store, self.bus.publish, self.notifier.notify)
         self.org_tools = OrgTools(spec, self.store, self.bus, self.call_target)
@@ -111,7 +121,7 @@ class OrgRuntime:
         self.dispatcher: Dispatcher | InlineDispatcher = (
             InlineDispatcher(self.store, self.execute)
             if self.broker is None
-            else Dispatcher(spec, self.store, self.broker, self.execute, self.apply_failure_policy)
+            else Dispatcher(spec, self.store, self.broker, self.execute, on_failure=self.apply_failure_policy)
         )
         worker_id = getattr(self.dispatcher, 'worker_id', 'preview')
         self.scheduler = Scheduler(
@@ -119,8 +129,8 @@ class OrgRuntime:
             self.store,
             self.enqueue,
             self.admit,
-            self.parameters,
-            worker_id,
+            parameters=self.parameters,
+            worker_id=worker_id,
             paused=self._paused,
         )
         self.consumers = QueueConsumers(spec, self._broker_for, self.enqueue, self.admit, self.parameters)
@@ -139,9 +149,11 @@ class OrgRuntime:
         return await self.dispatcher.enqueue(target, trigger_kind, prompt, **fields)
 
     async def _paused(self) -> bool:
+        """Return whether the org is paused."""
         return await self.lifecycle.state() == 'paused'
 
     async def _broker_for(self, trigger: QueueTrigger) -> QueueBroker:
+        """Return the broker a queue trigger consumes from."""
         if trigger.url_env:
             broker = Broker(self.environ[trigger.url_env], self.spec.org.slug)
             await broker.connect()
@@ -152,6 +164,7 @@ class OrgRuntime:
         return self.broker
 
     async def _file_output(self, agent: Agent, run: Run, output: str) -> None:
+        """Write a run's output as a knowledge unit and announce it."""
         if self.preview or agent.output.knowledge_type is None:
             return
         name = f'{agent.id}-{run.id[:8]}'
@@ -219,7 +232,7 @@ class OrgRuntime:
 
     async def execute(self, run: Run) -> None:
         """Execute a claimed run of an agent or unit, then announce it and apply the lifecycle checks."""
-        is_unit = any(unit.id == run.target for unit in self.spec.ai.root.iter_units())
+        is_unit = any(unit.id == run.target for unit in self.spec.ai.units)
         await (self.units.execute(run) if is_unit else self.runner.execute(run))
         finished = await self.store.get_run(run.id)
         if finished is not None and finished.status in ('succeeded', 'failed'):
@@ -240,6 +253,7 @@ class OrgRuntime:
             await self.enqueue(policy.fallback_agent, 'manual', prompt, parent_id=run.id, session_id=run.session_id)
 
     async def _consumers_on(self, on: bool) -> None:
+        """Start or stop consuming runs, events and external queues."""
         if not isinstance(self.dispatcher, Dispatcher):
             return
         for target in self.dispatcher.targets:
@@ -248,12 +262,14 @@ class OrgRuntime:
         await (self.consumers.start() if on else self.consumers.stop())
 
     async def _apply_lifecycle(self, before: LifecycleState, after: LifecycleState) -> None:
+        """Stop consumers when the org pauses or retires and restart them on resume."""
         if after in ('paused', 'retired'):
             await self._consumers_on(on=False)
         elif before == 'paused':
             await self._consumers_on(on=True)
 
     async def _heartbeat(self) -> None:
+        """Record this worker as alive at a fixed interval."""
         while isinstance(self.dispatcher, Dispatcher):
             await self.dispatcher.heartbeat()
             await asyncio.sleep(HEARTBEAT.total_seconds())
@@ -267,8 +283,8 @@ class OrgRuntime:
             self.enqueue,
             self.admit,
             self.parameters,
-            self.environ,
-            lambda: self.broker is not None and self.broker.is_healthy,
+            environ=self.environ,
+            broker_healthy=lambda: self.broker is not None and self.broker.is_healthy,
         )
 
     async def start(self) -> None:
@@ -299,7 +315,7 @@ class OrgRuntime:
 
 
 def start_operations(
-    app: FastAPI,
+    app: AgentFieldNode,
     spec: Spec,
     *,
     data_dir: Path,

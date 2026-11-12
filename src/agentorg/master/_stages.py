@@ -74,16 +74,20 @@ def _configure_blockers(state: State) -> list[str]:
         blockers.append('Railway deployment needs RAILWAY_TOKEN in env vars.')
     if infra.frontend == 'vercel' and not _has_env_var(state, 'VERCEL_TOKEN'):
         blockers.append('Vercel deployment needs VERCEL_TOKEN in env vars.')
+    if state.spec.operations.budget.monthly_usd is None:
+        blockers.append('Set a monthly budget in USD with set_budget.')
     return blockers
 
 
 def _build_blockers(state: State) -> list[str]:
-    """Stage 3 (Build): at least one agent committed before we advance to Refine."""
+    """Stage 3 (Build): at least one agent in a complete, valid unit tree before we advance to Refine."""
     blockers: list[str] = []
     if not state.spec.ai.agents:
         blockers.append(
             'Design at least one agent, sandbox-test it, commit it, and confirm it works in the live preview.',
         )
+    if state.structure_error is not None:
+        blockers.append(f'Complete the org structure: {state.structure_error}')
     return blockers
 
 

@@ -1,15 +1,23 @@
-"""The master agent."""
+"""The master agent: one Claude agent per interview stage, each with only that stage's tools."""
 
 import os
 from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, field
 from textwrap import dedent
 from typing import Any
 
-from agno.agent import Agent
-from agno.db.in_memory import InMemoryDb
-from agno.run.agent import RunOutput
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ClaudeSDKClient,
+    ResultMessage,
+    TextBlock,
+    ToolUseBlock,
+)
 from dotenv import load_dotenv
 
+from ..core.adapters.claude import as_sdk_server
 from ._stages import next_blockers, next_enabled
 from ._state import get_state
 from ._tools import (
@@ -21,8 +29,8 @@ from ._tools import (
     add_or_update_parameter,
     add_or_update_principle_section,
     add_or_update_setup_step,
-    add_or_update_team,
-    add_or_update_workflow,
+    add_or_update_trigger,
+    add_or_update_unit,
     advance_to_next_stage,
     emit_custom_skill,
     emit_custom_tool,
@@ -40,14 +48,20 @@ from ._tools import (
     remove_parameter,
     remove_principle_section,
     remove_setup_step,
-    remove_team,
-    remove_workflow,
-    request_redeploy,
+    remove_trigger,
+    remove_unit,
     sandbox_agent,
     set_agent_icons,
+    set_approvers,
+    set_budget,
     set_featured_agents,
+    set_governance,
     set_knowledge_empty,
+    set_lifecycle,
+    set_notifications,
     set_org_identity,
+    set_pipeline_step,
+    set_run_policy,
     set_runtime_infra,
     set_ui_app,
     set_ui_empty_state,
@@ -55,45 +69,7 @@ from ._tools import (
 
 load_dotenv()
 
-MASTER_TOOLS: list[Callable[..., object]] = [
-    list_placeholders,
-    get_current_spec,
-    advance_to_next_stage,
-    record_discovery_summary,
-    set_org_identity,
-    add_or_update_agent,
-    remove_agent,
-    add_or_update_team,
-    remove_team,
-    add_or_update_workflow,
-    remove_workflow,
-    add_or_update_parameter,
-    remove_parameter,
-    add_or_update_knowledge_type,
-    remove_knowledge_type,
-    add_or_update_principle_section,
-    remove_principle_section,
-    set_runtime_infra,
-    add_or_update_env_var,
-    remove_env_var,
-    add_or_update_setup_step,
-    remove_setup_step,
-    set_ui_app,
-    set_ui_empty_state,
-    set_knowledge_empty,
-    add_or_update_agent_group,
-    remove_agent_group,
-    set_featured_agents,
-    set_agent_icons,
-    add_or_update_overview_block,
-    remove_overview_block,
-    emit_custom_tool,
-    remove_custom_tool,
-    emit_custom_skill,
-    remove_custom_skill,
-    sandbox_agent,
-    finalize_spec,
-]
+ToolFunction = Callable[..., object]
 
 MASTER_INTRODUCTION = dedent(
     """Hi! I'm AgentOrg.
@@ -108,31 +84,19 @@ MASTER_INTRODUCTION = dedent(
 
     1. **Discover** - what this group is, who it serves, what it does end-to-end, and the
        org-wide principles that guide every agent.
-    2. **Configure** - the hard specifics: name, slug, admin, repository, budget tier,
-       and where it will run (local or cloud).
-    3. **Build** - the crucial step. We design agents, teams, and workflows one at a
-       time: discuss tools and skills, sandbox-test, commit, you smoke-test in the
-       preview, we iterate.
-    4. **Refine** - knowledge types, tunable parameters, dashboard polish, final
-       principles.
+    2. **Configure** - the hard specifics: name, slug, admin, repository, a monthly budget,
+       how the org starts its life (trial or active), and where it will run.
+    3. **Build** - the crucial step. We design the org's units and its Claude agents one
+       at a time: persona, autonomy, tools, MCP servers and skills, then sandbox-test,
+       commit, smoke-test in the preview, and wire the triggers that start work.
+    4. **Refine** - knowledge types, parameters, approvals, notifications, run policy,
+       dashboard polish and final principles.
     5. **Handoff** - finalize the spec, run / deploy walkthrough, repo push.
 
     Anything you tell me is editable at any time - just say "change X to Y". To start:
     what kind of group are we building, and what does it do?
     """,
 ).strip()
-
-
-# Per-stage prompts
-#
-# The interview is an agno workflow of six per-stage agents (see build_master_workflow).
-# Each agent gets BASE_INSTRUCTIONS + its own stage block - nothing else. The model
-# can't drift into another stage's concerns when it literally hasn't been told they
-# exist, and the tool slice (STAGE_TOOLS) is the runtime backstop.
-#
-# The legacy MASTER_INSTRUCTIONS constant, kept at the bottom of this section as the
-# union, is for tests that grep it; it is no longer fed to any agent.
-
 
 BASE_INSTRUCTIONS = dedent(
     """You are AgentOrg, the master agent that interviews the user to design and build a
@@ -164,13 +128,13 @@ BASE_INSTRUCTIONS = dedent(
     - When a tool call fails, state the new approach in ONE SHORT SENTENCE and try it.
       Do NOT apologise, do NOT rehash the previous attempt, do NOT enumerate what you
       already tried. The tool-call badges in the UI already show that. Bad:
-      "My apologies! I jumped the gun. It seems agno.tools.duckdb wasn't picked up by
+      "My apologies! I jumped the gun. It seems the duckdb package wasn't picked up by
       the sandbox. Let me try a custom tool instead..." (six sentences of nothing).
-      Good: "duckdb isn't installed. Wrapping in a sqlite3-based custom tool instead."
+      Good: "duckdb isn't installed. Writing a sqlite3-based custom tool instead."
       (one sentence, then the tool call).
 
-    Live context injected into your prompt every turn
-    - `working_spec`: a JSON snapshot of the current spec.
+    Live context at the top of every user message
+    - `working_spec`: the spec.py source of the current spec.
     - `placeholders`:  fields still holding seed values.
     - `next_question`: the most-overdue placeholder, picked deterministically in priority
                        order. Use it as a default when you're not sure what to ask next.
@@ -194,7 +158,7 @@ BASE_INSTRUCTIONS = dedent(
       forbidden. After a tool call you keep going and summarise + ask next.
     - BEFORE calling any `set_*` or `add_or_update_*` tool, glance at `working_spec` and
       skip the call when every argument you would pass matches the current value. The
-      seed defaults are: `org.budget='medium'`, `runtime.infra.packaging='none'`,
+      seed defaults are: `operations.budget.monthly_usd=None`, `runtime.infra.packaging='none'`,
       `runtime.infra.api='none'`, `runtime.infra.frontend='none'`,
       `runtime.infra.database='sqlite'`, `runtime.infra.vector_db='chromadb'`,
       `runtime.infra.auth='none'`. Redundant tool calls aren't free - they clutter the
@@ -212,6 +176,7 @@ BASE_INSTRUCTIONS = dedent(
       go back, not have you reach for tools you don't have.
     """,
 ).strip()
+
 DISCOVER_INSTRUCTIONS = dedent(
     """### Stage 1 instructions (DISCOVER)
 
@@ -317,61 +282,61 @@ DISCOVER_INSTRUCTIONS = dedent(
 
 
 CONFIGURE_INSTRUCTIONS = dedent(
-    """
+    """### Stage 2 instructions (CONFIGURE)
 
-    Goal: every required identity field, the budget tier, the deployment target, and
-    (for cloud targets) the credentials the deploy will need. Threshold is high -
-    everything has to be real before we move on to Stage 3.
+    Goal: every required identity field, a monthly budget, the lifecycle the org starts
+    in, who approves governed actions, and the deployment target with its credentials.
+    Threshold is high - everything has to be real before we move on to Stage 3.
 
-    Identity to gather, all via `set_org_identity`:
+    Identity, all via `set_org_identity`:
       - `name`: pick one now. If the user says "you decide", propose a few options tied
-        to what you learned in Stage 1's discovery and let them pick.
-      - `slug`: URL-safe, hyphen-separated. Derive from the name unless the user
-        prefers otherwise.
-      - `package_name`: Python identifier with underscores. Derive from slug.
-      - `description`: 2-4 sentences (200+ characters, enforced). Draft it FROM the
-        Stage-1 discovery summary - assemble a clean paragraph and ask the user to
-        confirm or tweak. Bodies under 200 chars are rejected by the tool.
-      - `repository`: GitHub URL the user already has, or `https://example.com/TODO`
-        if they want to defer pushing to git.
+        to what you learned in Stage 1 and let them pick.
+      - `slug`: URL-safe, hyphen-separated. Derive from the name unless told otherwise.
+      - `package_name`: Python identifier with underscores. Derive from the slug.
+      - `description`: 2-4 sentences (200+ characters, enforced), drafted FROM the
+        Stage-1 discovery summary. Ask the user to confirm or tweak.
+      - `repository`: a GitHub URL, or `https://example.com/TODO` to defer.
       - `admin_name`, `admin_email`: who maintains this. Don't fabricate.
-      - `visibility`: `public` or `private` (defaults to private).
-      - `budget`: pick a fleet-size tier - revisable later. Bound by the work you
-        learned about in Stage 1.
-          - `low`:    2-4 agents, mostly built-in tools, minimal integrations.
-          - `medium`: 4-6 agents, mix of built-in tools + a few real integrations.
-          - `high`:   6-10 agents, multiple real integrations + custom skills.
+      - `visibility`: `public` or `private` (default private).
+
+    Budget, via `set_budget` (required to advance):
+      - `monthly_usd`: the hard monthly cap across all agent runs. Help the user size it
+        from the work in Stage 1: a few agents doing light chat work cost tens of USD a
+        month; orgs running scheduled research or high ticket volume cost hundreds.
+      - `per_run_usd` (default 2), `alert_at` (default 0.8 of the cap), and
+        `on_exhausted`: `pause` the org (default) or `notify_only`.
+
+    Lifecycle, via `set_lifecycle`:
+      - `initial`: `trial` (default and recommended: every write is held for approval and
+        runs are capped, so the user can watch the org before trusting it), `active`, or
+        `draft` (preview only).
+      - `trial_max_runs` (default 50) and the failure-rate circuit breaker
+        (`max_failure_rate` 0.5 over `failure_window` 20 runs).
+
+    Approvers, via `set_approvers`: the emails that decide held actions when no unit
+    owner is closer. Defaults to the admin email.
 
     Deployment targets - explain each option, then call `set_runtime_infra(...)`:
-      - Local, no Docker (packaging=none, api=none, frontend=none): fastest iteration -
-        just `uv run` + `npm run dev`. Free. Best for development.
-      - Local, Docker (packaging=docker, api=none, frontend=none): contained env
-        locally with postgres + vector in compose. Free. Best for isolation.
-      - Railway only (packaging=docker, api=railway, frontend=none): cloud API + DB,
-        local frontend. ~$5/month for Railway.
-      - Vercel only (packaging=none/docker, frontend=vercel): cloud frontend, local
-        API (less common). Free tier covers the dashboard.
-      - Railway + Vercel (packaging=docker, api=railway, frontend=vercel): full cloud.
-        ~$5/month for Railway, free tier on Vercel.
-
-    For every cloud choice, declare the access token via `add_or_update_env_var` AND add
-    a setup step via `add_or_update_setup_step` walking the user through getting it:
-    - Railway: `RAILWAY_TOKEN` (https://railway.app/account/tokens).
-    - Vercel:  `VERCEL_TOKEN`  (https://vercel.com/account/tokens).
-
-    Infra is NOT a one-way door. Tell the user: "You can switch targets later via the
-    platform agents - picking local Docker today doesn't lock you out of Railway."
+      - Local, no Docker (packaging=none): fastest iteration. Needs a local RabbitMQ.
+      - Local, Docker (packaging=docker): compose starts the API, dashboard, database,
+        control plane and RabbitMQ. Best for isolation.
+      - Railway (packaging=docker, api=railway): cloud API and database, plus a hosted
+        RabbitMQ the setup checklist walks through. About $5/month.
+      - Vercel (frontend=vercel): cloud dashboard on the free tier.
+    For every cloud choice, declare the token via `add_or_update_env_var` and a setup
+    step via `add_or_update_setup_step`: `RAILWAY_TOKEN`, `VERCEL_TOKEN`.
+    `ANTHROPIC_API_KEY` and `AMQP_URL` are always required; they are added for you.
 
     Closing
     -------
     When `next_enabled = true`, ask "Ready to move to **Stage 3 - Build** (where we
-    design agents, teams, and workflows against the live preview iframe)?" On user
-    confirmation, call `advance_to_next_stage`.
+    design the units and agents against the live preview)?" On confirmation, call
+    `advance_to_next_stage`.
 
     Your tools in this stage
     ------------------------
-    - `set_org_identity`             - identity fields + budget.
-    - `set_runtime_infra`            - packaging / api / frontend / db / vector / embed.
+    - `set_org_identity`, `set_runtime_infra`
+    - `set_budget`, `set_lifecycle`, `set_approvers`
     - `add_or_update_env_var`, `remove_env_var`
     - `add_or_update_setup_step`, `remove_setup_step`
     - `get_current_spec`, `list_placeholders`
@@ -381,207 +346,131 @@ CONFIGURE_INSTRUCTIONS = dedent(
 
 
 BUILD_INSTRUCTIONS = dedent(
-    """
+    """### Stage 3 instructions (BUILD)
 
-    The live preview iframe is already running the rendered org. Every agent, team,
-    workflow, custom tool, or skill you commit appears in the dashboard within a couple
-    of seconds. Iterate WITH the user, one component at a time. NEVER batch.
-
-    The discipline you bring here decides whether the org actually works.
+    The live preview already runs the rendered org. Every unit, agent, tool, skill and
+    trigger you commit appears in the dashboard within seconds. Work WITH the user, one
+    component at a time. NEVER batch. Your discipline here decides whether the org works.
 
     =========================================================================
-    Per-agent loop  (run for EVERY agent the org needs)
+    1. Shape the org: units and their governance models
     =========================================================================
 
-    1. DISCUSS THE ROLE
-       Restate in your own words what this agent is for, who calls it, what it owns,
-       what it explicitly does NOT do. If the user is vague, ask 2-3 specific yes/no
-       or multiple-choice questions to pin it down. Don't draft anything yet.
+    Every org is a tree of units. Each unit has exactly one model:
+      - `solo`: one agent. Use for a single specialist or a monitor.
+      - `pipeline`: members run in order, each getting the previous output. Use for
+        flows like research -> draft -> publish. A step can pause for human review
+        (`set_pipeline_step(review='human')`).
+      - `hub`: a lead agent receives the work and delegates to members. Use for a
+        manager with a team. Members cannot talk to each other; only the lead delegates.
+      - `pool`: code routes each piece of work to one member (least_loaded,
+        round_robin, or skill_match by agent tags). Use for support desks and high
+        volume. A pool lead receives what no member matches and the escalations.
+      - `council`: 3-9 members answer independently; a rule decides (majority on a
+        json `choice` field, a judge lead, or unanimous). Use for high-stakes calls.
+    Limits: at most 12 members per unit (100 for a pool) and 6 levels of nesting. Bigger
+    orgs nest units: a hub whose members are pools, for example. Sibling units only
+    reach each other through `custom.*` events.
 
-    2. THINK HARD ABOUT SKILLS AND TOOLS  (this is where most agents fail)
+    Size the root by the org: one agent -> `solo`; 2-12 agents -> `hub` (or `pipeline`
+    for a fixed flow); more -> a `hub` whose members are nested units.
 
-       Tool reference formats - GET THESE RIGHT or the rendered spec.py won't import:
-         - Built-in catalog tool:  bare name as a string, e.g. `'read_knowledge'`.
-         - Custom tool you emit:   bare name (NOT `custom:foo`), e.g. `'run_sqlite_query'`.
-                                   Skills use `custom:<name>`; tools DO NOT.
-         - agno integration tool:  you cannot reference these as strings in the spec at
-                                   all. To use one, wrap it in a custom tool (pattern
-                                   under "Custom tools" below).
-
-       For the agent to do its job, what does it need? Discuss BOTH:
-         - **Agentorg built-in tools** (knowledge read/write, state, platform tools).
-           What does it need to READ? What does it need to PRODUCE? Pick from what's
-           available.
-         - **agno's ready-made tools** (USE THESE via a custom-tool wrapper). agno ships
-           ~130 integrations under `agno.tools.*` covering most needs:
-             - Search:        `tavily`, `serper`, `googlesearch`, `bravesearch`,
-                              `duckduckgo`, `wikipedia`, `arxiv`, `pubmed`
-             - HTTP / scraping: `requests`, `firecrawl`, `crawl4ai`, `browserbase`,
-                              `playwright`, `selenium`
-             - Productivity:  `gmail`, `googlecalendar`, `googledrive`, `googlesheets`,
-                              `googleworkspace`, `slack`, `discord`, `whatsapp`,
-                              `linear`, `jira`, `clickup`, `trello`, `notion`,
-                              `confluence`
-             - Code / dev:    `github`, `gitlab`, `bitbucket`, `docker`, `aws_lambda`,
-                              `python`, `shell`, `coding`
-             - Files / data:  `file`, `csv_toolkit`, `docling`, `pandas`, `duckdb`,
-                              `mcp` (Model Context Protocol)
-             - LLM-side:      `dalle`, `eleven_labs`, `replicate`, `cartesia`
-             - Many more - explore `agno.tools.<integration>` first.
-
-           agno-tool WRAPPER PATTERN (this is the only way to use them):
-
-               # `emit_custom_tool(name='gh_list_issues', source=...)`
-               from agno.tools.github import GithubTools
-
-               _github = GithubTools(access_token=os.environ['GITHUB_TOKEN'])
-
-               async def gh_list_issues(repo: str, state: str = 'open') -> str:
-                   '''List open issues in `repo` (owner/name).'''
-                   return _github.list_issues(repo=repo, state=state)
-
-           Caveats:
-             - The agno integration may need an optional dep (`duckdb`, `playwright`,
-               `slack-sdk`...). Declare it in setup steps and document in the env-var
-               description; the sandbox will fail to import if the dep isn't present.
-             - The integration may need a credential (`GITHUB_TOKEN`, `SLACK_BOT_TOKEN`).
-               Declare it via `add_or_update_env_var` AND the wrapper MUST raise a
-               useful error when the env var is missing (don't crash on KeyError).
-
-         - **Custom tools** (when agno doesn't have it). Each one: what does it do,
-           credentials, failure mode, sandbox-test it.
-         - **Skills** (`emit_custom_skill`): packaged instructions / playbooks the
-           agent should follow for tricky tasks. Discuss whether the agent's `workflow`
-           is enough, or whether a skill is the right shape.
-
-       Output of this turn: a short PROPOSAL listing the tools and skills you'll wire
-       in, with WHY each one (and where it came from - agno / agentorg / custom). Ask
-       the user to confirm or trim BEFORE you write code.
-
-    3. PROPOSE THE AGENT SHAPE
-       Draft name, agent_id, role, in_scope (3-5 bullets), out_of_scope (1-2 bullets
-       naming peer agents for handoffs), workflow (3-5 numbered steps), style notes,
-       and the confirmed tool/skill list. Read it back to the user in markdown.
-
-    4. WRITE THE CODE FOR CUSTOM TOOLS / SKILLS (if any)
-       Real working code, not stubs. The sandbox REJECTS placeholder bodies (`raise
-       NotImplementedError`, `TODO`, "placeholder", "in a real scenario"). If a tool
-       needs a credential, declare it via `add_or_update_env_var` and a checklist entry
-       via `add_or_update_setup_step` so the operator can fill it in later. The tool
-       body MUST defensively raise on missing credentials with a useful error message.
-
-       Custom skill format (`emit_custom_skill`): SKILL.md MUST start with a YAML
-       frontmatter block - both `name:` and `description:` are required, otherwise
-       agno's skill loader rejects it. Example:
-
-           ---
-           name: negotiation-playbook
-           description: Steps for negotiating with a counterparty over price.
-           ---
-
-           # Negotiation playbook
-
-           1. Open with the high anchor.
-           2. Walk back gradually based on the counter.
-           3. Lock in commitment before discussing details.
-
-       The frontmatter `name` and folder name must match.
-
-    5. SANDBOX TEST  (mandatory - no commits without this)
-       Call `sandbox_agent(agent_spec=..., test_prompts=[...])` with 2-3 representative
-       prompts:
-         - One HAPPY PATH (a typical request).
-         - One EDGE CASE (a weird input, an out-of-scope request, an empty result).
-         - One ERROR CASE (a tool returning a failure, missing data, etc.).
-       Show the user the outputs verbatim. If anything looks wrong - tool not called,
-       wrong tool called, hallucinated response, scope drift - FIX IT NOW. Iterate
-       agent shape + tools until the sandbox runs clean. THIS IS WHERE BUGS DIE CHEAP.
-
-    6. COMMIT
-       Only after the user explicitly approves the sandbox results, call
-       `add_or_update_agent(...)` (with all the fields from step 3). The live preview
-       rerenders within a couple of seconds.
-
-    7. LIVE TEST  (the user does this, you facilitate)
-       Tell the user: "It's in your dashboard now. Click into <Agent Name> and try a
-       real request - one normal, one weird. Tell me what you get back."
-       Then advise SMOKE TESTS:
-         - "Try the obvious happy path - does the response feel right?"
-         - "Try something out of scope - does it decline cleanly or wander off?"
-         - "Try a malformed / empty / nonsense input - does it fail gracefully?"
-         - "Watch the tool-call badges - is it using the right tools, or making it up?"
-       Wait for their report.
-
-    8. ITERATE
-       Apply feedback by calling `add_or_update_agent` again with the same agent_id
-       (this updates in place). Re-sandbox if the tool list changed. Re-live-test.
-       Only move to the next agent when the user is satisfied.
+    Propose the tree in markdown first, get a yes, then create units top-down with
+    `add_or_update_unit` (the root has no `parent_id`). Units may be incomplete while
+    you build; every tool reply tells you what the structure still misses.
 
     =========================================================================
-    Teams (extremely useful when 2+ agents collaborate on the same request)
+    2. Per-agent loop (run for EVERY agent)
     =========================================================================
 
-    Design teams CAREFULLY - sloppy teams are the #1 source of agent confusion.
+    a. ROLE. Restate what the agent is for, who calls it, what it owns, what it does
+       NOT do. Ask 2-3 sharp questions if the user is vague.
 
-    Before drafting a team:
-      - Verify ALL member agents already exist and pass their sandbox + live tests.
-      - Pin down the COORDINATION MODE explicitly with the user:
-          - `route`: the leader picks ONE member per request, hands off, returns its
-                     answer. Use when members own disjoint scopes (router-style).
-          - `coordinate`: the leader plans a multi-agent solution, dispatches to
-                          multiple members, synthesises the result. Use for
-                          deliverables that require >1 member's contribution.
-          - `collaborate`: members talk to each other freely (rare; use sparingly).
-      - Specify the leader's INSTRUCTIONS in plain language: when does it engage,
-        what's the handoff protocol to peer teams, what does the final answer look
-        like.
+    b. PERSONA. tone (direct, warm, formal, playful), verbosity (terse, balanced,
+       thorough), instructions, in-scope topics, out-of-scope topics mapped to the agent
+       or unit they belong to.
 
-    Sandbox the team BEFORE committing: `sandbox_agent` on the team with 2-3 prompts
-    that exercise different member-routing decisions. Watch which member gets called -
-    is the routing logic right? Then live-test in the iframe.
+    c. MODEL AND AUTONOMY.
+       - model: `opus` for leads and hard judgement, `sonnet` by default, `haiku` for
+         fast triage and monitoring.
+       - autonomy: `read_only` (research only), `propose` (writes wait for approval;
+         the safe default), `act` (writes allowed except governed actions),
+         `autonomous` (also gets bash). Governed actions always need approval, and a
+         trial org holds every write regardless.
+
+    d. TOOLS. Every agent runs on the Claude agent harness and always has the org
+       tools (knowledge, delegate where it leads a hub, handoff, publish, escalate).
+       Decide what else it needs:
+         - Built-in harness tools: read, write, edit, glob, grep, bash, web_search,
+           web_fetch, todo. Defaults follow the autonomy; trim to what the job needs.
+         - MCP servers: the main way to reach real systems (CRM, ticketing, email,
+           GitHub, databases, metrics). Each server: name, transport (stdio with a
+           command, or http/sse with a url), env (env var NAMES, never values; declare
+           each with `add_or_update_env_var`), and `read_tools` / `outbound_tools` so
+           governance knows which tools only read and which send messages. Everything
+           else counts as a write. Narrow with `allowed_tools`.
+         - Custom tools (`emit_custom_tool`): small async Python functions for what no
+           MCP server covers. Real code, never stubs; the sandbox rejects placeholders.
+           Decorate with `@tool('read')` from `agentorg.core.agents.tools` when the
+           tool only reads, `@tool(outbound=True)` when it messages people. Undecorated
+           tools are governed as writes.
+         - Skills (`emit_custom_skill`): SKILL.md playbooks for tricky procedures. The
+           file starts with YAML frontmatter carrying `name` and `description`.
+       Propose the tool list with WHY each one, and get a yes before writing code.
+
+    e. OUTPUT. text by default; `json` with a schema when another agent or a council
+       consumes it. Name a `knowledge_type` when outputs should be filed as knowledge.
+
+    f. LIMITS AND SCALE. max_turns (30), max_run_usd (the org default), timeout_s (600),
+       workspace (ephemeral by default; persistent or shared when files must survive),
+       memory (session by default), replicas for pool members under load.
+
+    g. COMMIT with `add_or_update_agent(unit_id=..., as_lead=...)`.
+
+    h. SANDBOX (mandatory): `sandbox_agent(agent_id, test_prompts)` with a happy path,
+       an edge case and an out-of-scope or error case. It runs on the real harness in
+       preview mode, so writes are refused and the agent explains what it would do.
+       Show the outputs and costs verbatim. Fix scope drift, wrong tools or invented
+       answers now, and re-sandbox.
+
+    i. LIVE TEST: ask the user to chat with the agent in the dashboard, try a normal
+       and a weird request, and watch the tool badges. Iterate until they are happy.
 
     =========================================================================
-    Workflows (deterministic step pipelines)
+    3. Triggers: how work arrives without a person asking
     =========================================================================
 
-    A workflow is a fixed sequence of named steps, each step a named agent. Use when
-    the work is a PIPELINE (gather -> analyse -> publish) not a routing decision. Each
-    step's output is the next step's input.
+    For each recurring or external source of work, add a trigger with
+    `add_or_update_trigger`:
+      - `schedule`: cron in a timezone, with `overlap` (skip/queue/allow) and
+        `catch_up` (skip/run_once) for missed fires.
+      - `event`: built-in events (knowledge.created, run.failed, approval.decided,
+        budget.alert, lifecycle.changed) or `custom.*` events agents publish, with a
+        payload `filter`.
+      - `webhook`: a signed HTTP endpoint for external systems; declare its secret env.
+      - `queue`: an external AMQP queue another system publishes to.
+    Prompts may use {now}, {trigger_id}, {event}, {body}, {message} and parameter names.
+    Chat always works without a trigger.
 
-    Design tips:
-      - Each step is ONE agent (or one team) - if a step is doing two unrelated
-        things, split it.
-      - Use `requires_output_review=True` on a step when the user should manually
-        review before the next step runs.
-      - Walk the user through the data shape between steps: "Step 1 produces a doc,
-        step 2 reads it and writes a report, step 3 takes the report and publishes."
-
-    Sandbox the workflow on a representative input, show the user the end-to-end run,
-    then commit and live-test.
-
-    =========================================================================
     Closing
-    =========================================================================
-    Stage 3 ends when the user says they have every agent / team / workflow they
-    need AND they've smoke-tested in the live preview. Ask "Ready to move to
-    **Stage 4 - Refine** (knowledge types, parameters, dashboard polish)?" On
+    -------
+    Stage 3 ends when the structure is complete, every agent passed its sandbox and live
+    test, and the triggers are in. Ask "Ready to move to **Stage 4 - Refine**?" On
     confirmation, call `advance_to_next_stage`.
 
     Your tools in this stage
     ------------------------
-    - `add_or_update_agent`, `remove_agent`
-    - `add_or_update_team`, `remove_team`
-    - `add_or_update_workflow`, `remove_workflow`
+    - `add_or_update_unit`, `set_pipeline_step`, `remove_unit`
+    - `add_or_update_agent`, `remove_agent`, `sandbox_agent` (mandatory before moving on)
+    - `emit_custom_tool`, `remove_custom_tool`, `emit_custom_skill`, `remove_custom_skill`
+    - `add_or_update_trigger`, `remove_trigger`
     - `add_or_update_parameter`, `remove_parameter`
-    - `emit_custom_tool`, `remove_custom_tool`
-    - `emit_custom_skill`, `remove_custom_skill`
-    - `add_or_update_env_var`, `remove_env_var`         (credentials for custom tools)
-    - `add_or_update_setup_step`, `remove_setup_step`   (operator checklist entries)
-    - `sandbox_agent`                                   (MANDATORY before every commit)
+    - `add_or_update_env_var`, `remove_env_var`, `add_or_update_setup_step`, `remove_setup_step`
     - `get_current_spec`, `list_placeholders`
     - `advance_to_next_stage`
     """,
 ).strip()
+
 
 REFINE_INSTRUCTIONS = dedent(
     """### Stage 4 instructions (REFINE)
@@ -598,6 +487,14 @@ REFINE_INSTRUCTIONS = dedent(
         tune without re-rendering (e.g. `min_sources=3`).
       - **Principles**: revisit Stage-1 drafts via `add_or_update_principle_section`.
         Stage 1 wrote them under domain pressure; this is the consolidation pass.
+      - **Governance**: `set_governance` for which action classes need human approval
+        (external_write, outbound_message, code_execution, knowledge_publish, spend), how
+        long approvals wait and what a timeout does.
+      - **Notifications**: `set_notifications` for where approval requests, escalations,
+        failed runs, budget alerts and lifecycle changes go (dashboard, email, webhook,
+        amqp). Declare webhook URLs as env vars first.
+      - **Run policy**: `set_run_policy` for concurrency, retries and what happens to runs
+        that keep failing (notify, escalate to the inbox, or hand off to a fallback agent).
       - **Dashboard polish**: `set_ui_app`, `set_ui_empty_state`, `set_knowledge_empty`,
         `add_or_update_agent_group`, `set_featured_agents`, `set_agent_icons`,
         `add_or_update_overview_block`.
@@ -617,11 +514,11 @@ REFINE_INSTRUCTIONS = dedent(
     - `set_ui_app`, `set_ui_empty_state`, `set_knowledge_empty`
     - `add_or_update_agent_group`, `remove_agent_group`, `set_featured_agents`,
       `set_agent_icons`, `add_or_update_overview_block`, `remove_overview_block`
+    - `set_governance`, `set_notifications`, `set_run_policy`
     - `get_current_spec`, `list_placeholders`
     - `advance_to_next_stage`
     """,
 ).strip()
-
 
 HANDOFF_INSTRUCTIONS = dedent(
     """### Stage 5 instructions (HANDOFF)
@@ -639,8 +536,13 @@ HANDOFF_INSTRUCTIONS = dedent(
     Read `working_spec.runtime.infra` and lead with the path that matches the user's
     Stage-2 choice.
 
+    Every org needs `ANTHROPIC_API_KEY` (its agents run on Claude) and `AMQP_URL` (RabbitMQ
+    carries runs and events). Docker packaging starts RabbitMQ for them.
+
     For LOCAL no-Docker (`packaging == 'none'`):
       ```
+      docker run -d -p 5672:5672 rabbitmq:3.13-management   # the broker
+      export AMQP_URL=amqp://guest:guest@localhost:5672/
       uv sync
       uv run python -m <package_name>             # API
       cd src/frontend && npm install && npm run dev   # dashboard
@@ -664,12 +566,13 @@ HANDOFF_INSTRUCTIONS = dedent(
 
     Step 3 - sanity check
     ---------------------
-    Whatever path they took, ask the user to confirm the dashboard is reachable and
-    the platform agents respond. If anything fails, advise:
+    Whatever path they took, ask the user to confirm the dashboard is reachable, that
+    `GET /api/v1/health` reports the broker as `ok`, and that an agent answers in chat.
+    The org starts in the lifecycle state chosen in Stage 2; explain how to promote it
+    from trial to active in the dashboard's lifecycle banner. If anything fails, advise:
       - `RAILWAY_TOKEN` / `VERCEL_TOKEN` missing -> Railway / Vercel dashboard env vars.
+      - Broker `unavailable` -> check `AMQP_URL` and that RabbitMQ is running.
       - Build failures -> read the platform's build log; usually a missing dep.
-      - Agent errors -> the `qa_engineer` platform agent in the dashboard can run
-        spec validation.
 
     This is the terminal stage. There is no `advance_to_next_stage` here - to edit
     earlier stages the user needs to "Start over" or edit the rendered `spec.py`
@@ -678,10 +581,9 @@ HANDOFF_INSTRUCTIONS = dedent(
     Your tools in this stage
     ------------------------
     - `finalize_spec` - write the assembled `spec.py` to disk.
-    - `get_current_spec` - JSON snapshot for status / summary turns.
+    - `get_current_spec` - the current spec.py source for status / summary turns.
     """,
 ).strip()
-
 
 STAGE_INSTRUCTIONS: dict[str, str] = {
     'discover': DISCOVER_INSTRUCTIONS,
@@ -691,15 +593,11 @@ STAGE_INSTRUCTIONS: dict[str, str] = {
     'handoff': HANDOFF_INSTRUCTIONS,
 }
 
-
-# Legacy union, retained so older callers / tests that grep for stage references in a
-# single string still resolve. No agent reads this constant - each per-stage agent gets
-# BASE_INSTRUCTIONS + its own STAGE_INSTRUCTIONS entry.
 MASTER_INSTRUCTIONS = '\n\n'.join([BASE_INSTRUCTIONS, *STAGE_INSTRUCTIONS.values()])
 
 
 def stage_instructions(stage: str) -> str:
-    """Return the per-stage prompt: shared BASE_INSTRUCTIONS + the stage's own block."""
+    """Return the per-stage prompt: the shared base instructions and the stage's own block."""
     return f'{BASE_INSTRUCTIONS}\n\n{STAGE_INSTRUCTIONS[stage]}'
 
 
@@ -720,76 +618,12 @@ QUESTION_TEMPLATES: dict[str, str] = {
     'ui.knowledge_empty': 'What message should the Knowledge tab show when it has no entries yet?',
     'ui.agent_groups': 'How should the agents be grouped in the sidebar? Or shall I skip grouping?',
     'ai.agents': 'What agents does this organization need? Describe each one in plain language.',
-    'ai.teams': 'Do any of these agents coordinate as a team? If not, say "skip".',
-    'ai.workflows': 'Are there any multi-step pipelines (e.g. research -> review -> publish)? Say "skip" if not.',
     'knowledge.types': 'What kinds of knowledge will the agents read and write? Say "skip" if none.',
     'knowledge.principles.sections': 'Any org-wide principles or rules the agents should follow? Say "skip" if none.',
     'parameters': 'Any tunable parameters (e.g. minimum sources, target audience)? Say "skip" if none.',
 }
-PRIORITY_PREFIXES = (
-    'org.',
-    'ai.agents',
-    'ai.teams',
-    'ai.workflows',
-    'parameters',
-    'knowledge',
-    'runtime',
-    'ui.',
-)
+PRIORITY_PREFIXES = ('org.', 'ai.agents', 'parameters', 'knowledge', 'runtime', 'ui.')
 ALL_PLACEHOLDERS_FILLED = "Everything's set. Ready to write the spec to disk? Say `finalize` or give me a path."
-
-
-def _working_spec_dependency() -> dict[str, Any]:
-    """Live dependency: a JSON-safe snapshot of the working spec, refreshed at every turn."""
-    return get_current_spec().model_dump(mode='json')
-
-
-def _placeholders_dependency() -> list[tuple[str, str]]:
-    """Live dependency: fields still holding seed placeholders, refreshed at every turn."""
-    return list_placeholders()
-
-
-def _next_question_dependency() -> str:
-    """Live dependency: a stage-aware hint about what to ask next.
-
-    Stage 1 doesn't use the placeholder-priority list - identity / admin / infra
-    placeholders would leak in and pull the agent into Stage-2 questions before it has
-    even understood the business. So in Stage 1 the hint points at the discovery probe
-    or the principle-drafting work. In later stages the placeholder list resumes its
-    usual role.
-    """
-    state = get_state()
-    if state.stage == 'discover':
-        if state.discovery is None:
-            return (
-                'Stage 1 (Discover): probe the business with follow-ups - what is made / '
-                'sold / done, who it serves, the 3-5 concrete tasks, the typical flow, '
-                'the market context, the current pain. When you can describe it across '
-                'all six dimensions, write a summary back to the user, ask "does this '
-                'capture it?", and on confirmation call `record_discovery_summary(...)`.'
-            )
-        return (
-            'Stage 1 (Discover): discovery is recorded. Now draft principle sections via '
-            '`add_or_update_principle_section` (mission, audience, scope-in, scope-out, '
-            'typical-flow, market-context, principles, constraints). Each body is a real '
-            'paragraph (200+ chars). Pick a budget via `set_org_identity(budget=...)`. '
-            'Finally produce a draft summary for the user and tell them Next is enabled.'
-        )
-    return _next_question()
-
-
-def _stage_dependency() -> dict[str, object]:
-    """Live dependency: the current stage + its threshold blockers.
-
-    The master uses `stage` to decide which per-stage instructions in MASTER_INSTRUCTIONS apply. `next_enabled` +
-    `next_blockers` tell it whether it can ask the user to confirm advancing yet, and what is still missing if not.
-    """
-    state = get_state()
-    return {
-        'stage': state.stage,
-        'next_enabled': next_enabled(state),
-        'next_blockers': next_blockers(state),
-    }
 
 
 def _next_question() -> str:
@@ -799,68 +633,83 @@ def _next_question() -> str:
         return ALL_PLACEHOLDERS_FILLED
 
     def sort_key(item: tuple[str, str]) -> tuple[int, str]:
-        path = item[0]
         for index, prefix in enumerate(PRIORITY_PREFIXES):
-            if path.startswith(prefix):
-                return (index, path)
-        return (len(PRIORITY_PREFIXES), path)
+            if item[0].startswith(prefix):
+                return (index, item[0])
+        return (len(PRIORITY_PREFIXES), item[0])
 
-    next_path = sorted(placeholders, key=sort_key)[0][0]
-    return QUESTION_TEMPLATES.get(next_path, 'What should we configure next?')
-
-
-async def _ensure_response_text(run_output: RunOutput) -> None:
-    """Post-hook safety net: if the model ended a turn with no visible text, ask the next question."""
-    content = run_output.content
-    if content is None or not str(content).strip():
-        run_output.content = _next_question()
+    return QUESTION_TEMPLATES.get(sorted(placeholders, key=sort_key)[0][0], 'What should we configure next?')
 
 
-# Per-stage tool slices
-#
-# The interview is an agno workflow of 6 Steps - one per stage. Each Step carries its own
-# `Agent` with a NARROW tool slice: Discover's agent literally lacks `set_org_identity`,
-# Configure's agent lacks `add_or_update_agent`, etc. This makes off-topic drift impossible
-# at the tool layer rather than via prompt discipline. Every stage carries `get_current_spec`
-# (read-only), `list_placeholders` (read-only), and `advance_to_next_stage`.
+def _next_hint() -> str:
+    """Return a stage-aware hint about what to ask next."""
+    state = get_state()
+    if state.stage != 'discover':
+        return _next_question()
+    if state.discovery is None:
+        return (
+            'Probe the business with follow-ups: what is made, sold or done, who it serves, the 3-5 concrete tasks, '
+            'the typical flow, the market context and the current pain. When all six are clear, summarise, ask '
+            '"does this capture it?", and on confirmation call `record_discovery_summary(...)`.'
+        )
+    return (
+        'Discovery is recorded. Draft principle sections via `add_or_update_principle_section` (mission, audience, '
+        'scope-in, scope-out, typical-flow, market-context, principles, constraints), each a real paragraph, then '
+        'summarise for the user and tell them Next is enabled.'
+    )
 
-COMMON_TOOLS: list[Callable[..., object]] = [get_current_spec, list_placeholders, advance_to_next_stage]
 
-STAGE_TOOLS: dict[str, list[Callable[..., object]]] = {
-    'discover': [
-        *COMMON_TOOLS,
-        record_discovery_summary,
-        add_or_update_principle_section,
-        remove_principle_section,
-    ],
+def turn_context() -> str:
+    """Return the live context put above every user message: stage, blockers, next question, placeholders, spec."""
+    state = get_state()
+    blockers = next_blockers(state)
+    lines = [
+        '## Live context',
+        f'- stage: {state.stage} (next_enabled={next_enabled(state)})',
+        f'- next_blockers: {blockers or "none"}',
+        f'- next_question: {_next_hint()}',
+        f'- placeholders: {list_placeholders() or "none"}',
+        f'- structure: {state.structure_error or "complete"}',
+        '',
+        '### working_spec',
+        '```python',
+        get_current_spec(),
+        '```',
+    ]
+    return '\n'.join(lines)
+
+
+COMMON_TOOLS: list[ToolFunction] = [get_current_spec, list_placeholders, advance_to_next_stage]
+ENV_TOOLS: list[ToolFunction] = [add_or_update_env_var, remove_env_var, add_or_update_setup_step, remove_setup_step]
+
+STAGE_TOOLS: dict[str, list[ToolFunction]] = {
+    'discover': [*COMMON_TOOLS, record_discovery_summary, add_or_update_principle_section, remove_principle_section],
     'configure': [
         *COMMON_TOOLS,
         set_org_identity,
         set_runtime_infra,
-        add_or_update_env_var,
-        remove_env_var,
-        add_or_update_setup_step,
-        remove_setup_step,
+        set_budget,
+        set_lifecycle,
+        set_approvers,
+        *ENV_TOOLS,
     ],
     'build': [
         *COMMON_TOOLS,
+        add_or_update_unit,
+        set_pipeline_step,
+        remove_unit,
         add_or_update_agent,
         remove_agent,
-        add_or_update_team,
-        remove_team,
-        add_or_update_workflow,
-        remove_workflow,
-        add_or_update_parameter,
-        remove_parameter,
+        sandbox_agent,
         emit_custom_tool,
         remove_custom_tool,
         emit_custom_skill,
         remove_custom_skill,
-        sandbox_agent,
-        add_or_update_env_var,
-        remove_env_var,
-        add_or_update_setup_step,
-        remove_setup_step,
+        add_or_update_trigger,
+        remove_trigger,
+        add_or_update_parameter,
+        remove_parameter,
+        *ENV_TOOLS,
     ],
     'refine': [
         *COMMON_TOOLS,
@@ -870,6 +719,9 @@ STAGE_TOOLS: dict[str, list[Callable[..., object]]] = {
         remove_principle_section,
         add_or_update_parameter,
         remove_parameter,
+        set_governance,
+        set_notifications,
+        set_run_policy,
         set_ui_app,
         set_ui_empty_state,
         set_knowledge_empty,
@@ -883,141 +735,92 @@ STAGE_TOOLS: dict[str, list[Callable[..., object]]] = {
     'handoff': [get_current_spec, finalize_spec],
 }
 
+MASTER_TOOLS: list[ToolFunction] = list({fn.__name__: fn for tools in STAGE_TOOLS.values() for fn in tools}.values())
 
-def _build_stage_agent(stage: str, tools: list[Callable[..., object]]) -> Agent:
-    """Build the per-stage agent that handles chat while the workflow is on `stage`.
+ClientFactory = Callable[[ClaudeAgentOptions], AbstractAsyncContextManager[Any]]
 
-    Each per-stage agent shares the same shared instructions block (MASTER_INSTRUCTIONS
-    has stage-aware sections), the same dependencies, and the same introduction - but only
-    the tools relevant to its stage. The `stage` dependency lets the prompt match the
-    right section; the tool slice makes drift impossible at the runtime level.
+
+@dataclass
+class MasterReply:
+    """One master turn: the reply text and the names of the tools it called."""
+
+    content: str
+    tool_calls: list[str] = field(default_factory=list)
+
+
+class StageAgent:
+    """The Claude agent that handles chat while the interview is on one stage.
+
+    Arguments:
+        stage: The interview stage.
+        tools: The stage's tool functions, served as the in-process `stage` MCP server.
+        client_factory: Opens an SDK client for given options.
     """
-    return Agent(
-        id=f'master-{stage}',
-        name=f'Master ({stage.title()})',
-        model=os.getenv('AGENTORG_MODEL'),
-        instructions=stage_instructions(stage),
-        introduction=MASTER_INTRODUCTION,
-        db=InMemoryDb(),
-        tools=tools,
-        post_hooks=[_ensure_response_text],
-        add_history_to_context=True,
-        num_history_runs=20,
-        cache_session=True,
-        dependencies={
-            'working_spec': _working_spec_dependency,
-            'placeholders': _placeholders_dependency,
-            'next_question': _next_question_dependency,
-            'stage': _stage_dependency,
-        },
-        add_dependencies_to_context=True,
-        add_name_to_context=True,
-        add_datetime_to_context=True,
-        markdown=True,
-    )
+
+    def __init__(self, stage: str, tools: list[ToolFunction], client_factory: ClientFactory = ClaudeSDKClient) -> None:
+        self.stage = stage
+        self.tools = tools
+        self.client_factory = client_factory
+        self.session_id: str | None = None
+
+    def options(self) -> ClaudeAgentOptions:
+        """Return the SDK options: the stage prompt, the stage tools only, no built-in tools, resuming the session."""
+        return ClaudeAgentOptions(
+            model=os.getenv('AGENTORG_MODEL', 'sonnet'),
+            system_prompt=stage_instructions(self.stage),
+            tools=[],
+            allowed_tools=[f'mcp__stage__{fn.__name__}' for fn in self.tools],
+            disallowed_tools=['Task', 'NotebookEdit'],
+            mcp_servers={'stage': as_sdk_server('stage', self.tools)},
+            setting_sources=[],
+            skills=[],
+            resume=self.session_id,
+            max_turns=40,
+        )
+
+    async def arun(self, message: str) -> MasterReply:
+        """Answer one user message with the live context above it, and keep the conversation for the next turn.
+
+        Arguments:
+            message: The user's message.
+
+        Returns:
+            reply: The reply text, or the next question when the model ended without text, and the tools called.
+        """
+        texts: list[str] = []
+        tool_calls: list[str] = []
+        async with self.client_factory(self.options()) as client:
+            await client.query(f'{turn_context()}\n\n---\n\n{message}')
+            async for event in client.receive_response():
+                if isinstance(event, AssistantMessage):
+                    texts += [block.text for block in event.content if isinstance(block, TextBlock)]
+                    uses = [block for block in event.content if isinstance(block, ToolUseBlock)]
+                    tool_calls += [block.name.removeprefix('mcp__stage__') for block in uses]
+                if isinstance(event, ResultMessage):
+                    self.session_id = event.session_id
+        return MasterReply('\n\n'.join(texts).strip() or _next_question(), tool_calls)
 
 
-def build_master_workflow() -> dict[str, Agent]:
-    """Build the master workflow as `{stage: per-stage agent}`.
-
-    Returns a mapping rather than an `agno.workflow.Workflow` instance because the
-    interview is a multi-turn chat loop, not a one-shot pipeline - agno's Workflow
-    executor model is for "run all steps end-to-end", whereas we route each user message
-    to whichever Step's agent is currently active. The mapping preserves the per-Step
-    agent registry (the structural win the user asked for) without forcing us through
-    `workflow.arun()` semantics that don't fit a conversational UI.
-    """
-    return {stage: _build_stage_agent(stage, tools) for stage, tools in STAGE_TOOLS.items()}
+def build_master_workflow(client_factory: ClientFactory = ClaudeSDKClient) -> dict[str, StageAgent]:
+    """Build one stage agent per interview stage."""
+    return {stage: StageAgent(stage, tools, client_factory) for stage, tools in STAGE_TOOLS.items()}
 
 
-def build_master_agent() -> Agent:
-    """Compatibility shim: return the agent for the *current* stage.
-
-    Older callers ask for "the master agent"; the workflow refactor splits that into one agent per stage. We honour the
-    call by looking up the active stage and returning the corresponding per-stage agent. Most callers (the FastAPI
-    server, the CLI loop) should move to `agent_for_current_stage()` directly.
-    """
-    return agent_for_current_stage()
-
-
-_STAGE_AGENTS: dict[str, Agent] | None = None
-
-
-def _ensure_workflow_built() -> dict[str, Agent]:
-    """Build the per-stage agent registry once and cache it on first use."""
-    global _STAGE_AGENTS  # noqa: PLW0603 - module-level cache is the simplest fit
-    if _STAGE_AGENTS is None:
-        _STAGE_AGENTS = build_master_workflow()
-    return _STAGE_AGENTS
+_stage_agents: list[dict[str, StageAgent]] = []
 
 
 def _reset_workflow_cache() -> None:
-    """Drop the cached per-stage agents (used by tests that monkeypatch env vars)."""
-    global _STAGE_AGENTS  # noqa: PLW0603
-    _STAGE_AGENTS = None
+    """Drop the cached stage agents and their conversations."""
+    _stage_agents.clear()
 
 
-def agent_for_current_stage() -> Agent:
-    """Return the per-stage agent that should handle the next chat turn."""
-    state = get_state()
-    return _ensure_workflow_built()[state.stage]
+def agent_for_current_stage() -> StageAgent:
+    """Return the stage agent that handles the next chat turn."""
+    if not _stage_agents:
+        _stage_agents.append(build_master_workflow())
+    return _stage_agents[0][get_state().stage]
 
 
-# Production master (runs inside the deployed org)
-
-PRODUCTION_MASTER_INSTRUCTIONS = """You are the master agent running inside the deployed org.
-
-The user is the operator. Your toolbelt lets you modify any part of the spec: identity,
-infra, agents, teams, workflows, knowledge, parameters, UI. You mutate the IN-MEMORY
-working spec; changes do NOT take effect on the running org until the user redeploys.
-
-When the user asks for a change: confirm, mutate via the relevant tool, reflect back.
-When the user is ready to apply changes, call `request_redeploy` - it writes the
-updated `spec.py` and prints instructions for their deploy pipeline.
-
-Do not redeploy proactively. Do not chain multiple redeploys in one turn.
-Be concise; do not narrate tool calls.
-""".strip()
-
-
-PRODUCTION_MASTER_INTRODUCTION = (
-    "Hi - I'm the master agent running inside your org. "
-    'Tell me what you want to change and I will edit the spec. '
-    "When ready, say 'deploy' and I'll write the new spec.py and walk you through redeploying."
-)
-
-
-def _production_tools() -> list[Callable[..., object]]:
-    """Union of every stage's tools minus advance_to_next_stage, plus request_redeploy."""
-    seen: dict[str, Callable[..., object]] = {}
-    for tools in STAGE_TOOLS.values():
-        for tool in tools:
-            if tool is advance_to_next_stage:
-                continue
-            seen[tool.__name__] = tool
-    return [*seen.values(), request_redeploy]
-
-
-def build_production_master() -> Agent:
-    """Build the single-agent production master with the full toolbelt."""
-    return Agent(
-        id='master',
-        name='Master',
-        model=os.getenv('AGENTORG_MODEL'),
-        instructions=PRODUCTION_MASTER_INSTRUCTIONS,
-        introduction=PRODUCTION_MASTER_INTRODUCTION,
-        db=InMemoryDb(),
-        tools=_production_tools(),
-        post_hooks=[_ensure_response_text],
-        add_history_to_context=True,
-        num_history_runs=20,
-        cache_session=True,
-        dependencies={
-            'working_spec': _working_spec_dependency,
-            'placeholders': _placeholders_dependency,
-        },
-        add_dependencies_to_context=True,
-        add_name_to_context=True,
-        add_datetime_to_context=True,
-        markdown=True,
-    )
+def build_master_agent() -> StageAgent:
+    """Return the agent of the current stage."""
+    return agent_for_current_stage()

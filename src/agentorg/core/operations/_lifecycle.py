@@ -23,10 +23,12 @@ Notify = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 
 def _month_start(now: datetime) -> datetime:
+    """Return the start of the calendar month of `now`."""
     return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
 def _subtree_ids(unit: Unit) -> list[str]:
+    """Return the ids of every unit and agent inside a unit."""
     ids = []
     for nested in unit.iter_units():
         ids.append(nested.id)
@@ -90,6 +92,7 @@ class Lifecycle:
         await self.store.add(LifecycleEvent(subject=target, to_state=state, actor=actor, reason=f'{target} {state}.'))
 
     async def _disabled(self, target: str) -> str | None:
+        """Return why a target or one of its units is disabled, or None."""
         ids = [target] + [unit.id for unit in self.spec.ai.path_to(target)]
         for id_ in ids:
             if await self.store.get_value('disabled', id_):
@@ -97,12 +100,14 @@ class Lifecycle:
         return None
 
     async def _trial_exhausted(self) -> bool:
+        """Return whether the trial reached its run cap."""
         history = await self.store.lifecycle_history()
         started = next((event.at for event in reversed(history) if event.to_state == 'trial'), None)
         runs = await self.store.list_runs(since=started, limit=self.spec.operations.lifecycle.trial_max_runs + 1)
         return len(runs) >= self.spec.operations.lifecycle.trial_max_runs
 
     async def _unit_over_budget(self, target: str) -> str | None:
+        """Return why a unit above the target is over its budget, or None."""
         month = _month_start(datetime.now(UTC))
         for unit in self.spec.ai.path_to(target):
             if unit.monthly_usd is None:
@@ -124,12 +129,14 @@ class Lifecycle:
         return await self._disabled(target) or await self._unit_over_budget(target)
 
     async def _failure_rate_exceeded(self) -> bool:
+        """Return whether too many of the recent runs failed."""
         window = self.spec.operations.lifecycle.failure_window
         recent = [run for run in await self.store.list_runs(limit=window * 4) if run.status in TERMINAL][:window]
         failed = sum(run.status == 'failed' for run in recent)
         return len(recent) == window and failed / window > self.spec.operations.lifecycle.max_failure_rate
 
     async def _check_budget(self) -> str | None:
+        """Alert once per month at the threshold and return `budget` when the org should pause."""
         budget = self.spec.operations.budget
         if budget.monthly_usd is None:
             return None

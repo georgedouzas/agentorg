@@ -7,48 +7,59 @@ Context for Claude Code working on the `agentorg` library.
 A metaagent library that produces a runnable multi-agent organisation from a single Python `spec.py`. End-state vision:
 
 1. The user runs the `agentorg` master agent.
-2. It interviews them across five stages to fill in the spec: org metadata + budget, infra, agents/teams/workflows, knowledge,
-   and the dashboard UI.
+2. It interviews them across five stages to fill in the spec: org metadata, budget and lifecycle, infra, the unit tree of
+   Claude agents with their triggers, knowledge and governance, and the dashboard UI.
 3. The interview output is written to `spec.py`.
-4. `agentorg render <spec.py>` materialises a complete project: an `AgentField` agent node (FastAPI), a React/Vite dashboard,
-   docs, and (for docker packaging) a compose file wiring node + control plane + db + ui.
+4. `agentorg render <spec.py>` materialises a complete project: an `AgentField` agent node (FastAPI) running the operations
+   runtime, a React/Vite dashboard, docs, and (for docker packaging) a compose file wiring node + control plane + db +
+   RabbitMQ + ui.
 
 `agentorg` is not a single product. It's a factory for org-shaped products, and the master agent is the front door.
 
 ## Architecture
 
-Three clean layers, each in its own module under `src/agentorg/core/`:
+The layers live under `src/agentorg/core/`:
 
-- **`spec/`** — the Pydantic models a user constructs in `spec.py`. `Spec` is five domain models: `org`, `runtime`, `ai`,
-  `knowledge`, `ui`. Each lives in a `_*.py` module under `spec/`. Agents, teams, and workflows in `ai` are "anything runnable"
-  (plain async callable, or an object with `.arun()` — agno objects fit cleanly but agentorg never imports agno).
+- **`spec/`** — the Pydantic models a user constructs in `spec.py`. `Spec` is six domain models: `org`, `runtime`, `ai`,
+  `operations`, `knowledge`, `ui`. `ai` holds typed `Agent` definitions (persona, Claude model tier, autonomy, built-in
+  tools, custom tool functions, MCP servers, skills, limits, output) and a tree of `Unit`s, each governed by one of five
+  models: `solo`, `pipeline`, `hub`, `pool`, `council`. `operations` holds triggers, run policy, governance, budget,
+  notifications and lifecycle.
 - **`render/`** — `render(spec_path, output_dir)` loads the user's `spec.py` and materialises the project tree under
-  `render/template/` against it (Jinja). Writes are idempotent — unchanged files are not touched, so the live preview's Vite
-  watcher doesn't fire on no-op rerenders.
-- **`tools/`** — runtime helpers shipped to every rendered org: `runtime.py` (`register_runnable` adapts a runnable into an
-  `AgentField` reasoner with tags), `knowledge.py` / `state.py` (async tools over `app.memory`), `setup.py`, and the platform
-  agents' tool modules under `tools/platform/`.
+  `render/templates/` against it (Jinja). Writes are idempotent — unchanged files are not touched, so the live preview's
+  Vite watcher doesn't fire on no-op rerenders.
+- **`adapters/claude/`** — maps an `Agent` onto Claude Agent SDK options (prompt, tools, MCP servers, skills, limits) and
+  registers agents and units as tagged AgentField reasoners. agentorg runs agents only on the Claude Agent SDK.
+- **`operations/`** — the runtime every rendered org starts with `start_operations`: the run store (org database), the
+  RabbitMQ broker (queued runs, retries, dead letters, events), the dispatcher, the agent runner, the unit engines,
+  communication tools (delegate, handoff, publish, escalate), the scheduler, webhooks, external queue consumers,
+  approvals, lifecycle and notifications. Every tool call goes through `_policy.decide`.
+- **`agents/tools/`** — the knowledge, parameter and setup tools agents call, declared with `@tool(side_effect)`.
 
-The rendered runtime delegates infrastructure to `AgentField`:
+The rendered runtime delegates identity, memory and audit to `AgentField`:
 
-- One `AgentField.agent` node per org: agents/teams/workflows register as reasoners.
+- One `AgentField.agent` node per org: agents register as reasoners tagged `agent`, units as `unit` plus their model,
+  all with the org slug.
 - Knowledge → `app.memory.global_scope`; per-user state → `app.memory.actor(user_id)`.
 - DID/VC identity + execution-DAG audit are automatic when a control plane is present.
-- Operator-managed policies on the control plane target reasoners by tag (`agent`/`platform`/`team`/`workflow` + the node-level
-  org slug).
 
-The control plane (`agentfield/control-plane:latest`, a Docker image) is required for memory/audit/policies. The rendered node
-boots standalone, but memory-backed endpoints fail without one — the docker-compose template wires the control plane in.
+Two services are required next to the node: the AgentField control plane (`agentfield/control-plane:latest`) for
+memory/audit/policies, and RabbitMQ at `AMQP_URL`. `ANTHROPIC_API_KEY` is always required. The docker-compose template
+wires all of them in. In preview mode the node runs without a broker and with a local sqlite store.
 
 ## Master agent
 
-The master agent is itself an agno-style workflow of per-stage agents, each with a narrow tool slice:
+The master agent is one Claude agent per stage, each with only its stage's tools served as an in-process MCP server and no
+built-in tools:
 
 1. **Discover** — what the group does, who it serves, principles. Tools: `record_discovery_summary`, principle tools, advance.
-2. **Configure** — identity, budget, infra. Tools: `set_org_identity`, `set_runtime_infra`, env vars, setup steps, advance.
-3. **Build** — agents, teams, workflows, custom tools/skills. Tools: agent/team/workflow patches, `emit_custom_tool` /
-   `emit_custom_skill`, `sandbox_agent`, advance. The crucial stage; user smoke-tests in the live preview between commits.
-4. **Refine** — knowledge types, parameters, dashboard polish. Tools: knowledge types, parameters, UI tweaks, advance.
+2. **Configure** — identity, budget, lifecycle, approvers, infra. Tools: `set_org_identity`, `set_budget`, `set_lifecycle`,
+   `set_approvers`, `set_runtime_infra`, env vars, setup steps, advance.
+3. **Build** — units, agents, custom tools/skills, triggers. Tools: `add_or_update_unit`, `set_pipeline_step`,
+   `add_or_update_agent`, `emit_custom_tool` / `emit_custom_skill`, `add_or_update_trigger`, `sandbox_agent`, advance. The
+   interview keeps agent and unit drafts and assembles them into the spec after every change. The crucial stage; the
+   user smoke-tests in the live preview between commits.
+4. **Refine** — knowledge types, parameters, governance, notifications, run policy, dashboard polish.
 5. **Handoff** — finalize spec, run/deploy walkthrough. Terminal.
 
 Cross-stage drift is impossible at the runtime layer: Discover's agent literally lacks `set_org_identity`. The stage transitions

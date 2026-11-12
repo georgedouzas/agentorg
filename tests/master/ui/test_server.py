@@ -9,11 +9,11 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from agentorg.master import add_or_update_agent, get_state, reset_state, set_org_identity
+from agentorg.master import get_state, reset_state, set_budget, set_org_identity
 from agentorg.master.ui import _server as ui_server
 from agentorg.master.ui import build_app
 
-from ..conftest import seed_discovery
+from ..conftest import build_hub_org, seed_discovery
 
 _LONG_DESC = (
     'Research Org is a small team that gathers sources on a topic and writes structured '
@@ -23,7 +23,7 @@ _LONG_DESC = (
 
 
 class _FakeAgent:
-    """Stand-in for `agno.Agent` that records what it was called with and returns a canned RunOutput."""
+    """Stand-in for the stage agent that records what it was called with and returns a canned reply."""
 
     def __init__(self, *, response: str = 'hello back', tool_calls: list[dict[str, str]] | None = None) -> None:
         self.response = response
@@ -67,26 +67,19 @@ def test_get_api_spec_reflects_state_mutations_between_requests():
     """After an org-identity patch + an agent add, `/api/spec` shows the new values."""
     get_state().stage = 'configure'  # name belongs to Stage 2
     set_org_identity(name='Research Org', description=_LONG_DESC)
-    add_or_update_agent(
-        agent_id='researcher',
-        name='Researcher',
-        role='Gather sources.',
-        in_scope=['Source gathering.'],
-        workflow=['Restate.', 'Cite three sources.'],
-        tools=['read_knowledge', 'write_knowledge'],
-    )
+    build_hub_org()
     app = build_app(agent_factory=_FakeAgent)
     client = TestClient(app)
     body = client.get('/api/spec').json()
     assert body['spec']['org']['name'] == 'Research Org'
-    assert len(body['spec']['ai']['agents']) == 1
-    assert body['spec']['ai']['agents'][0]['agent_id'] == 'researcher'
-    assert body['spec']['ai']['agents'][0]['tools'] == ['read_knowledge', 'write_knowledge']
+    assert [agent['id'] for agent in body['spec']['ai']['agents']] == ['lead', 'researcher']
+    assert body['spec']['ai']['units'][0]['model'] == 'hub'
+    assert body['structure_error'] is None
 
 
 def test_post_api_chat_forwards_to_arun_and_returns_response_plus_tool_calls():
     """A chat POST is routed to `agent.arun`; the reply text and tool call names are returned."""
-    fake = _FakeAgent(response='ok', tool_calls=[{'tool_name': 'set_org_identity'}])
+    fake = _FakeAgent(response='ok', tool_calls=['set_org_identity'])
     app = build_app(agent_factory=lambda: fake)
     client = TestClient(app)
     response = client.post('/api/chat', json={'message': 'hi'})
@@ -155,15 +148,9 @@ def _make_spec_ready() -> None:
         admin_name='Maintainer',
         admin_email='maintainer@example.com',
     )
+    set_budget(monthly_usd=100)
     get_state().stage = 'discover'  # let the test exercise /api/advance from Stage 1
-    add_or_update_agent(
-        agent_id='researcher',
-        name='Researcher',
-        role='Gather sources and write reports.',
-        in_scope=['Source gathering.'],
-        workflow=['Restate.', 'Cite three sources.'],
-        tools=['read_knowledge', 'write_knowledge'],
-    )
+    build_hub_org()
 
 
 def test_api_spec_includes_readiness_with_blockers_on_seed():

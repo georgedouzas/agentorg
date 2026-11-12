@@ -19,6 +19,7 @@ class EventPublisher(Protocol):
 
 
 def _member_ids(unit: Unit) -> list[str]:
+    """Return the ids of a unit's members."""
     return [member if isinstance(member, str) else member.id for member in unit.member_refs]
 
 
@@ -39,6 +40,7 @@ class OrgTools:
         self.call_target = call_target
 
     def _unit_of(self, agent_id: str) -> Unit:
+        """Return the unit that holds an agent."""
         return self.spec.ai.path_to(agent_id)[-1]
 
     def delegates(self, agent: Agent) -> list[str]:
@@ -62,6 +64,7 @@ class OrgTools:
         return None
 
     async def _chain_targets(self, run: Run) -> list[str]:
+        """Return the targets of a run and of every run above it in its delegation chain."""
         targets, current = [run.target], run
         while current.parent_id and (parent := await self.store.get_run(current.parent_id)):
             targets.append(parent.target)
@@ -88,7 +91,7 @@ class OrgTools:
                 hint = 'To reach other units, publish an event.'
                 return f'You cannot delegate to {target}; you may delegate to {allowed}. {hint}'
             chain = await self._chain_targets(run)
-            if target in chain or len(chain) >= self.spec.ai.root.depth() + 1:
+            if target in chain or len(chain) >= self.spec.ai.depth + 1:
                 return f'Delegating to {target} would loop back through {" -> ".join(reversed(chain))}.'
             result = await self.call_target(target, task, run)
             return str(result.get('output', ''))

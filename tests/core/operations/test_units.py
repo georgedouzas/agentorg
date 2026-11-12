@@ -44,6 +44,10 @@ class Reviewer:
         )
 
 
+def _vote(choice: str) -> Callable[[str], object]:
+    return lambda _task: {'choice': choice}
+
+
 def _agent(agent_id: str, **fields: Any) -> dict[str, Any]:
     return {'id': agent_id, 'name': agent_id, 'role': 'Works.', **fields}
 
@@ -160,7 +164,7 @@ def _council(spec_dict_minimal: dict[str, Any], decision: str, lead: str | None 
 async def test_council_majority_decides_and_keeps_answers(spec_dict_minimal: dict[str, Any], store: Store) -> None:
     """Answers approve, approve, reject decide approve, and all three answers are recorded."""
     votes = {'u1': 'approve', 'u2': 'approve', 'u3': 'reject'}
-    members = Members({member: (lambda task, v=vote: {'choice': v}) for member, vote in votes.items()})
+    members = Members({member: _vote(vote) for member, vote in votes.items()})
     run = await _run(UnitEngine(_council(spec_dict_minimal, 'majority'), store, members, Reviewer()), store, 'board')
     assert run.output['decision'] == 'approve'
     assert run.output['answers'] == {member: {'choice': vote} for member, vote in votes.items()}

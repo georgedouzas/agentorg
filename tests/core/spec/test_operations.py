@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from agentorg.core.spec import Notifications, Operations, QueueTrigger, RunsPolicy, ScheduleTrigger
 
+HOOK_VAR = 'HOOK_SECRET'
+
 
 def _schedule(**fields: object) -> dict[str, Any]:
     return {'kind': 'schedule', 'id': 'nightly', 'target': 'a', 'prompt': 'Go.', 'cron': '0 2 * * *', **fields}
@@ -56,7 +58,7 @@ def test_operations_discriminates_trigger_kinds() -> None:
             'triggers': [
                 _schedule(),
                 {'kind': 'event', 'id': 'on-report', 'target': 'a', 'prompt': '{event}', 'event': 'knowledge.created'},
-                {'kind': 'webhook', 'id': 'helpdesk', 'target': 'a', 'prompt': '{body}', 'secret_env': 'HOOK_SECRET'},
+                {'kind': 'webhook', 'id': 'helpdesk', 'target': 'a', 'prompt': '{body}', 'secret_env': HOOK_VAR},
                 {'kind': 'queue', 'id': 'crm', 'target': 'a', 'prompt': '{message}', 'queue': 'crm.orders'},
             ],
         },

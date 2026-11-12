@@ -21,10 +21,12 @@ PREDECESSORS: dict[str, tuple[str, ...]] = {
 
 
 def _now() -> datetime:
+    """Return the current UTC time."""
     return datetime.now(UTC)
 
 
 def _new_id() -> str:
+    """Return a new random id."""
     return uuid.uuid4().hex
 
 
@@ -111,6 +113,8 @@ class LifecycleEvent(Base):
 
 
 class _KeyValue(Base):
+    """A coordination value: session owners, idempotency keys, leases and similar."""
+
     __tablename__ = 'coordination'
 
     namespace: Mapped[str] = mapped_column(String(32), primary_key=True)
@@ -133,6 +137,7 @@ class Store:
 
     async def open(self) -> None:
         """Create the operations tables when they do not exist."""
+
         async with self._engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
 
@@ -156,11 +161,13 @@ class Store:
 
     async def get_run(self, run_id: str) -> Run | None:
         """Return the run with id `run_id`, or `None`."""
+
         async with self._sessions() as session:
             return await session.get(Run, run_id)
 
     async def count_active(self, target: str) -> int:
         """Return how many runs of `target` are running or awaiting approval."""
+
         async with self._sessions() as session:
             query = select(func.count()).where(Run.target == target, Run.status.in_(ACTIVE))
             return int(await session.scalar(query) or 0)
@@ -176,6 +183,7 @@ class Store:
         Returns:
             claimed: Whether this call moved the run to running.
         """
+
         async with self._sessions.begin() as session:
             run = await session.get(Run, run_id)
             if run is None or run.status != 'queued':
@@ -209,6 +217,7 @@ class Store:
 
     async def append_transcript(self, run_id: str, events: list[dict[str, Any]]) -> None:
         """Append stream events to a run's transcript."""
+
         async with self._sessions.begin() as session:
             run = await session.get(Run, run_id)
             if run is not None:
@@ -270,11 +279,13 @@ class Store:
 
     async def add(self, record: Approval | InboxItem | LifecycleEvent) -> None:
         """Insert an approval, inbox item or lifecycle event."""
+
         async with self._sessions.begin() as session:
             session.add(record)
 
     async def get_approval(self, approval_id: str) -> Approval | None:
         """Return the approval with id `approval_id`, or `None`."""
+
         async with self._sessions() as session:
             return await session.get(Approval, approval_id)
 
@@ -316,6 +327,7 @@ class Store:
 
     async def get_value(self, namespace: str, key: str) -> object:
         """Return a coordination value, or `None` when it is missing or expired."""
+
         async with self._sessions() as session:
             row = await session.get(_KeyValue, (namespace, key))
         if row is None or (row.expires_at is not None and row.expires_at.replace(tzinfo=UTC) <= _now()):
@@ -339,6 +351,7 @@ class Store:
         Returns:
             held: Whether `holder` holds the lease after the call.
         """
+
         async with self._sessions.begin() as session:
             row = await session.get(_KeyValue, ('lease', name), with_for_update=True)
             expired = row is None or row.expires_at is None or row.expires_at.replace(tzinfo=UTC) <= _now()
