@@ -31,6 +31,35 @@ the project for more details. You can run any of the following commands and subc
 
 - `uv run nox -s tests`: Run the tests.
 
+### End-to-end tests
+
+- `uv run nox -s e2e`: Render each scenario's org, deploy it, drive work through it and tear it down.
+  - `uv run nox -s e2e -- --target local-process --scenario master-golden-path`: Run one scenario on one target.
+  - `uv run nox -s e2e -- --self-test`: Run only the harness self-tests, which need neither Docker nor an API key.
+
+The e2e suite lives in `tests/e2e/` and is not part of `nox -s tests`. It needs a running Docker daemon for RabbitMQ
+and the AgentField control plane.
+
+`--target` is one of:
+
+- `local-process` (the default): the node and the frontend run as local processes.
+- `local-docker`: the rendered `compose.yaml`. Not implemented yet.
+- `cloud`: Railway and Vercel. Not implemented yet.
+
+`--model-mode` decides where model calls go. The org always talks to a local mock of the Anthropic API:
+
+- `replay` (the default): the mock serves the cassettes in `tests/e2e/cassettes/<scenario>/` and costs nothing. A
+  request without a recording fails the scenario and names the request.
+- `record`: the mock forwards to the real API and saves each response as a cassette. Run it after changing a prompt,
+  a tool or a spec the scenario uses, then commit the new cassettes.
+- `live`: the mock forwards without saving. A scenario is paused and failed with reason `budget` once its runs cost
+  more than its `max_usd` marker, 1.0 by default.
+
+`record` and `live` read `ANTHROPIC_API_KEY` from your environment. The key stays in the mock and never reaches the org.
+
+A failed scenario leaves its rendered project, node, frontend and container logs, run transcripts, unmatched model
+requests and, for browser checks, a Playwright trace and a screenshot in `.e2e-artifacts/<run-id>/<test>/`.
+
 ### Changelog
 
 - `uv run nox -s changelog`: Build the changelog.

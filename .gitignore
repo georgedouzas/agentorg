@@ -46,3 +46,4 @@ docs/generated/
 
 # OS
 .DS_Store
+.e2e-artifacts/
