@@ -92,6 +92,9 @@ dev = [
     "types-croniter>=6.2.4.20261006",
     "types-jsonschema>=4.26.0.20261006",
 ]
+e2e = [
+    "playwright>=1.65.1",
+]
 
 [project.scripts]
 agentorg = "agentorg.cli:main"
@@ -143,6 +146,7 @@ select = ["C", "E", "F", "W", "B", "I", "D", "N", "UP", "YTT", "ANN", "S",
 "test_*" = ["ANN", "PLR2004"]
 "conftest.py" = ["PLR0917"]
 "src/agentorg/master/_sandbox.py" = ["S603"]
+"tests/e2e/harness/*" = ["S603"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -189,7 +193,8 @@ exempt = ["src/agentorg/core/spec/_config.py"]
 python_files = ["test_*.py"]
 addopts = "--cov"
 testpaths = ["tests"]
-norecursedirs = ["tests/fixtures"]
+# The e2e suite runs only through `nox -s e2e`.
+norecursedirs = ["tests/fixtures", "e2e"]
 asyncio_mode = "auto"
 markers = ["network: test clones from public git remotes; deselect with -m 'not network'"]
 
@@ -197,6 +202,7 @@ markers = ["network: test clones from public git remotes; deselect with -m 'not 
 branch = true
 parallel = true
 source = ["src", "tests"]
+omit = ["tests/e2e/*"]
 
 [tool.coverage.paths]
 equivalent = ["src", "__pypackages__"]

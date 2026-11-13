@@ -13,8 +13,8 @@
 
 ## 3. E2e harness
 
-- [ ] 3.1 Add the `nox -s e2e` session, excluded from `tests`, with the `--target`, `--model-mode` and `--scenario` options. It checks for Docker and validates the target before provisioning. Verify that `nox -s tests` collects zero tests from `tests/e2e/`, and that `nox -s e2e -- --target bogus` fails before provisioning.
-- [ ] 3.2 Implement `harness/mock_anthropic.py` with request canonicalisation and hashing, streaming and non-streaming replay, record-mode proxying, and a missing-recording error. Verify with self-tests in `tests/e2e/harness/` (run by `nox -s e2e -- --self-test`) covering hash stability and SSE replay.
+- [x] 3.1 Add the `nox -s e2e` session, excluded from `tests`, with the `--target`, `--model-mode` and `--scenario` options. It checks for Docker and validates the target before provisioning. Verify that `nox -s tests` collects zero tests from `tests/e2e/`, and that `nox -s e2e -- --target bogus` fails before provisioning.
+- [x] 3.2 Implement `harness/mock_anthropic.py` with request canonicalisation and hashing, streaming and non-streaming replay, record-mode proxying, and a missing-recording error. Verify with self-tests in `tests/e2e/harness/` (run by `nox -s e2e -- --self-test`) covering hash stability and SSE replay.
 - [ ] 3.3 Implement the `Target` protocol, `local_process.py` and the conftest teardown guarantee and artifact capture. Verify that a deliberately failing smoke scenario leaves `.e2e-artifacts/<run-id>/` populated and no running containers.
 - [ ] 3.4 Implement `harness/client.py`, a typed client for the runs, approvals, inbox, lifecycle, hooks and chat stream endpoints, and the Playwright smoke helpers. Verify with the golden-path scenario in 4.1.
 

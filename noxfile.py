@@ -170,6 +170,22 @@ def tests(session: nox.Session) -> None:
 
 
 @nox.session
+def e2e(session: nox.Session) -> None:
+    """Deploy rendered orgs and run the end-to-end scenarios, or the harness self-tests with `--self-test`.
+
+    Arguments:
+        session: The nox session.
+    """
+    session.run('uv', 'sync', '--active', '--group', 'e2e', external=True)
+    args = list(session.posargs)
+    path = 'tests/e2e/harness' if '--self-test' in args else 'tests/e2e'
+    if path == 'tests/e2e':
+        session.run('playwright', 'install', 'chromium')
+    args = [arg for arg in args if arg != '--self-test']
+    session.run('pytest', '--no-cov', '-p', 'no:randomly', path, *args)
+
+
+@nox.session
 def changelog(session: nox.Session) -> None:
     """Build the changelog.
 
