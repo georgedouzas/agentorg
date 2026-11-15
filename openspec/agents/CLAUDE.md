@@ -63,9 +63,15 @@ built-in tools:
 5. **Handoff** — finalize spec, run/deploy walkthrough. Terminal.
 
 Cross-stage drift is impossible at the runtime layer: Discover's agent literally lacks `set_org_identity`. The stage transitions
-via the agent's `advance_to_next_stage` tool on explicit user confirmation — there is no Next button.
+via the agent's `advance_to_next_stage` tool on explicit user confirmation, or the user's `/next` command.
 
-The master UI hosts a **live preview iframe** of the rendered org. `ui/_preview.py` boots uvicorn + Vite as subprocesses on the
+LibreChat is the one chat surface. `agentorg ui` starts a local LibreChat stack (`master/ui/librechat/compose.yaml`, needs
+Docker) whose `AgentOrg` endpoint is the master server's OpenAI-compatible `/v1` (`ui/_chat.py`, model `agentorg`, with
+`/stage`, `/next`, `/spec`, `/preview`, `/reset confirm`), and whose `Preview` endpoint is the preview node's chat API.
+Rendered orgs ship LibreChat the same way, over `core/operations/_chat_api.py` + `_chat_org.py`, with operations
+commands such as `/approve` and `/status`; their dashboard is the operations console and has no chat.
+
+The master page hosts a **live preview iframe** of the rendered org. `ui/_preview.py` boots uvicorn + Vite as subprocesses on the
 user's machine; every chat turn rewrites `spec.py` and uvicorn `--reload` picks it up. The React app polls `/api/v1/config` and
 related endpoints on a 2s heartbeat so spec mutations propagate to the iframe without manual reload. In preview mode
 (`AGENTORG_PREVIEW_MODE=true` on the rendered process), knowledge writes are no-ops, login is auto-completed, and the

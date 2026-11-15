@@ -135,6 +135,30 @@ async def test_start_operations_mounts_webhooks(spec_dict_normal: dict[str, Any]
     assert (response.status_code, response.json()['detail']) == (404, "No webhook trigger 'nope'.")
 
 
+@pytest.mark.parametrize(('key', 'expected'), [('secret', 200), (None, 404)])
+async def test_start_operations_mounts_chat_api_with_a_key(
+    spec_dict_normal: dict[str, Any],
+    tmp_path: Path,
+    key: str | None,
+    expected: int,
+) -> None:
+    """The chat API answers only when `CHAT_API_KEY` is set."""
+    app = AgentFieldNode(node_id='acme-org')
+    environ = {**PREVIEW, 'CHAT_API_KEY': key} if key else PREVIEW
+    runtime = start_operations(
+        app,
+        Spec.model_validate(spec_dict_normal),
+        data_dir=tmp_path,
+        skills_dir=tmp_path,
+        environ=environ,
+    )
+    await runtime.start()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://org') as client:
+        response = await client.get('/v1/models', headers={'Authorization': f'Bearer {key}'})
+    await runtime.stop()
+    assert response.status_code == expected
+
+
 def test_database_url_by_infra(spec_dict_minimal: dict[str, Any], tmp_path: Path) -> None:
     """Sqlite orgs store operations next to their data, postgres orgs use DATABASE_URL with asyncpg."""
     assert (

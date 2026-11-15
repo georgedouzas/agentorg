@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from agentorg.core import render
 from agentorg.core.quality import find_layout_violations
@@ -89,3 +90,98 @@ def test_skills_next_to_spec_are_copied_into_package(write_spec_py: Callable[...
     skill.write_text('---\nname: triage\ndescription: Triage.\n---\nSteps.\n')
     render(spec_py, tmp_path / 'out', template='full')
     assert (tmp_path / 'out' / 'src' / 'acme' / 'skills' / 'triage' / 'SKILL.md').read_text().startswith('---')
+
+
+INTERFACE_KEYS_V087 = {
+    'customWelcome',
+    'modelSelect',
+    'parameters',
+    'presets',
+    'prompts',
+    'agents',
+    'mcpServers',
+    'memories',
+    'fileSearch',
+    'fileCitations',
+    'runCode',
+    'webSearch',
+    'marketplace',
+    'privacyPolicy',
+    'termsOfService',
+    'multiConvo',
+    'bookmarks',
+    'temporaryChat',
+    'peoplePicker',
+    'defaultPinnedTools',
+    'buildInfo',
+}
+
+
+def _render_normal(spec_dict: dict[str, Any], tmp_path: Path) -> Path:
+    spec_py = tmp_path / 'spec' / 'spec.py'
+    spec_py.parent.mkdir()
+    spec_py.write_text(f'from agentorg.core.spec import Spec\nspec = Spec.model_validate({spec_dict!r})\n')
+    render(spec_py, tmp_path / 'out', template='full')
+    return tmp_path / 'out'
+
+
+def test_librechat_render_configures_model_specs(spec_dict_normal: dict[str, Any], tmp_path: Path) -> None:
+    """A LibreChat org gets one enforced model spec per agent and unit, served by the node's chat API."""
+    out = _render_normal(spec_dict_normal, tmp_path)
+    config = yaml.safe_load((out / 'librechat.yaml').read_text())
+    agents = [agent['id'] for agent in spec_dict_normal['ai']['agents']]
+    endpoint = config['endpoints']['custom'][0]
+    specs = {item['name']: item for item in config['modelSpecs']['list']}
+    assert config['version'] == '1.3.13'
+    assert set(config['interface']) <= INTERFACE_KEYS_V087
+    assert endpoint['headers']['X-Agentorg-User-Id'] == '{{LIBRECHAT_USER_ID}}'
+    assert endpoint['headers']['X-Agentorg-User-Email'] == '{{LIBRECHAT_USER_EMAIL}}'
+    assert endpoint['headers']['X-Agentorg-Conversation-Id'] == '{{LIBRECHAT_BODY_CONVERSATIONID}}'
+    assert set(endpoint['models']['default']) == set(specs) >= set(agents)
+    assert config['modelSpecs']['enforce'] is True
+    assert [name for name, item in specs.items() if item['default']] == ['analyst']
+    assert specs['researcher']['label'] == '📚 Researcher'
+    assert {item['preset']['endpoint'] for item in specs.values()} == {endpoint['name']}
+
+
+def test_librechat_render_disables_bypasses(spec_dict_normal: dict[str, Any], tmp_path: Path) -> None:
+    """LibreChat's own agents, MCP, tools and model switching are off, and only the custom endpoint is enabled."""
+    out = _render_normal(spec_dict_normal, tmp_path)
+    interface = yaml.safe_load((out / 'librechat.yaml').read_text())['interface']
+    compose = yaml.safe_load((out / 'compose.yaml').read_text())
+    off = [
+        'modelSelect',
+        'parameters',
+        'presets',
+        'prompts',
+        'agents',
+        'fileSearch',
+        'runCode',
+        'webSearch',
+        'memories',
+    ]
+    assert not any(interface[key] for key in off)
+    assert interface['mcpServers'] == {'use': False, 'create': False}
+    assert 'ENDPOINTS=custom' in compose['services']['librechat']['environment']
+
+
+def test_librechat_render_adds_services_and_env(spec_dict_normal: dict[str, Any], tmp_path: Path) -> None:
+    """The compose stack pins LibreChat and wires the shared chat key into the node and LibreChat."""
+    out = _render_normal(spec_dict_normal, tmp_path)
+    services = yaml.safe_load((out / 'compose.yaml').read_text())['services']
+    api = next(service for name, service in services.items() if name.endswith('-api'))
+    assert services['librechat']['image'] == 'ghcr.io/danny-avila/librechat:v0.8.7'
+    assert {'librechat-mongodb', 'librechat-meilisearch'} <= set(services)
+    assert 'CHAT_API_KEY=${CHAT_API_KEY}' in api['environment']
+    assert 'CHAT_API_KEY=${CHAT_API_KEY}' in services['librechat']['environment']
+    env = (out / 'example.env').read_text()
+    assert env.count('CHAT_API_KEY=') == 1
+    assert 'LIBRECHAT_CREDS_KEY=' in env
+
+
+def test_local_render_configures_librechat_without_compose(spec_dict_minimal: dict[str, Any], tmp_path: Path) -> None:
+    """Without docker the org still gets its LibreChat configuration and README instructions to run it."""
+    out = _render_normal(spec_dict_minimal, tmp_path)
+    assert yaml.safe_load((out / 'librechat.yaml').read_text())['modelSpecs']['enforce'] is True
+    assert not (out / 'compose.yaml').exists()
+    assert 'Run LibreChat yourself' in (out / 'README.md').read_text()

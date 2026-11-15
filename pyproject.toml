@@ -44,6 +44,7 @@ dependencies = [
     "litellm>=1.109.1",
     "python-dotenv>=1.2.4",
     "uvicorn>=0.54.0",
+    "pyyaml>=6.0.3",
 ]
 
 [project.urls]
@@ -91,6 +92,8 @@ dev = [
     "types-requests>=2.33.0.20260518",
     "types-croniter>=6.2.4.20261006",
     "types-jsonschema>=4.26.0.20261006",
+    "pyyaml>=6.0.3",
+    "types-pyyaml>=6.0.12.20261113",
 ]
 e2e = [
     "playwright>=1.65.1",

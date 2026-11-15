@@ -1,13 +1,15 @@
-"""Golden path: interview the master agent, then render, boot and chat with the org it wrote."""
+"""Golden path: interview the master through its chat API, then render, boot and chat with the org it wrote."""
 
 import runpy
 from collections.abc import Callable
 from pathlib import Path
 
+import httpx
 import pytest
 
 from agentorg.core.spec import Spec
-from agentorg.master import agent_for_current_stage, finalize_spec, get_state, reset_state
+from agentorg.master import finalize_spec, get_state, reset_state
+from agentorg.master.ui import build_app
 
 from ..conftest import Deployment
 from ..harness.mock_anthropic import MockAnthropic
@@ -52,10 +54,18 @@ async def test_master_golden_path(
     monkeypatch.setenv('ANTHROPIC_API_KEY', 'e2e-mock')
     monkeypatch.setenv('CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC', '1')
     reset_state()
-    for stage, messages in SCRIPT.items():
-        assert get_state().stage == stage, f'the interview did not reach {stage}'
-        for message in messages:
-            await agent_for_current_stage().arun(message)
+    master = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=build_app(chat_api_key='master-key')),
+        base_url='http://master',
+        headers={'Authorization': 'Bearer master-key'},
+        timeout=600,
+    )
+    async with master:
+        for stage, messages in SCRIPT.items():
+            assert get_state().stage == stage, f'the interview did not reach {stage}'
+            for message in messages:
+                body = {'model': 'agentorg', 'messages': [{'role': 'user', 'content': message}]}
+                (await master.post('/v1/chat/completions', json=body)).raise_for_status()
     assert get_state().stage == 'handoff'
     spec_path = tmp_path / 'written' / 'spec.py'
     finalize_spec(spec_path)
@@ -63,5 +73,5 @@ async def test_master_golden_path(
     assert isinstance(spec, Spec)
     org = deploy(spec_path)
     reply = org.client.chat(spec.ai.agents[0].id, 'How do I export my expenses for my tax return?')
-    assert reply.end['status'] == 'succeeded'
-    assert reply.end['output']
+    assert reply['choices'][0]['message']['content']
+    assert org.client.runs()[0]['status'] == 'succeeded'

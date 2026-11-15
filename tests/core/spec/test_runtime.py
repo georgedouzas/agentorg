@@ -122,7 +122,12 @@ def test_runtime_construction(runtime_dict_normal: dict[str, Any]) -> None:
     """Runtime wraps an Infra, EnvVars, and a list of SetupStep."""
     runtime = Runtime.model_validate(runtime_dict_normal)
     assert runtime.infra.packaging == 'docker'
-    assert [var.name for var in runtime.env_vars.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'GOOGLE_API_KEY']
+    assert [var.name for var in runtime.env_vars.required] == [
+        'ANTHROPIC_API_KEY',
+        'AMQP_URL',
+        'CHAT_API_KEY',
+        'GOOGLE_API_KEY',
+    ]
     assert runtime.setup[0].id == 'secrets'
 
 
@@ -144,7 +149,7 @@ def test_runtime_propagates_infra_validator(runtime_dict_minimal: dict[str, Any]
 def test_runtime_always_requires_platform_env_vars(runtime_dict_minimal: dict[str, Any]) -> None:
     """ANTHROPIC_API_KEY and AMQP_URL are required env vars of every org."""
     runtime = Runtime.model_validate(runtime_dict_minimal)
-    assert [var.name for var in runtime.env_vars.required][:2] == ['ANTHROPIC_API_KEY', 'AMQP_URL']
+    assert [var.name for var in runtime.env_vars.required][:3] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'CHAT_API_KEY']
 
 
 def test_runtime_does_not_duplicate_declared_platform_env_var(runtime_dict_minimal: dict[str, Any]) -> None:
@@ -152,11 +157,27 @@ def test_runtime_does_not_duplicate_declared_platform_env_var(runtime_dict_minim
     broker = {'name': 'AMQP_URL', 'description': 'Broker.', 'required_label': 'Prod'}
     runtime_dict_minimal['env_vars']['optional'] = [broker]
     names = [var.name for var in Runtime.model_validate(runtime_dict_minimal).env_vars.required]
-    assert names == ['ANTHROPIC_API_KEY']
+    assert names == ['ANTHROPIC_API_KEY', 'CHAT_API_KEY']
 
 
-def test_runtime_railway_adds_rabbitmq_setup_step(runtime_dict_minimal: dict[str, Any]) -> None:
-    """Railway deployments get a setup step that provisions RabbitMQ and sets AMQP_URL."""
+def test_runtime_railway_adds_rabbitmq_and_librechat_setup_steps(runtime_dict_minimal: dict[str, Any]) -> None:
+    """Railway deployments get the steps that provision RabbitMQ and deploy LibreChat."""
     runtime_dict_minimal['infra'] |= {'packaging': 'docker', 'api': 'railway'}
     steps = Runtime.model_validate(runtime_dict_minimal).setup
-    assert [(step.id, step.variables) for step in steps] == [('rabbitmq', ['AMQP_URL'])]
+    assert [(step.id, step.variables) for step in steps] == [
+        ('rabbitmq', ['AMQP_URL']),
+        ('librechat', ['CHAT_API_KEY']),
+    ]
+
+
+def test_runtime_always_requires_the_chat_api_key(runtime_dict_minimal: dict[str, Any]) -> None:
+    """Every org declares CHAT_API_KEY, which LibreChat uses to call the chat API."""
+    names = [var.name for var in Runtime(**runtime_dict_minimal).env_vars.required]
+    assert names[:3] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'CHAT_API_KEY']
+
+
+def test_railway_setup_steps_are_not_duplicated(runtime_dict_normal: dict[str, Any]) -> None:
+    """Validating a Railway runtime again keeps one RabbitMQ and one LibreChat step."""
+    runtime_dict_normal['infra'] |= {'api': 'railway'}
+    again = Runtime(**Runtime(**runtime_dict_normal).model_dump())
+    assert [step.id for step in again.setup].count('librechat') == 1

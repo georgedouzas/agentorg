@@ -23,6 +23,7 @@ from .harness.mock_anthropic import MockAnthropic, serve
 from .harness.targets import MODEL_MODES, TARGETS, Endpoints, Project, Target, free_port, make_target, require_docker
 
 CASSETTES = Path(__file__).parent / 'cassettes'
+CHAT_KEY = 'e2e-chat-key'
 ARTIFACTS = Path('.e2e-artifacts')
 FAILED = pytest.StashKey[bool]()
 
@@ -113,6 +114,7 @@ def _model_env(mock: MockAnthropic) -> dict[str, str]:
     return {
         'ANTHROPIC_BASE_URL': mock.url,
         'ANTHROPIC_API_KEY': 'e2e-mock',
+        'CHAT_API_KEY': CHAT_KEY,
         'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1',
         'DISABLE_TELEMETRY': '1',
         'DISABLE_AUTOUPDATER': '1',
@@ -176,7 +178,7 @@ def deploy(
         render(spec_path, root)
         state['project'] = project = Project(root, org.package_name, org.slug)
         endpoints = target.provision(project, {**_model_env(model_api), **(env or {})}, ui=ui)
-        state['client'] = client = OrgClient(endpoints.api)
+        state['client'] = client = OrgClient(endpoints.api, CHAT_KEY)
         if model_api.mode == 'live':
             threading.Thread(target=_watch_budget, args=(client, max_usd, exceeded, stop), daemon=True).start()
         return Deployment(project, endpoints, client)

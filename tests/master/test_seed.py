@@ -35,4 +35,4 @@ def test_default_spec_has_sane_runtime_defaults():
     assert spec.runtime.infra.packaging == 'none'
     assert spec.runtime.infra.database == 'sqlite'
     assert spec.runtime.infra.vector_db == 'chromadb'
-    assert [var.name for var in spec.runtime.env_vars.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL']
+    assert [var.name for var in spec.runtime.env_vars.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'CHAT_API_KEY']

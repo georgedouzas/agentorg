@@ -155,7 +155,7 @@ def test_build_agent_options_resumes_only_with_memory(
 ) -> None:
     """A session is resumed unless the agent keeps no memory."""
     options = _options(_spec(spec_dict_minimal, memory=memory), tmp_path, skills_dir, resume='sdk-1')
-    assert options.resume == expected
+    assert (options.resume, options.fork_session) == (expected, expected is not None)
 
 
 @pytest.mark.parametrize(

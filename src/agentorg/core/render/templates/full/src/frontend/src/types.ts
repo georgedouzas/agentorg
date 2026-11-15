@@ -18,6 +18,7 @@ export interface AppConfig {
   platform_agents?: { id: string; name: string }[];
   units?: UnitSummary[];
   principles_owner?: string;
+  chat_url?: string;
 }
 
 export interface EmptyState { icon: string; title: string; body: string; }

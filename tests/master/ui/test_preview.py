@@ -2,6 +2,8 @@
 
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -106,3 +108,27 @@ def test_patch_pyproject_is_noop_when_no_pyproject_present(tmp_path: Path):
     pm.work_dir.mkdir()
     pm._patch_pyproject_for_local_agentorg()  # must not raise
     assert not (pm.work_dir / 'pyproject.toml').exists()
+
+
+def test_boot_starts_the_node_on_the_fixed_port_with_the_chat_key(tmp_path: Path, monkeypatch):
+    """The preview node listens on the pinned port and carries the chat key LibreChat uses."""
+    pm = PreviewManager(cache_root=tmp_path, fixed_api_port=8766, chat_api_key='preview-key')
+    calls: list[tuple[tuple[str, ...], dict[str, Any]]] = []
+
+    async def _spawn(*args: str, **kwargs: Any) -> Any:
+        calls.append((args, kwargs))
+        return SimpleNamespace(pid=1)
+
+    async def _sync(*_: object, **__: object) -> None:
+        return None
+
+    monkeypatch.setattr(PreviewManager, '_render_to_disk', lambda _self, _path: None)
+    monkeypatch.setattr(PreviewManager, '_patch_pyproject_for_local_agentorg', lambda _self: None)
+    monkeypatch.setattr(PreviewManager, '_run_sync', _sync)
+    monkeypatch.setattr('agentorg.master.ui._preview._have', lambda _name: True)
+    monkeypatch.setattr('agentorg.master.ui._preview._wait_for_http', lambda *_a, **_k: True, raising=False)
+    monkeypatch.setattr(asyncio, 'create_subprocess_exec', _spawn)
+    asyncio.run(pm.boot())
+    args, kwargs = calls[0]
+    assert args[args.index('--port') + 1] == '8766'
+    assert kwargs['env']['CHAT_API_KEY'] == 'preview-key'

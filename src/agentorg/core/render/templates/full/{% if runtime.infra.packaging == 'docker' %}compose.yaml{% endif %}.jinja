@@ -71,6 +71,7 @@ services:
       - DB_USER=${DB_USER:-ai}
       - DB_PASS=${DB_PASS:-ai}
       - DB_DATABASE=${DB_DATABASE:-ai}
+      - CONSOLE_URL=${CONSOLE_URL:-http://localhost:5173}
 {% if runtime.infra.database == 'postgres' %}      - DATABASE_URL=postgresql://${DB_USER:-ai}:${DB_PASS:-ai}@{{ org.slug }}-db:5432/${DB_DATABASE:-ai}
 {% endif %}{% for v in runtime.env_vars.required %}{% if v.name == 'AMQP_URL' %}      - AMQP_URL=${AMQP_URL:-amqp://guest:guest@rabbitmq:5672/}
 {% else %}      - {{ v.name }}=${{ '{' }}{{ v.name }}{{ '}' }}
@@ -104,6 +105,62 @@ services:
     networks:
       - {{ org.slug }}
 
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:v0.8.7
+    container_name: {{ org.slug }}-librechat
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - MONGO_URI=mongodb://librechat-mongodb:27017/LibreChat
+      - SEARCH=true
+      - MEILI_HOST=http://librechat-meilisearch:7700
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
+      - ENDPOINTS=custom
+      - ALLOW_REGISTRATION=${LIBRECHAT_ALLOW_REGISTRATION:-true}
+      - DOMAIN_CLIENT=${LIBRECHAT_URL:-http://localhost:3080}
+      - DOMAIN_SERVER=${LIBRECHAT_URL:-http://localhost:3080}
+      - CREDS_KEY=${LIBRECHAT_CREDS_KEY}
+      - CREDS_IV=${LIBRECHAT_CREDS_IV}
+      - JWT_SECRET=${LIBRECHAT_JWT_SECRET}
+      - JWT_REFRESH_SECRET=${LIBRECHAT_JWT_REFRESH_SECRET}
+      - CHAT_API_KEY=${CHAT_API_KEY}
+      - AGENTORG_CHAT_URL=http://{{ org.slug }}-api:8000/v1
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+      - librechat-data:/app/data
+    depends_on:
+      - librechat-mongodb
+      - librechat-meilisearch
+      - {{ org.slug }}-api
+    networks:
+      - {{ org.slug }}
+
+  librechat-mongodb:
+    image: mongo:8.0.20
+    container_name: {{ org.slug }}-librechat-mongodb
+    restart: unless-stopped
+    command: mongod --noauth
+    volumes:
+      - librechat-mongo:/data/db
+    networks:
+      - {{ org.slug }}
+
+  librechat-meilisearch:
+    image: getmeili/meilisearch:v1.35.1
+    container_name: {{ org.slug }}-librechat-meilisearch
+    restart: unless-stopped
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
+    volumes:
+      - librechat-meili:/meili_data
+    networks:
+      - {{ org.slug }}
+
 networks:
   {{ org.slug }}:
 
@@ -111,3 +168,6 @@ volumes:
   pgdata:
   agentfield-data:
   rabbitmq-data:
+  librechat-data:
+  librechat-mongo:
+  librechat-meili:

@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch, decideApproval } from '../../api';
 import type { ApprovalItem, InboxEntry } from '../../types';
 import styles from './OpsView.module.css';
 
-function ApprovalCard({ approval, actor, onDecided }: { approval: ApprovalItem; actor: string; onDecided: () => void }) {
+function ApprovalCard({ approval, actor, focused, onDecided }: { approval: ApprovalItem; actor: string; focused: boolean; onDecided: () => void }) {
   const [editing, setEditing] = useState(false);
   const [args, setArgs] = useState(JSON.stringify(approval.arguments, null, 2));
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
+  const card = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (focused) card.current?.scrollIntoView({ block: 'center' });
+  }, [focused]);
 
   async function decide(approved: boolean, withEdits: boolean) {
     let edited: Record<string, unknown> | undefined;
@@ -19,7 +24,11 @@ function ApprovalCard({ approval, actor, onDecided }: { approval: ApprovalItem; 
   }
 
   return (
-    <div className={styles.detail}>
+    <div
+      className={styles.detail}
+      ref={card}
+      style={focused ? { outline: '2px solid var(--accent)' } : undefined}
+    >
       <div><strong>{approval.tool_name}</strong> · {approval.action_class.replace('_', ' ')} · run {approval.run_id.slice(0, 8)}</div>
       <div className={styles.rowSub}>Approvers: {approval.approvers.join(', ') || 'org admin'}</div>
       {editing
@@ -36,7 +45,7 @@ function ApprovalCard({ approval, actor, onDecided }: { approval: ApprovalItem; 
   );
 }
 
-export function InboxView({ actor }: { actor: string }) {
+export function InboxView({ actor, focus = null }: { actor: string; focus?: string | null }) {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [items, setItems] = useState<InboxEntry[]>([]);
 
@@ -56,7 +65,7 @@ export function InboxView({ actor }: { actor: string }) {
       <h2 className={styles.title}>Approvals</h2>
       <div className={styles.list}>
         {approvals.length === 0 && <div className={styles.empty}>Nothing is waiting for approval.</div>}
-        {approvals.map(approval => <ApprovalCard key={approval.id} approval={approval} actor={actor} onDecided={load} />)}
+        {approvals.map(approval => <ApprovalCard key={approval.id} approval={approval} actor={actor} focused={approval.id === focus} onDecided={load} />)}
       </div>
       <h2 className={styles.title}>Inbox</h2>
       <div className={styles.list}>

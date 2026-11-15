@@ -28,6 +28,7 @@
 - `ANTHROPIC_API_KEY`: every agent runs on the Claude Agent SDK.
 - `AMQP_URL`: RabbitMQ carries runs, retries and events. {% if runtime.infra.packaging == 'docker' %}`docker compose up` starts it and points the API at it.{% else %}Run one yourself, for example `docker run -d -p 5672:5672 rabbitmq:3.13-management`, and set `AMQP_URL=amqp://guest:guest@localhost:5672/`.{% endif %}
 - An AgentField control plane for knowledge, identity and audit.
+- `CHAT_API_KEY`: LibreChat, the org's chat app, calls the API with it. {% if runtime.infra.packaging == 'docker' %}`docker compose up` starts LibreChat on port 3080 with the generated `librechat.yaml`.{% else %}Run LibreChat yourself with the generated `librechat.yaml`, pointing `AGENTORG_CHAT_URL` at `http://localhost:8000/v1`.{% endif %} The dashboard is the operations console for runs, approvals and settings.
 
 ## Getting Started
 
@@ -107,7 +108,9 @@ cd src/frontend && npm install && npm run dev
 
 ### Endpoints
 
-- Dashboard: `http://localhost:5173`
+- Chat (LibreChat): `http://localhost:3080` — chat with every agent and unit; type `/help` for the commands
+- Operations console: `http://localhost:5173` — runs, approvals, lifecycle, knowledge and settings
+- Chat API (OpenAI-compatible): `http://localhost:8000/v1`, with `Authorization: Bearer $CHAT_API_KEY`
 - API (the AgentField node): `http://localhost:8000` — agents are exposed at `/reasoners/{name}`
 - AgentField control plane (optional): `http://localhost:8080` — discovery, execution DAG, audit
 - Setup checklist (live): `http://localhost:8000/api/v1/setup`

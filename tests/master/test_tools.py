@@ -389,7 +389,7 @@ def test_add_or_update_env_var_routes_to_required_or_optional():
     add_or_update_env_var(name='GOOGLE_API_KEY', description='Gemini key.', required_label='Prod', required=True)
     add_or_update_env_var(name='LOG_LEVEL', description='Logging.', required_label='Dev', required=False)
     env = get_state().spec.runtime.env_vars
-    assert [var.name for var in env.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'GOOGLE_API_KEY']
+    assert [var.name for var in env.required] == ['ANTHROPIC_API_KEY', 'AMQP_URL', 'CHAT_API_KEY', 'GOOGLE_API_KEY']
     assert env.optional[0].name == 'LOG_LEVEL'
 
 
