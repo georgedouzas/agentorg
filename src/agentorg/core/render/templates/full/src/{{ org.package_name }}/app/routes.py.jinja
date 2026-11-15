@@ -38,7 +38,7 @@ def _parameters_model(spec: Spec) -> type[BaseModel]:
 def _document(unit: dict[str, Any]) -> dict[str, Any]:
     """Project a stored knowledge unit into the shape the frontend expects."""
     return {
-        'type': unit.get('type'),
+        'type': unit.get('knowledge_type'),
         'name': unit.get('name'),
         'title': unit.get('title'),
         'content': unit.get('content'),
@@ -405,7 +405,7 @@ def build_router(app: Any, spec: Spec, runtime: OrgRuntime) -> APIRouter:  # noq
             u
             for u in await _all_units()
             if u.get('content') is not None
-            and (not type or u.get('type') == type)
+            and (not type or u.get('knowledge_type') == type)
             and (not agent_id or (u.get('metadata') or {}).get('agent_id') == agent_id)
         ]
         units.sort(key=lambda u: u.get('updated_at', ''), reverse=True)

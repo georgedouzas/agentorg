@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from agentorg.core.operations import Scheduler, Store, admit_all
+from agentorg.core.operations import Scheduler, Store, admit_all, scheduler_clock
 from agentorg.core.spec import Spec
 
 from .conftest import Queued
@@ -126,3 +126,14 @@ async def test_scheduler_does_not_tick_while_paused(spec_dict_minimal: dict[str,
     clock.now = datetime(2026, 11, 4, 12, 0, tzinfo=UTC)
     await scheduler.tick()
     assert len(queued.runs) == 1
+
+
+def test_scheduler_clock_runs_from_a_start_instant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without a start the clock is real UTC time; with one it starts there and advances in real time."""
+    before = datetime.now(UTC)
+    assert scheduler_clock(None)() >= before
+    ticks = iter([100.0, 100.0, 107.5])
+    monkeypatch.setattr('time.monotonic', lambda: next(ticks))
+    clock = scheduler_clock('2026-11-16T07:59:50+00:00')
+    assert clock() == datetime(2026, 11, 16, 7, 59, 50, tzinfo=UTC)
+    assert clock() == datetime(2026, 11, 16, 7, 59, 57, 500000, tzinfo=UTC)

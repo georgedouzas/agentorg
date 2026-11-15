@@ -58,7 +58,8 @@ Units SHALL be valid targets for triggers, chat and delegation.
 - **THEN** a run of the unit's lead is created
 
 ### Requirement: Pipeline semantics
-A `pipeline` SHALL run its members in declared order, passing each output as the next input. Each step MAY declare
+A `pipeline` SHALL run its members in declared order, passing each output as the next input. Every step after the
+first SHALL also receive the original request, so it knows what the pipeline is for. Each step MAY declare
 `review` as `none`, `lead` or `human`. A held review SHALL pause the pipeline in `awaiting_approval`. A rejection SHALL re-run
 that step once with the comment, and a second rejection SHALL fail the pipeline run.
 

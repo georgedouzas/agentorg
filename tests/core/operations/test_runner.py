@@ -134,6 +134,32 @@ async def test_runner_fails_on_timeout(spec_dict_minimal: dict[str, Any], store:
     assert (await store.get_run(run.id)).failure_reason == 'timeout'  # type: ignore[union-attr]
 
 
+async def test_runner_stops_the_clock_while_a_tool_waits_for_approval(
+    spec_dict_minimal: dict[str, Any],
+    store: Store,
+    tmp_path: Path,
+) -> None:
+    """Time spent at the gate, such as waiting for a human, does not count toward `timeout_s`."""
+    spec_dict_minimal['ai']['agents'][0]['limits'] = {'timeout_s': 1}
+    spec = Spec.model_validate(spec_dict_minimal)
+
+    class SlowApprover(FakeGate):
+        async def check(self, agent: Agent, run: Run, tool_name: str, tool_input: dict[str, Any]) -> PermissionResult:
+            await asyncio.sleep(1.5)
+            return await super().check(agent, run, tool_name, tool_input)
+
+    async def held(options: ClaudeAgentOptions) -> AsyncIterator[object]:
+        assert options.can_use_tool is not None
+        await asyncio.sleep(0.6)
+        await options.can_use_tool('Bash', {'command': 'ls'}, ToolPermissionContext())
+        await asyncio.sleep(0.3)
+        yield result_message()
+
+    run = await _claimed(store)
+    await _runner(spec, store, tmp_path, held, SlowApprover()).execute(run)
+    assert (await store.get_run(run.id)).status == 'succeeded'  # type: ignore[union-attr]
+
+
 async def test_runner_returns_denial_to_agent_as_toolresult_message(spec: Spec, store: Store, tmp_path: Path) -> None:
     """A denied tool call reaches the agent as an error tool result and the run continues to success."""
 

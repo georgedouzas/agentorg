@@ -126,3 +126,14 @@ def test_live_proxies_without_saving(tmp_path: Path) -> None:
     live = MockAnthropic(cassettes, mode='live', api_key='k', transport=httpx.MockTransport(upstream))
     assert TestClient(live.app()).post('/v1/messages', json=_body()).json() == {'id': 'msg_live'}
     assert not cassettes.exists()
+
+
+def test_parallel_tool_results_hash_the_same_in_any_order() -> None:
+    """Tool results of parallel calls match whichever finished first."""
+    first = {'type': 'tool_result', 'tool_use_id': 'toolu_a', 'content': 'A'}
+    second = {'type': 'tool_result', 'tool_use_id': 'toolu_b', 'content': 'B'}
+
+    def body(*results: dict[str, str]) -> dict[str, object]:
+        return {'model': 'claude-opus-5-5', 'messages': [{'role': 'user', 'content': list(results)}]}
+
+    assert request_hash('/v1/messages', body(first, second)) == request_hash('/v1/messages', body(second, first))

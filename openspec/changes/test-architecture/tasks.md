@@ -9,7 +9,7 @@
 ## 2. Constitution and docs
 
 - [x] 2.1 Amend the constitution's Tests & Gates no-network rule into the gated-suite and e2e-suite rules, extend the Project Profile with the ecosystem contract and the `e2e` session and targets, and bump the version to 1.1.0. Verify by reading the diff: the body has only MUST / MUST NOT rules and the profile names all three targets.
-- [ ] 2.2 Add an "End-to-end tests" section to `CONTRIBUTING.md` covering targets, model modes, recording cassettes, and the artifacts location. Verify that the documented `nox -s e2e -- --target local-process --scenario master-golden-path` command runs as written once group 4 lands.
+- [x] 2.2 Add an "End-to-end tests" section to `CONTRIBUTING.md` covering targets, model modes, recording cassettes, and the artifacts location. Verify that the documented `nox -s e2e -- --target local-process --scenario master-golden-path` command runs as written once group 4 lands.
 
 ## 3. E2e harness
 
@@ -22,14 +22,14 @@
 
 - [x] 4.1 Add `test_master_golden_path.py`: a scripted interview, then the spec validates, renders, boots on the target and answers chat. Record its cassettes. Verify that it passes in `replay` × `local-process` twice with identical outputs.
 - [x] 4.2 Add `test_support_desk.py`: signed webhook, approval held, approved through both the API and the Inbox UI, run succeeded. Verify that it passes in `replay` × `local-process`.
-- [ ] 4.3 Add `test_research_reporting.py`: a schedule fires via the clock offset, the `hub` lead delegates, a report knowledge unit is written, and an event triggers the summariser. Verify that it passes in `replay` × `local-process`.
-- [ ] 4.4 Add `test_ops_monitoring.py` with a stub metrics MCP server, `custom.incident` publish, the responder run, and escalation to the inbox on forced failure. Verify that it passes in `replay` × `local-process`.
-- [ ] 4.4a Add `test_credit_decisions.py`: a 3-member `council` returns a majority decision with all three answers recorded on the run, and a governed write is held for approval. Verify that it passes in `replay` × `local-process`.
-- [ ] 4.5 Add `test_content_pipeline.py`: the review gate is held, rejected once with a comment, re-run, approved, and published through a stub CMS MCP. Verify that it passes in `replay` × `local-process`.
+- [x] 4.3 Add `test_research_reporting.py`: a schedule fires via the clock offset, the `hub` lead delegates, a report knowledge unit is written, and an event triggers the summariser. Verify that it passes in `replay` × `local-process`.
+- [x] 4.4 Add `test_ops_monitoring.py` with a stub metrics MCP server, `custom.incident` publish, the responder run, and escalation to the inbox on forced failure. Verify that it passes in `replay` × `local-process`.
+- [x] 4.4a Add `test_credit_decisions.py`: a 3-member `council` returns a majority decision with all three answers recorded on the run, and a governed write is held for approval. Verify that it passes in `replay` × `local-process`.
+- [x] 4.5 Add `test_content_pipeline.py`: the review gate is held, rejected once with a comment, re-run, approved, and published through a stub CMS MCP. Verify that it passes in `replay` × `local-process`.
 
 ## 5. Additional targets
 
-- [ ] 5.1 Implement `local_docker.py` on the rendered `compose.yaml`, with health waits on the node, broker and control plane. Verify that all scenarios pass in `replay` × `local-docker`.
+- [x] 5.1 Implement `local_docker.py` on the rendered `compose.yaml`, with health waits on the node, broker and control plane. Verify that all scenarios pass in `replay` × `local-docker`.
 - [ ] 5.2 Implement `cloud.py`: Railway API service plus the mock service, Vercel frontend, run-id naming, teardown and the orphan sweeper. Verify with a manual `workflow_dispatch` that the support-desk scenario passes in `replay` × `cloud` and that no `agentorg-e2e-*` projects remain afterwards.
 
 ## 6. CI
@@ -38,8 +38,8 @@
 
 ## 7. Integration verification
 
-- [ ] 7.1 Run `uv run nox -s e2e -- --target local-docker --model-mode live --scenario support-desk` once and verify that it passes within its `max_usd`.
-- [ ] 7.2 Run `uv run pytest tests/core/render/test_base.py::test_each_shipped_template_renders` and verify that it passes.
-- [ ] 7.3 Run `uv run nox -s formatting` and verify that it leaves no diff on a second run.
-- [ ] 7.4 Run `uv run nox -s checks` and verify that it passes, including `layout`.
-- [ ] 7.5 Run `uv run nox -s tests` and verify that it passes.
+- [x] 7.1 Run `uv run nox -s e2e -- --target local-docker --model-mode live --scenario support-desk` once and verify that it passes within its `max_usd`.
+- [x] 7.2 Run `uv run pytest tests/core/render/test_base.py::test_each_shipped_template_renders` and verify that it passes.
+- [x] 7.3 Run `uv run nox -s formatting` and verify that it leaves no diff on a second run.
+- [x] 7.4 Run `uv run nox -s checks` and verify that it passes, including `layout`.
+- [x] 7.5 Run `uv run nox -s tests` and verify that it passes.

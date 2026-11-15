@@ -84,8 +84,10 @@ tests/e2e/
 
 ### D4. Deterministic time and external systems
 
-- **Time**: scenarios that depend on schedules start the node with `AGENTORG_CLOCK_OFFSET`, a test-only env var honoured
-  by `_scheduler`, or trigger the schedule through an admin endpoint that exists only in preview and e2e builds.
+- **Time**: scenarios that depend on schedules start the node with `AGENTORG_CLOCK_START`, a test-only ISO 8601
+  instant honoured by `_scheduler`. The scheduler's clock reads that instant when it starts and advances in real time,
+  so a cron due a few seconds after it fires however long the node took to boot, and `{now}` in prompts is the same on
+  every run. A fixed offset was rejected: the first tick only records the time, so a slow boot could skip the fire.
 - **External systems**:
   - webhooks are sent by the harness;
   - external AMQP queues are the broker the target already runs;

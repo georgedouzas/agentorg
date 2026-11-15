@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable, Generator, Iterator
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,7 +21,10 @@ from agentorg.core.spec import Spec
 from agentorg.master import write_spec
 
 from .harness.client import OrgClient
+from .harness.local_docker import for_containers
 from .harness.mock_anthropic import MockAnthropic, serve
+from .harness.stub_mcp import Stub
+from .harness.stub_mcp import serve as serve_mcp
 from .harness.targets import MODEL_MODES, TARGETS, Endpoints, Project, Target, free_port, make_target, require_docker
 
 CASSETTES = Path(__file__).parent / 'cassettes'
@@ -28,6 +32,7 @@ CHAT_KEY = 'e2e-chat-key'
 ALL_INTERFACES = '0.0.0.0'  # noqa: S104  # nosec B104 - only on Linux, where containers reach the host's bridge
 ARTIFACTS = Path('.e2e-artifacts')
 FAILED = pytest.StashKey[bool]()
+WEB_TOOLS = ('web_search', 'web_fetch')
 
 
 @dataclass
@@ -124,6 +129,19 @@ def listen_host(request: pytest.FixtureRequest) -> str:
     return ALL_INTERFACES if containers else '127.0.0.1'
 
 
+@pytest.fixture
+def serve_stub(request: pytest.FixtureRequest, listen_host: str) -> Iterator[Callable[[Stub], str]]:
+    """Return a function that serves a stub MCP server for the test and returns the URL the node should use."""
+    docker = request.config.getoption('--target') == 'local-docker'
+    with ExitStack() as stack:
+
+        def _serve(stub: Stub) -> str:
+            url = stack.enter_context(serve_mcp(stub, free_port(), listen_host))
+            return for_containers(url) if docker else url
+
+        yield _serve
+
+
 @pytest.fixture(scope='module')
 def model_api(request: pytest.FixtureRequest, listen_host: str) -> Iterator[MockAnthropic]:
     """Serve the scenario's cassettes, or proxy to the real API in record and live modes."""
@@ -135,6 +153,14 @@ def model_api(request: pytest.FixtureRequest, listen_host: str) -> Iterator[Mock
     )
     with serve(mock, free_port(), listen_host):
         yield mock
+
+
+def offline(spec: Spec) -> Spec:
+    """Return `spec` with web search and fetch removed from every agent, so replays never depend on live pages."""
+    data = spec.model_dump(mode='json')
+    for agent in data['ai']['agents']:
+        agent['builtin_tools'] = [tool for tool in agent['builtin_tools'] if tool not in WEB_TOOLS]
+    return Spec.model_validate(data)
 
 
 def _model_env(mock: MockAnthropic) -> dict[str, str]:
@@ -208,7 +234,7 @@ def deploy(
     ) -> Deployment:
         spec_path = spec if isinstance(spec, Path) else tmp_path / 'spec.py'
         if isinstance(spec, Spec):
-            write_spec(spec, spec_path)
+            write_spec(offline(spec), spec_path)
         org = runpy.run_path(str(spec_path))['spec'].org
         root = tmp_path / org.slug
         render(spec_path, root)

@@ -81,6 +81,30 @@ async def test_delegate_back_into_chain_is_denied(spec: Spec, store: Store) -> N
     assert recording.calls == []
 
 
+async def test_hub_lead_delegates_from_within_its_unit_run(
+    archetype_specs: dict[str, dict[str, Any]],
+    store: Store,
+) -> None:
+    """A one-level hub's lead, run as the child of its unit's run, may delegate to its members."""
+    research = Spec.model_validate(archetype_specs['research-reporting'])
+    unit_run = await store.create_run(target='research', trigger_kind='schedule', prompt='Weekly.')
+    tools, recording, _ = await _tools(research, store, 'lead-analyst', parent_id=unit_run.id)
+    assert await tools['delegate']('analyst-markets', 'One finding.') == 'analyst-markets did it'
+    assert recording.calls[0][0] == 'analyst-markets'
+
+
+async def test_delegate_beyond_the_org_depth_is_denied(
+    archetype_specs: dict[str, dict[str, Any]],
+    store: Store,
+) -> None:
+    """A chain that already holds as many agents as the tree has levels cannot go deeper."""
+    research = Spec.model_validate(archetype_specs['research-reporting'])
+    above = await store.create_run(target='summariser', trigger_kind='manual', prompt='Hi.')
+    tools, recording, _ = await _tools(research, store, 'lead-analyst', parent_id=above.id)
+    assert "delegation depth of 1" in await tools['delegate']('analyst-markets', 'One finding.')
+    assert recording.calls == []
+
+
 async def test_handoff_sets_session_owner(spec: Spec, store: Store) -> None:
     """A pool member's handoff to a peer routes the session to that peer with the note."""
     tools, _, _ = await _tools(spec, store, 'billing', session_id='chat-1')

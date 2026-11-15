@@ -1,7 +1,7 @@
 """Support desk: tickets arrive by signed webhook and chat, and every reply waits for a human approval."""
 
 import concurrent.futures
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -11,9 +11,8 @@ from agentorg.core.spec import Spec
 from ..conftest import ARTIFACTS, Deployment
 from ..harness.client import Approval, OrgClient
 from ..harness.librechat import LibreChatClient
-from ..harness.local_docker import for_containers
-from ..harness.stub_mcp import StubHelpDesk, serve
-from ..harness.targets import free_port, wait_until
+from ..harness.stub_mcp import StubHelpDesk
+from ..harness.targets import wait_until
 
 SECRET = 'e2e-helpdesk-secret'  # noqa: S105  # nosec B105 - a fake webhook secret
 ADMIN = 'admin@acme.com'
@@ -35,29 +34,21 @@ def _pending_reply(client: OrgClient) -> Approval:
     return next(a for a in client.approvals() if a['tool_name'] == REPLY_TOOL)
 
 
-@pytest.fixture
-def desk(request: pytest.FixtureRequest, listen_host: str) -> Iterator[StubHelpDesk]:
-    """Serve the stub help desk where the target's node can reach it."""
-    stub = StubHelpDesk()
-    with serve(stub, free_port(), listen_host):
-        if request.config.getoption('--target') == 'local-docker':
-            stub.url = for_containers(stub.url)
-        yield stub
-
-
 @pytest.mark.max_usd(3.0)
 def test_support_desk(
     deploy: Callable[..., Deployment],
     archetype_specs: dict[str, dict[str, Any]],
-    desk: StubHelpDesk,
+    serve_stub: Callable[[StubHelpDesk], str],
     request: pytest.FixtureRequest,
     run_id: str,
 ) -> None:
     """A webhook ticket is approved through the API, one through the Inbox, and one with `/approve` in LibreChat."""
+    desk = StubHelpDesk()
+    url = serve_stub(desk)
     data = archetype_specs['support-desk']
     for agent in data['ai']['agents']:
         for server in agent.get('mcp_servers', []):
-            server['url'] = desk.url
+            server['url'] = url
     docker = request.config.getoption('--target') == 'local-docker'
     env = {'ZENDESK_TOKEN': 'e2e-zendesk', 'HELPDESK_SECRET': SECRET}  # nosec B105 - fake values
     org = deploy(Spec.model_validate(data), env, ui=True, chat=docker)

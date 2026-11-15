@@ -223,13 +223,16 @@ def _content_members() -> Members:
 
 
 async def test_pipeline_chains_outputs_through_review(pipeline: Spec, store: Store) -> None:
-    """Each step gets the previous output, and the human review gates the next step."""
+    """Each step gets the request and the previous output, and the human review gates the next step."""
     members, reviewer = _content_members(), Reviewer(ReviewDecision(approved=True))
     run = await _run(UnitEngine(pipeline, store, members, reviewer), store, 'content', 'Topic')
     assert [target for target, _ in members.calls] == ['research', 'draft', 'publish']
-    assert members.calls[1][1] == 'Write it up.\n\nnotes'
-    assert reviewer.reviewed == [('2:draft', 'draft from [Write it up.\n\nnotes]')]
-    assert (run.status, run.output) == ('succeeded', 'published draft from [Write it up.\n\nnotes]')
+    assert members.calls[0][1] == 'Topic'
+    draft_task = 'Write it up.\n\nTopic\n\nOutput of step 1:research:\n\nnotes'
+    assert members.calls[1][1] == draft_task
+    assert reviewer.reviewed == [('2:draft', f'draft from [{draft_task}]')]
+    assert members.calls[2][1] == f'Topic\n\nOutput of step 2:draft:\n\ndraft from [{draft_task}]'
+    assert run.status == 'succeeded'
 
 
 async def test_pipeline_reruns_step_once_after_rejection(pipeline: Spec, store: Store) -> None:
@@ -252,3 +255,18 @@ async def test_pipeline_fails_after_second_rejection(pipeline: Spec, store: Stor
     run = await _run(UnitEngine(pipeline, store, members, reviewer), store, 'content')
     assert (run.status, run.failure_reason) == ('failed', 'review_rejected')
     assert 'publish' not in [target for target, _ in members.calls]
+
+
+async def test_unit_fails_with_its_members_reason(spec_dict_minimal: dict[str, Any], store: Store) -> None:
+    """A solo unit whose member ran out of turns fails with `max_turns`, so it is neither retried nor mislabelled."""
+    spec = _spec(
+        spec_dict_minimal,
+        [_agent('responder')],
+        {'id': 'response', 'name': 'R', 'model': 'solo', 'members': ['responder']},
+    )
+
+    async def out_of_turns(target: str, task: str, parent: Run) -> dict[str, Any]:
+        return {'status': 'failed', 'output': None, 'failure_reason': 'max_turns'}
+
+    run = await _run(UnitEngine(spec, store, out_of_turns, Reviewer()), store, 'response')
+    assert (run.status, run.failure_reason) == ('failed', 'max_turns')

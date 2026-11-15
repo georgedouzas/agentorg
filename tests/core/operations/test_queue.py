@@ -80,6 +80,21 @@ async def test_dispatcher_retries_transient_failure_once(spec: Spec, store: Stor
     assert recorder.failed == ['flaky']
 
 
+async def test_dispatcher_leaves_delegated_failures_to_the_parent(
+    spec: Spec,
+    store: Store,
+    fake_broker: FakeBroker,
+) -> None:
+    """A failed delegated run is neither retried nor dead-lettered; the waiting parent handles it."""
+    recorder = Recorder(store, {'child': ('failed', 'error')})
+    dispatcher = _dispatcher(spec, store, fake_broker, recorder)
+    await dispatcher.start()
+    parent = await store.create_run(target='assistant', trigger_kind='manual', prompt='parent')
+    await dispatcher.enqueue('assistant', 'delegation', 'child', parent_id=parent.id)
+    await fake_broker.drain()
+    assert (fake_broker.retries, fake_broker.dead, recorder.failed) == ([], [], [])
+
+
 async def test_dispatcher_does_not_retry_budget_failure(spec: Spec, store: Store, fake_broker: FakeBroker) -> None:
     """A run that hit its budget is dead-lettered without a retry."""
     recorder = Recorder(store, {'costly': ('failed', 'max_run_usd')})

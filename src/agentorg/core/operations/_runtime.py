@@ -1,6 +1,8 @@
 """Wire the store, broker, dispatcher, runner, units, intake, governance and lifecycle of one rendered org."""
 
 import asyncio
+import hashlib
+import json
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -25,12 +27,21 @@ from ._notify import Notifier
 from ._policy import LifecycleState
 from ._queue import HEARTBEAT, Dispatcher, InlineDispatcher, broker_health, resolve_amqp_url
 from ._runner import ClientFactory, Runner
-from ._scheduler import Scheduler
+from ._scheduler import CLOCK_START_VAR, Scheduler, scheduler_clock
 from ._store import TERMINAL, InboxItem, Run, Store
 from ._units import UnitEngine
 from ._webhooks import build_webhook_router
 
 WAIT_POLL_S = 0.5
+
+
+def output_name(agent_id: str, output: object) -> str:
+    """Return the knowledge unit name a run's output is filed under: the agent and a hash of the content.
+
+    Naming by content makes filing the same output twice idempotent, and a replayed run names it the same way.
+    """
+    text = output if isinstance(output, str) else json.dumps(output, sort_keys=True, default=str)
+    return f'{agent_id}-{hashlib.sha256(text.encode()).hexdigest()[:8]}'
 
 
 def database_url(spec: Spec, environ: Mapping[str, str], data_dir: Path, *, preview: bool = False) -> str:
@@ -133,6 +144,7 @@ class OrgRuntime:
             self.admit,
             parameters=self.parameters,
             worker_id=worker_id,
+            clock=scheduler_clock(environ.get(CLOCK_START_VAR)),
             paused=self._paused,
         )
         self.consumers = QueueConsumers(spec, self._broker_for, self.enqueue, self.admit, self.parameters)
@@ -169,7 +181,7 @@ class OrgRuntime:
         """Write a run's output as a knowledge unit and announce it."""
         if self.preview or agent.output.knowledge_type is None:
             return
-        name = f'{agent.id}-{run.id[:8]}'
+        name = output_name(agent.id, output)
         await write_knowledge(agent.output.knowledge_type, name, output)
         await self.bus.publish_knowledge('created', {'type': agent.output.knowledge_type, 'name': name})
 
@@ -180,7 +192,7 @@ class OrgRuntime:
         return run
 
     async def call_target(self, target: str, task: str, parent: Run) -> dict[str, Any]:
-        """Run `target` on `task` as a child of `parent` and return its status and output."""
+        """Run `target` on `task` as a child of `parent` and return its status, output and failure reason."""
         child = await self.enqueue(
             target,
             'delegation',
@@ -191,7 +203,12 @@ class OrgRuntime:
             chain=parent.chain,
         )
         finished = await self.wait_for(child.id)
-        return {'run_id': finished.id, 'status': finished.status, 'output': finished.output}
+        return {
+            'run_id': finished.id,
+            'status': finished.status,
+            'output': finished.output,
+            'failure_reason': finished.failure_reason,
+        }
 
     async def start_run(self, target: str, message: str, session_id: str | None, user_id: str) -> dict[str, Any]:
         """Queue a manual run of `target`, or of the agent that owns the session after a handoff, without waiting.
@@ -230,7 +247,12 @@ class OrgRuntime:
         if started['status'] == 'refused':
             return started
         finished = await self.wait_for(started['run_id'])
-        return {'run_id': finished.id, 'status': finished.status, 'output': finished.output}
+        return {
+            'run_id': finished.id,
+            'status': finished.status,
+            'output': finished.output,
+            'failure_reason': finished.failure_reason,
+        }
 
     async def execute(self, run: Run) -> None:
         """Execute a claimed run of an agent or unit, then announce it and apply the lifecycle checks."""

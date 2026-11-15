@@ -28,9 +28,11 @@ DEFAULT_RULES: tuple[tuple[str, str], ...] = (
     (r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '<uuid>'),
     (r'/(private/)?(tmp|var/folders)/[^\s"\'`]*', '<tmp>'),
     (r'\b[0-9a-f]{32}\b', '<id>'),
+    # Knowledge units filed from a run's output are named after the first eight characters of its id.
+    (r'(?<=-)[0-9a-f]{8}\b', '<id8>'),
     (r'x-anthropic-billing-header:[^\n]*', 'x-anthropic-billing-header: <cli>'),
     (r'Primary working directory:[^\n]*', 'Primary working directory: <cwd>'),
-    (r'\n - Additional working directories:(\n  - [^\n]*)*', ''),
+    (r'\n - Additional working directories(?: added| removed)?:(\n  - [^\n]*)*', ''),
 )
 
 
@@ -44,6 +46,16 @@ def _scrub(value: Any, rules: list[tuple[re.Pattern[str], str]]) -> Any:  # noqa
         for pattern, replacement in rules:
             value = pattern.sub(replacement, value)
     return value
+
+
+def _ordered_results(message: Any) -> Any:  # noqa: ANN401
+    """Return `message` with its tool results sorted by id, since parallel tool calls finish in any order."""
+    content = message.get('content') if isinstance(message, dict) else None
+    if not isinstance(content, list) or not content:
+        return message
+    if not all(isinstance(block, dict) and block.get('type') == 'tool_result' for block in content):
+        return message
+    return {**message, 'content': sorted(content, key=lambda block: str(block.get('tool_use_id')))}
 
 
 def canonical_request(path: str, body: dict[str, Any], rules: tuple[tuple[str, str], ...] = DEFAULT_RULES) -> str:
@@ -61,6 +73,8 @@ def canonical_request(path: str, body: dict[str, Any], rules: tuple[tuple[str, s
     """
     compiled = [(re.compile(pattern), replacement) for pattern, replacement in rules]
     fields = {name: body[name] for name in HASHED_FIELDS if name in body}
+    if 'messages' in fields:
+        fields['messages'] = [_ordered_results(message) for message in fields['messages']]
     if 'tools' in fields:
         # The CLI's built-in tools vary with its version and platform; the org's own MCP tools are what is tested.
         fields['tools'] = [

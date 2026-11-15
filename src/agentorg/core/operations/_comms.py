@@ -38,6 +38,7 @@ class OrgTools:
         self.store = store
         self.bus = bus
         self.call_target = call_target
+        self.agent_ids = {agent.id for agent in spec.ai.agents}
 
     def _unit_of(self, agent_id: str) -> Unit:
         """Return the unit that holds an agent."""
@@ -91,8 +92,12 @@ class OrgTools:
                 hint = 'To reach other units, publish an event.'
                 return f'You cannot delegate to {target}; you may delegate to {allowed}. {hint}'
             chain = await self._chain_targets(run)
-            if target in chain or len(chain) >= self.spec.ai.depth + 1:
+            if target in chain:
                 return f'Delegating to {target} would loop back through {" -> ".join(reversed(chain))}.'
+            # Each agent in the chain delegated one level down; the runs of units only wrap their lead.
+            hops = sum(1 for link in chain if link in self.agent_ids)
+            if hops > self.spec.ai.depth:
+                return f'Delegating to {target} would exceed the org\'s delegation depth of {self.spec.ai.depth}.'
             result = await self.call_target(target, task, run)
             return str(result.get('output', ''))
 

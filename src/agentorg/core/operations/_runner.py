@@ -2,8 +2,8 @@
 
 import asyncio
 import shutil
-from collections.abc import Awaitable, Callable, Mapping
-from contextlib import AbstractAsyncContextManager
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -126,6 +126,7 @@ class Runner:
         self.client_factory = client_factory
         self.parameter_values = parameter_values or {}
         self._subscribers: dict[str, list[asyncio.Queue[dict[str, Any]]]] = {}
+        self._deadlines: dict[str, asyncio.Timeout] = {}
 
     def subscribe(self, run_id: str) -> asyncio.Queue[dict[str, Any]]:
         """Return a queue that receives the stream events of run `run_id` until its `end` event."""
@@ -140,6 +141,22 @@ class Runner:
         if event['type'] == 'end':
             self._subscribers.pop(run_id, None)
 
+    @asynccontextmanager
+    async def _clock_stopped(self, run_id: str) -> AsyncIterator[None]:
+        """Stop the run's `timeout_s` clock while a tool call waits at the gate, such as for a human approval."""
+        deadline = self._deadlines.get(run_id)
+        when = deadline.when() if deadline is not None else None
+        if deadline is None or when is None:
+            yield
+            return
+        loop = asyncio.get_running_loop()
+        stopped = loop.time()
+        deadline.reschedule(None)
+        try:
+            yield
+        finally:
+            deadline.reschedule(when + loop.time() - stopped)
+
     async def _options(self, agent: Agent, run: Run, workspace: Path) -> ClaudeAgentOptions:
         """Return the SDK options of one run, resuming the agent's session when it keeps memory."""
         resume = None
@@ -147,7 +164,8 @@ class Runner:
             resume = await self.store.get_value('sdk_session', f'{agent.id}:{run.session_id}')
 
         async def can_use_tool(name: str, tool_input: dict[str, Any], _: ToolPermissionContext) -> PermissionResult:
-            return await self.gate.check(agent, run, name, tool_input)
+            async with self._clock_stopped(run.id):
+                return await self.gate.check(agent, run, name, tool_input)
 
         return build_agent_options(
             agent,
@@ -200,12 +218,14 @@ class Runner:
         result: ResultMessage | None = None
         reason: str | None
         try:
-            async with asyncio.timeout(agent.limits.timeout_s):
+            async with asyncio.timeout(agent.limits.timeout_s) as deadline:
+                self._deadlines[run.id] = deadline
                 result = await self._converse(run, await self._options(agent, run, workspace))
             output, reason = self._outcome(agent, result)
         except TimeoutError:
             output, reason = None, 'timeout'
         finally:
+            self._deadlines.pop(run.id, None)
             if agent.workspace == 'ephemeral':
                 shutil.rmtree(workspace, ignore_errors=True)
         await self._record(agent, run, result, output, reason)

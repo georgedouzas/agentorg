@@ -170,19 +170,35 @@ async def test_stream_shows_tools_delegation_and_failure(spec: Spec, store: Stor
     assert content.rstrip().endswith('The run failed: budget.')
 
 
+async def hold(store: Store, run_id: str, approval_id: str) -> None:
+    """Hold the run on a `send_email` approval the way the approvals module records it."""
+    await store.transition(run_id, 'awaiting_approval')
+    await store.add(
+        Approval(id=approval_id, run_id=run_id, action_class='outbound', tool_name='send_email', arguments={}),
+    )
+    await store.append_transcript(
+        run_id,
+        [{'type': 'approval_requested', 'approval_id': approval_id, 'tool': 'send_email'}],
+    )
+
+
+async def release(store: Store, run_id: str, approval_id: str) -> None:
+    """Approve the held call as `dana` and resume the run, recording the decision in its transcript."""
+    await store.decide_approval(approval_id, status='approved', decided_by='dana')
+    await store.transition(run_id, 'running')
+    event = {'type': 'approval_decided', 'approval_id': approval_id, 'status': 'approved', 'by': 'dana'}
+    await store.append_transcript(run_id, [event])
+
+
 async def test_approval_hold_links_the_console_and_continues(spec: Spec, store: Store) -> None:
     """A held action streams a console link once, keeps the stream alive, and the reply continues after approval."""
     decided = asyncio.Event()
 
     async def script(store: Store, run_id: str) -> None:
         await store.transition(run_id, 'running')
-        await store.transition(run_id, 'awaiting_approval')
-        await store.add(
-            Approval(id='ap1', run_id=run_id, action_class='outbound', tool_name='send_email', arguments={}),
-        )
+        await hold(store, run_id, 'ap1')
         await decided.wait()
-        await store.decide_approval('ap1', status='approved', decided_by='dana')
-        await store.transition(run_id, 'running')
+        await release(store, run_id, 'ap1')
         await reply_with(store, run_id, 'Sent.')
 
     async def approve_later() -> None:
@@ -204,6 +220,25 @@ async def test_approval_hold_links_the_console_and_continues(spec: Spec, store: 
     assert '`send_email` is waiting for approval' in content
     assert content.endswith('Sent.')
     assert ': keep-alive' in reply.text
+
+
+async def test_hold_decided_between_polls_is_still_shown(spec: Spec, store: Store) -> None:
+    """An approval decided before the stream saw it pending still appears in the reply, with its outcome."""
+
+    async def script(store: Store, run_id: str) -> None:
+        await store.transition(run_id, 'running')
+        await hold(store, run_id, 'ap3')
+        await release(store, run_id, 'ap3')
+        await reply_with(store, run_id, 'Sent.')
+
+    async with _client(spec, Org(store, script)) as client:
+        reply = await client.post(
+            '/v1/chat/completions',
+            json={'model': 'assistant', 'messages': _messages('Email them')},
+        )
+    content = reply.json()['choices'][0]['message']['content']
+    held = content.index('`send_email` is waiting for approval')
+    assert held < content.index('Approved by dana.') < content.index('Sent.')
 
 
 async def test_follow_up_resumes_the_previous_turn(spec: Spec, store: Store) -> None:
@@ -372,10 +407,8 @@ async def test_hold_message_names_the_commands(spec: Spec, store: Store) -> None
 
     async def script(store: Store, run_id: str) -> None:
         await store.transition(run_id, 'running')
-        await store.add(Approval(id='ap2', run_id=run_id, action_class='outbound', tool_name='send', arguments={}))
-        await store.transition(run_id, 'awaiting_approval')
-        await asyncio.sleep(0.05)
-        await store.transition(run_id, 'running')
+        await hold(store, run_id, 'ap2')
+        await release(store, run_id, 'ap2')
         await reply_with(store, run_id, 'Done.')
 
     async with _client(spec, Org(store, script)) as client:

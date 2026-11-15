@@ -1,0 +1,247 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "Provide one key markets finding for the weekly research report dated <datetime>. Keep it to 1-2 sentences, include the source/basis and any key figures.",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: false\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Sonnet 5.5. The exact model ID is claude-sonnet-5-5. Assistant knowledge cutoff is June 2026.\n\nUSD budget: $0/$2; $2 remaining\n\nToday's date is <env>",
+            "type": "text"
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are Analyst Markets, part of Research Reporting. Your role: Researches markets.\n\n## Style\n\nBe direct: lead with the answer and skip pleasantries.\nGive the answer and only the context needed to act on it.\n\n## Principles\n\n### Care\n\nBe accurate.",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "context": {
+              "default": "",
+              "title": "Context",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "title": "escalate_input",
+          "type": "object"
+        },
+        "name": "mcp__org__escalate"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "note": {
+              "title": "Note",
+              "type": "string"
+            },
+            "target": {
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "note"
+          ],
+          "title": "handoff_input",
+          "type": "object"
+        },
+        "name": "mcp__org__handoff"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "default": "",
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata_filter": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata Filter"
+            }
+          },
+          "title": "list_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__list_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "event": {
+              "title": "Event",
+              "type": "string"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            }
+          },
+          "required": [
+            "event",
+            "payload"
+          ],
+          "title": "publish_input",
+          "type": "object"
+        },
+        "name": "mcp__org__publish"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name"
+          ],
+          "title": "read_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__read_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Knowledge Types"
+            },
+            "query": {
+              "title": "Query",
+              "type": "string"
+            },
+            "top_k": {
+              "default": 10,
+              "title": "Top K",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__search_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "content": {
+              "title": "Content",
+              "type": "string"
+            },
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name",
+            "content"
+          ],
+          "title": "write_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__write_knowledge"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-5-5\",\"id\":\"msg_011Ch4xH3VVZKm2HavihBd21\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":4893,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":4893,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":9,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}            }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":null}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"CAQSxAUKEAgTGAI4AUIIdGhpbmtpbmcSDBt+pl+QSTAEeCo1cRoM5GQY5IWSOAa40LyoIjBbJYiFTRUoXJa0GTuwCikqKVWPpJWpbnF6iG9m7wVUOxZmq19t7NFfyWNchWaIYFcq4QRBuGIq3QaGlMkd+qsG1Q2BYOVVIHMWWDd1ZqZSZC/rIuDUw2/d7TJXID4T4qzP8SPocn6RYEQ6I2Fcph0UZTiJde1II/oPer94v1xvsyNeTH5m0ZbduoShBWP51iTifCnmuvrO5rD+SfBfHNaSSEB2SieMYxC3ldDWLznKqH9qfXarA4nxGmMxzfF5hHwgAQbhf3pXkNl7yrWJBApaKt85x0pLDvom9wxUva/jyj0uDLRrGgNcey+EZat5q7VHQkBnSLfcihNDX3splKqVAEVFVlbmUFdszi/gpEkYj5LGFX3+xmkcR8G0MqZGgxasVVhJONYNd7saiVEifsk2JADzybw4DRXTEpytW09tVsrzYxJ3zyazXO3qYr9/H05d8e1JDiDBPihTKreXJ6zi202rFi1LaiTpaQoE7FxSC2CdyN6SSBkN7Slw5ryG4cfWhizZWPMXIH5ioA49Co+eKz556yCO0eEjHsNqQPe5xfqVUstnMJ4KAlemGC/YRwuWymZHholO7vCEweflmc9Uq8TC7/zYnSvwg7o8Ugu5NLUtf66VpUoDaL/S1CBIUpjmuu0JU70O4IZuhzlM6sk4A71P/OfBUq8/3LghABYhbF31X0d859lJ2E089MZrKwT45oOx+C1SIvKL15MmAK8JvdjCYXgwSefhWlpmT6sOPwEBWKqtWZLA5XL0V8rddxUyQDhdukdpEcZWIvZDBXARjBgrFD69+kRRE5U/xqzNrg3s9w35RTUGq7T1zNW5owDWE9zGXZR3sZG6I+/OsNabi74MgSEPZc1i6AAQmoj51Pqd2oQYAQ==\"}        }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0            }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_01MabAu1mAAjJZHkBtdPCFPx\",\"name\":\"mcp__org__search_knowledge\",\"input\":{},\"caller\":{\"type\":\"direct\"}}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"query\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\\\": \\\"mar\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"kets we\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"ekly fi\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"ndings\\\"\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\", \\\"top_\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"k\\\": 10}\"}          }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1      }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_01XzoxmaHos2R96wuKNoRYip\",\"name\":\"Glob\",\"input\":{},\"caller\":{\"type\":\"direct\"}}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"patte\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"rn\\\": \\\"*\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"*/*\\\"}\"}   }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":2       }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":4893,\"cache_read_input_tokens\":0,\"output_tokens\":159,\"output_tokens_details\":{\"thinking_tokens\":25}},\"context_management\":{\"applied_edits\":[]}            }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"         }\n\n"
+    }
+  ]
+}
