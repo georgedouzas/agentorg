@@ -1,6 +1,8 @@
 """Carry runs, retries, dead letters and org events over RabbitMQ."""
 
+import asyncio
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -14,6 +16,11 @@ from aio_pika.abc import (
 )
 
 MAX_PRIORITY = 4
+# A broker that is still starting, as beside a fresh compose stack, gets this long before startup fails.
+CONNECT_ATTEMPTS = 30
+CONNECT_DELAY_S = 2.0
+
+logger = logging.getLogger(__name__)
 
 MessageHandler = Callable[[AbstractIncomingMessage], Awaitable[None]]
 
@@ -25,12 +32,20 @@ class Broker:
         url: The AMQP URL, read from `AMQP_URL`.
         slug: The org slug.
         retry_base_s: The delay of the first retry; retry `n` waits `retry_base_s * 2**n` seconds.
+        connect_delay_s: The pause between attempts to reach a broker that is not accepting connections yet.
     """
 
-    def __init__(self, url: str, slug: str, retry_base_s: float = 30.0) -> None:
+    def __init__(
+        self,
+        url: str,
+        slug: str,
+        retry_base_s: float = 30.0,
+        connect_delay_s: float = CONNECT_DELAY_S,
+    ) -> None:
         self.url = url
         self.slug = slug
         self.retry_base_s = retry_base_s
+        self.connect_delay_s = connect_delay_s
         self._connection: AbstractRobustConnection | None = None
         self._channel: AbstractRobustChannel | None = None
         self._consumers: dict[str, tuple[AbstractQueue, AbstractChannel]] = {}
@@ -52,9 +67,19 @@ class Broker:
         """Whether the connection is open."""
         return self._connection is not None and not self._connection.is_closed
 
+    async def _open(self) -> AbstractRobustConnection:
+        """Connect, waiting for a broker that is still starting up."""
+        for attempt in range(1, CONNECT_ATTEMPTS):
+            try:
+                return await aio_pika.connect_robust(self.url)
+            except (aio_pika.exceptions.AMQPConnectionError, OSError) as error:
+                logger.warning('Broker not reachable yet (attempt %d of %d): %s', attempt, CONNECT_ATTEMPTS, error)
+                await asyncio.sleep(self.connect_delay_s)
+        return await aio_pika.connect_robust(self.url)
+
     async def connect(self) -> None:
         """Open a reconnecting connection and declare the run, retry, dead-letter and event exchanges."""
-        self._connection = await aio_pika.connect_robust(self.url)
+        self._connection = await self._open()
         self._channel = await self._connection.channel()
         await self.channel.declare_exchange(self._name('runs'), aio_pika.ExchangeType.DIRECT, durable=True)
         await self.channel.declare_exchange(self._name('events'), aio_pika.ExchangeType.TOPIC, durable=True)

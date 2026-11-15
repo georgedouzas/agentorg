@@ -51,7 +51,7 @@
 
 ## 5. End to end
 
-- [ ] 5.1 Add an e2e scenario that boots a support-desk org on `local-docker`, sends a chat completion through
+- [x] 5.1 Add an e2e scenario that boots a support-desk org on `local-docker`, sends a chat completion through
   LibreChat's API, approves the held action with `/approve`, and sees the reply complete. Verify that it passes in
   `replay` × `local-docker` once the `local-docker` target from `test-architecture` lands.
 - [x] 5.2 Update the golden-path scenario in `test-architecture` to drive the interview through the master's chat API.

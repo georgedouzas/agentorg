@@ -21,7 +21,7 @@
 ## 4. Scenarios
 
 - [x] 4.1 Add `test_master_golden_path.py`: a scripted interview, then the spec validates, renders, boots on the target and answers chat. Record its cassettes. Verify that it passes in `replay` × `local-process` twice with identical outputs.
-- [ ] 4.2 Add `test_support_desk.py`: signed webhook, approval held, approved through both the API and the Inbox UI, run succeeded. Verify that it passes in `replay` × `local-process`.
+- [x] 4.2 Add `test_support_desk.py`: signed webhook, approval held, approved through both the API and the Inbox UI, run succeeded. Verify that it passes in `replay` × `local-process`.
 - [ ] 4.3 Add `test_research_reporting.py`: a schedule fires via the clock offset, the `hub` lead delegates, a report knowledge unit is written, and an event triggers the summariser. Verify that it passes in `replay` × `local-process`.
 - [ ] 4.4 Add `test_ops_monitoring.py` with a stub metrics MCP server, `custom.incident` publish, the responder run, and escalation to the inbox on forced failure. Verify that it passes in `replay` × `local-process`.
 - [ ] 4.4a Add `test_credit_decisions.py`: a 3-member `council` returns a majority decision with all three answers recorded on the run, and a governed write is held for approval. Verify that it passes in `replay` × `local-process`.

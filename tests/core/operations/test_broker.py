@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 import pytest
 from aio_pika.abc import AbstractIncomingMessage
 
-from agentorg.core.operations import Broker
+from agentorg.core.operations import Broker, _broker
 
 
 @pytest.fixture
@@ -76,3 +76,23 @@ async def test_broker_routes_events_to_bound_trigger(broker: Broker) -> None:
     await asyncio.wait_for(done.wait(), 10)
     await broker.cancel(tag)
     assert received == [{'event': 'knowledge.created', 'payload': {'type': 'report'}, 'chain': ['weekly']}]
+
+
+async def test_broker_waits_for_a_broker_still_starting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refused connections are retried until the broker accepts one, and the last refusal is raised."""
+    attempts: list[str] = []
+
+    async def refuse_twice(url: str) -> object:
+        attempts.append(url)
+        if len(attempts) < 3:
+            raise ConnectionRefusedError(111, 'Connection refused')
+        return 'connection'
+
+    monkeypatch.setattr('aio_pika.connect_robust', refuse_twice)
+    broker = Broker('amqp://starting', 'acme', connect_delay_s=0)
+    assert await broker._open() == 'connection'
+    assert len(attempts) == 3
+    monkeypatch.setattr(_broker, 'CONNECT_ATTEMPTS', 2)
+    attempts.clear()
+    with pytest.raises(ConnectionRefusedError):
+        await Broker('amqp://down', 'acme', connect_delay_s=0)._open()

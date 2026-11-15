@@ -1,0 +1,284 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "New ticket: {\"body\": \"Ticket 1044 needs an answer. Look it up with search_tickets, then reply to the customer on the ticket with reply_ticket: a short, friendly message saying the team is looking into it.\"}",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: false\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Sonnet 5.5. The exact model ID is claude-sonnet-5-5. Assistant knowledge cutoff is June 2026.\n\nUSD budget: $0/$2; $2 remaining\n\nToday's date is <env>",
+            "type": "text"
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are Billing, part of Support Desk. Your role: Resolves billing tickets.\n\n## Style\n\nBe direct: lead with the answer and skip pleasantries.\nGive the answer and only the context needed to act on it.\n\n## Principles\n\n### Care\n\nBe accurate.",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "context": {
+              "default": "",
+              "title": "Context",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "title": "escalate_input",
+          "type": "object"
+        },
+        "name": "mcp__org__escalate"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "note": {
+              "title": "Note",
+              "type": "string"
+            },
+            "target": {
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "note"
+          ],
+          "title": "handoff_input",
+          "type": "object"
+        },
+        "name": "mcp__org__handoff"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "default": "",
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata_filter": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata Filter"
+            }
+          },
+          "title": "list_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__list_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "event": {
+              "title": "Event",
+              "type": "string"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            }
+          },
+          "required": [
+            "event",
+            "payload"
+          ],
+          "title": "publish_input",
+          "type": "object"
+        },
+        "name": "mcp__org__publish"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name"
+          ],
+          "title": "read_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__read_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Knowledge Types"
+            },
+            "query": {
+              "title": "Query",
+              "type": "string"
+            },
+            "top_k": {
+              "default": 10,
+              "title": "Top K",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__search_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "content": {
+              "title": "Content",
+              "type": "string"
+            },
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name",
+            "content"
+          ],
+          "title": "write_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__write_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "ticket_id": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "ticket_id",
+            "body"
+          ],
+          "title": "reply_ticketArguments",
+          "type": "object"
+        },
+        "name": "mcp__zendesk__reply_ticket"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "query": {
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_ticketsArguments",
+          "type": "object"
+        },
+        "name": "mcp__zendesk__search_tickets"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-5-5\",\"id\":\"msg_011Ch4ocrkM14JdwRGvvQnDj\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":356,\"cache_read_input_tokens\":5597,\"cache_creation\":{\"ephemeral_5m_input_tokens\":356,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":32,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_01WsgcvyQNyWAcgk8LQ5gCho\",\"name\":\"mcp__zendesk__search_tickets\",\"input\":{},\"caller\":{\"type\":\"direct\"}}        }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"query\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\\\": \\\"104\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"4\\\"}\"}            }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0       }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":356,\"cache_read_input_tokens\":5597,\"output_tokens\":59,\"output_tokens_details\":{\"thinking_tokens\":0}},\"context_management\":{\"applied_edits\":[]}          }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"   }\n\n"
+    }
+  ]
+}
