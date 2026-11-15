@@ -25,9 +25,10 @@ services:
     networks:
       - {{ org.slug }}
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # The AMQP port itself; the Erlang CLI answers before the listener opens and can stop a broker still booting.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/5672'"]
       interval: 5s
-      retries: 20
+      retries: 30
 
   {{ org.slug }}-db:
     image: pgvector/pgvector:pg17

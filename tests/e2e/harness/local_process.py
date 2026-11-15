@@ -1,6 +1,7 @@
 """Run the rendered node and frontend as local processes beside broker and control-plane containers."""
 
 import os
+import runpy
 import shutil
 import subprocess  # nosec B404 - the harness drives docker, npm and the org's own processes
 import sys
@@ -15,6 +16,7 @@ from .targets import Endpoints, Project, free_port, org_healthy, require_docker,
 
 BROKER_IMAGE = 'rabbitmq:3.13-management'
 CONTROL_PLANE_IMAGE = 'agentfield/control-plane:latest'
+POSTGRES_IMAGE = 'pgvector/pgvector:pg17'
 ALL_INTERFACES = '0.0.0.0'  # noqa: S104  # nosec B104 - the control-plane container calls the node back
 
 
@@ -61,12 +63,24 @@ class LocalProcess:
         wait_until(lambda: not httpx.get(plane, timeout=2).is_server_error, 'the control plane')
         return f'amqp://guest:guest@127.0.0.1:{broker_port}/', plane
 
+    def _database(self, project: Project) -> dict[str, str]:
+        """Start Postgres when the org's spec asks for it, as its compose file would, and return its URL."""
+        spec = runpy.run_path(str(project.root / 'src' / project.package / 'spec.py'))['spec']
+        if spec.runtime.infra.database != 'postgres':
+            return {}
+        port = free_port()
+        credentials = ('-e', 'POSTGRES_USER=ai', '-e', 'POSTGRES_PASSWORD=ai', '-e', 'POSTGRES_DB=ai')
+        self._container('postgres', POSTGRES_IMAGE, f'{port}:5432', *credentials)
+        ready = ('docker', 'exec', self.containers['postgres'], 'pg_isready', '-U', 'ai', '-h', '127.0.0.1')
+        wait_until(lambda: _run(*ready, check=False).endswith('accepting connections'), 'Postgres')
+        return {'DATABASE_URL': f'postgresql://ai:ai@127.0.0.1:{port}/ai'}
+
     def _frontend(self, project: Project, api: str) -> str:
         frontend = project.root / 'src' / 'frontend'
         _run('npm', 'ci', '--ignore-scripts', cwd=frontend)
         port = free_port()
         npm = shutil.which('npm') or 'npm'
-        command = [npm, 'run', 'dev', '--', '--port', str(port), '--strictPort']
+        command = [npm, 'run', 'dev', '--', '--host', '127.0.0.1', '--port', str(port), '--strictPort']
         self._spawn('frontend', command, frontend, {'VITE_API_HOST': api})
         url = f'http://127.0.0.1:{port}'
         wait_until(lambda: httpx.get(url, timeout=2).is_success, 'the frontend')
@@ -88,6 +102,7 @@ class LocalProcess:
             'AGENTFIELD_SERVER': plane,
             'AGENT_CALLBACK_URL': f'http://host.docker.internal:{port}',
             'AGENTORG_DATA_DIR': str(self.logs / 'data'),
+            **self._database(project),
         }
         app = f'{project.package}.app.main:app'
         command = [sys.executable, '-m', 'uvicorn', app, '--host', ALL_INTERFACES, '--port', str(port)]

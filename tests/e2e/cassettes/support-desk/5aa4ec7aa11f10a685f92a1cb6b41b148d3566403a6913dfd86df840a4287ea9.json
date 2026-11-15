@@ -1,0 +1,339 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "Ticket 1043 needs an answer. Look it up with search_tickets, then reply to the customer on the ticket with reply_ticket: a short, friendly message saying the team is looking into it.",
+        "role": "user"
+      },
+      {
+        "content": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: false\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Sonnet 5.5. The exact model ID is claude-sonnet-5-5. Assistant knowledge cutoff is June 2026.\n\nUSD budget: $0/$2; $2 remaining\n\nToday's date is <env>",
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "id": "toolu_01GP9TD3eRP7uYTkJoHaCpb7",
+            "input": {
+              "query": "1043"
+            },
+            "name": "mcp__zendesk__search_tickets",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": "{\"result\":[{\"id\":\"1043\",\"requester\":\"lee@example.com\",\"subject\":\"Bank sync stopped\",\"body\":\"My Barclays account has not synced since Monday.\"}]}",
+            "tool_use_id": "toolu_01GP9TD3eRP7uYTkJoHaCpb7",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "USD budget: $0.0023467/$2; $1.9976533 remaining",
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "id": "toolu_01SkEWq78Utg1zRW1QndnbZA",
+            "input": {
+              "body": "Hi Lee, thanks for letting us know your Barclays account hasn't synced since Monday. Our team is looking into it now, and we'll update you as soon as we have more information. Thanks for your patience!",
+              "ticket_id": "1043"
+            },
+            "name": "mcp__zendesk__reply_ticket",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": "{\"result\":\"Reply sent on ticket 1043.\"}",
+            "tool_use_id": "toolu_01SkEWq78Utg1zRW1QndnbZA",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "USD budget: $0.0048167/$2; $1.9951833 remaining",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are Billing, part of Support Desk. Your role: Resolves billing tickets.\n\n## Style\n\nBe direct: lead with the answer and skip pleasantries.\nGive the answer and only the context needed to act on it.\n\n## Principles\n\n### Care\n\nBe accurate.",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "context": {
+              "default": "",
+              "title": "Context",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "title": "escalate_input",
+          "type": "object"
+        },
+        "name": "mcp__org__escalate"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "note": {
+              "title": "Note",
+              "type": "string"
+            },
+            "target": {
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "note"
+          ],
+          "title": "handoff_input",
+          "type": "object"
+        },
+        "name": "mcp__org__handoff"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "default": "",
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata_filter": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata Filter"
+            }
+          },
+          "title": "list_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__list_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "event": {
+              "title": "Event",
+              "type": "string"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            }
+          },
+          "required": [
+            "event",
+            "payload"
+          ],
+          "title": "publish_input",
+          "type": "object"
+        },
+        "name": "mcp__org__publish"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name"
+          ],
+          "title": "read_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__read_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Knowledge Types"
+            },
+            "query": {
+              "title": "Query",
+              "type": "string"
+            },
+            "top_k": {
+              "default": 10,
+              "title": "Top K",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__search_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "content": {
+              "title": "Content",
+              "type": "string"
+            },
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name",
+            "content"
+          ],
+          "title": "write_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__write_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "ticket_id": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "ticket_id",
+            "body"
+          ],
+          "title": "reply_ticketArguments",
+          "type": "object"
+        },
+        "name": "mcp__zendesk__reply_ticket"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "query": {
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_ticketsArguments",
+          "type": "object"
+        },
+        "name": "mcp__zendesk__search_tickets"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-5-5\",\"id\":\"msg_011Ch4oeARkj6QE2xVmh3fd1\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":201,\"cache_read_input_tokens\":6084,\"cache_creation\":{\"ephemeral_5m_input_tokens\":201,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":80,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}     }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"I replied to \"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ticket 1043 (\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Lee, \\\"Bank s\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ync stopped\\\"). The message\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" th\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"anks Lee for re\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"porting that\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" the\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" Barclays account hasn\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"'t synced since Monday.\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" It says the team is looking into\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" it and will\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" update\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" Lee when\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" there\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"'s more information.\"}               }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0         }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":201,\"cache_read_input_tokens\":6084,\"output_tokens\":80,\"output_tokens_details\":{\"thinking_tokens\":0}},\"context_management\":{\"applied_edits\":[]}        }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"            }\n\n"
+    }
+  ]
+}

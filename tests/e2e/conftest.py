@@ -114,8 +114,18 @@ def run_id() -> str:
     return os.environ.get('E2E_RUN_ID') or f'{time.strftime("%Y%m%d%H%M%S")}-{secrets.token_hex(3)}'
 
 
+@pytest.fixture(scope='session')
+def listen_host(request: pytest.FixtureRequest) -> str:
+    """Return the address harness servers bind to so the target's node can reach them.
+
+    Docker Desktop forwards host.docker.internal to the host's loopback; Linux containers need a wider bind.
+    """
+    containers = request.config.getoption('--target') == 'local-docker' and sys.platform == 'linux'
+    return ALL_INTERFACES if containers else '127.0.0.1'
+
+
 @pytest.fixture(scope='module')
-def model_api(request: pytest.FixtureRequest) -> Iterator[MockAnthropic]:
+def model_api(request: pytest.FixtureRequest, listen_host: str) -> Iterator[MockAnthropic]:
     """Serve the scenario's cassettes, or proxy to the real API in record and live modes."""
     scenario = request.path.stem.removeprefix('test_').replace('_', '-')
     mock = MockAnthropic(
@@ -123,9 +133,7 @@ def model_api(request: pytest.FixtureRequest) -> Iterator[MockAnthropic]:
         mode=request.config.getoption('--model-mode'),
         api_key=os.environ.get('ANTHROPIC_API_KEY', ''),
     )
-    # Docker Desktop forwards host.docker.internal to the host's loopback; Linux containers need a wider bind.
-    containers = request.config.getoption('--target') == 'local-docker' and sys.platform == 'linux'
-    with serve(mock, free_port(), ALL_INTERFACES if containers else '127.0.0.1'):
+    with serve(mock, free_port(), listen_host):
         yield mock
 
 

@@ -243,7 +243,8 @@ export default function App() {
         />
       </Panel>
 
-      {configured === false && (
+      {/* Only an org with parameters has anything to configure before it starts. */}
+      {configured === false && (config.parameters?.length ?? 0) > 0 && (
         <ParameterSetupModal
           parameters={config.parameters ?? []}
           onConfigured={() => setConfigured(true)}

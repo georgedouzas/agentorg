@@ -176,10 +176,10 @@ async def test_approval_hold_links_the_console_and_continues(spec: Spec, store: 
 
     async def script(store: Store, run_id: str) -> None:
         await store.transition(run_id, 'running')
+        await store.transition(run_id, 'awaiting_approval')
         await store.add(
             Approval(id='ap1', run_id=run_id, action_class='outbound', tool_name='send_email', arguments={}),
         )
-        await store.transition(run_id, 'awaiting_approval')
         await decided.wait()
         await store.decide_approval('ap1', status='approved', decided_by='dana')
         await store.transition(run_id, 'running')
@@ -188,7 +188,8 @@ async def test_approval_hold_links_the_console_and_continues(spec: Spec, store: 
     async def approve_later() -> None:
         while not await store.list_approvals():
             await asyncio.sleep(0.01)
-        await asyncio.sleep(0.3)
+        # Long enough past the 0.03 s keep-alive for the stream to send one even on a loaded machine.
+        await asyncio.sleep(1.0)
         decided.set()
 
     async with _client(spec, Org(store, script), keepalive=0.03) as client:
