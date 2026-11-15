@@ -98,6 +98,7 @@ class FakeBroker:
     consumers: dict[str, tuple[str, Handler]] = field(default_factory=dict)
     retries: list[tuple[str, str, int]] = field(default_factory=list)
     dead: list[str] = field(default_factory=list)
+    delivered: list[tuple[str, FakeMessage]] = field(default_factory=list)
     external: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)
     bindings: dict[str, list[str]] = field(default_factory=dict)
     healthy: bool = True
@@ -122,6 +123,7 @@ class FakeBroker:
             self.queues.setdefault(queue, []).append(message)
             self.queues[queue].sort(key=lambda held: -held.priority)
             return
+        self.delivered.append((queue, message))
         task: asyncio.Future[None] = asyncio.ensure_future(handlers[0](message))
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)

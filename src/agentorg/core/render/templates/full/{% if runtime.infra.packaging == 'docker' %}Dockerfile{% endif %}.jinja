@@ -24,8 +24,9 @@ ENV PYTHONUNBUFFERED=1 \
 RUN groupadd -g 61000 app \
     && useradd -g 61000 -u 61000 -ms /bin/bash app
 
-# Set working directory
+# Set working directory, owned by the runtime user so it can keep its data there
 WORKDIR /app
+RUN chown app:app /app
 
 # Deps
 COPY --chown=app:app pyproject.toml uv.lock* README.md ./

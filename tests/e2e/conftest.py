@@ -5,6 +5,7 @@ import os
 import runpy
 import secrets
 import shutil
+import sys
 import threading
 import time
 from collections.abc import Callable, Generator, Iterator
@@ -24,6 +25,7 @@ from .harness.targets import MODEL_MODES, TARGETS, Endpoints, Project, Target, f
 
 CASSETTES = Path(__file__).parent / 'cassettes'
 CHAT_KEY = 'e2e-chat-key'
+ALL_INTERFACES = '0.0.0.0'  # noqa: S104  # nosec B104 - only on Linux, where containers reach the host's bridge
 ARTIFACTS = Path('.e2e-artifacts')
 FAILED = pytest.StashKey[bool]()
 
@@ -106,7 +108,9 @@ def model_api(request: pytest.FixtureRequest) -> Iterator[MockAnthropic]:
         mode=request.config.getoption('--model-mode'),
         api_key=os.environ.get('ANTHROPIC_API_KEY', ''),
     )
-    with serve(mock, free_port()):
+    # Docker Desktop forwards host.docker.internal to the host's loopback; Linux containers need a wider bind.
+    containers = request.config.getoption('--target') == 'local-docker' and sys.platform == 'linux'
+    with serve(mock, free_port(), ALL_INTERFACES if containers else '127.0.0.1'):
         yield mock
 
 
@@ -169,7 +173,13 @@ def deploy(
     marker = request.node.get_closest_marker('max_usd')
     max_usd = float(marker.args[0]) if marker else 1.0
 
-    def _deploy(spec: Spec | Path, env: dict[str, str] | None = None, *, ui: bool = False) -> Deployment:
+    def _deploy(
+        spec: Spec | Path,
+        env: dict[str, str] | None = None,
+        *,
+        ui: bool = False,
+        chat: bool = False,
+    ) -> Deployment:
         spec_path = spec if isinstance(spec, Path) else tmp_path / 'spec.py'
         if isinstance(spec, Spec):
             write_spec(spec, spec_path)
@@ -177,7 +187,7 @@ def deploy(
         root = tmp_path / org.slug
         render(spec_path, root)
         state['project'] = project = Project(root, org.package_name, org.slug)
-        endpoints = target.provision(project, {**_model_env(model_api), **(env or {})}, ui=ui)
+        endpoints = target.provision(project, {**_model_env(model_api), **(env or {})}, ui=ui, chat=chat)
         state['client'] = client = OrgClient(endpoints.api, CHAT_KEY)
         if model_api.mode == 'live':
             threading.Thread(target=_watch_budget, args=(client, max_usd, exceeded, stop), daemon=True).start()

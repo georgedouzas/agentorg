@@ -116,7 +116,7 @@ def checks(session: nox.Session, file: str) -> None:
         file: The file to be checked.
     """
     arg = check_cli(session, ['all', 'quality', 'dependencies', 'types', 'security', 'docs', 'layout'])
-    session.run('uv', 'sync', '--only-dev', '--active', external=True)
+    session.run('uv', 'sync', '--active', external=True)
     if arg in ['quality', 'all']:
         session.run('ruff', 'check', file)
     if arg in ['types', 'all']:

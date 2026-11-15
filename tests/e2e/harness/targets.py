@@ -30,6 +30,7 @@ class Endpoints:
 
     api: str
     ui: str | None = None
+    chat: str | None = None
 
 
 class Target(Protocol):
@@ -37,8 +38,8 @@ class Target(Protocol):
 
     name: str
 
-    def provision(self, project: Project, env: Mapping[str, str], *, ui: bool) -> Endpoints:
-        """Start the org with `env` and return its endpoints once it is healthy."""
+    def provision(self, project: Project, env: Mapping[str, str], *, ui: bool, chat: bool = False) -> Endpoints:
+        """Start the org with `env`, with its dashboard when `ui` and LibreChat when `chat`, once it is healthy."""
         ...
 
     def collect_logs(self, into: Path) -> None:
@@ -87,9 +88,10 @@ def org_healthy(api: str) -> bool:
 
 def make_target(name: str, run_id: str) -> Target:
     """Return the target called `name` for the run `run_id`."""
+    from .local_docker import LocalDocker  # noqa: PLC0415 - targets import this module
     from .local_process import LocalProcess  # noqa: PLC0415 - targets import this module
 
-    targets: dict[str, Callable[[str], Target]] = {'local-process': LocalProcess}
+    targets: dict[str, Callable[[str], Target]] = {'local-process': LocalProcess, 'local-docker': LocalDocker}
     if name not in targets:
         msg = f'Target {name!r} is not implemented yet; available: {", ".join(targets)}.'
         raise NotImplementedError(msg)

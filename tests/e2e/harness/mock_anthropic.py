@@ -151,9 +151,9 @@ class MockAnthropic:
 
 
 @contextmanager
-def serve(mock: MockAnthropic, port: int) -> Iterator[str]:
-    """Run `mock` on localhost in a background thread and yield its base URL."""
-    server = uvicorn.Server(uvicorn.Config(mock.app(), host='127.0.0.1', port=port, log_level='warning'))
+def serve(mock: MockAnthropic, port: int, host: str = '127.0.0.1') -> Iterator[str]:
+    """Run `mock` on `host` in a background thread and yield its base URL on localhost."""
+    server = uvicorn.Server(uvicorn.Config(mock.app(), host=host, port=port, log_level='warning'))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     while not server.started:

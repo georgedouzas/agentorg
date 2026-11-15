@@ -69,8 +69,11 @@ class LocalProcess:
         wait_until(lambda: httpx.get(url, timeout=2).is_success, 'the frontend')
         return url
 
-    def provision(self, project: Project, env: Mapping[str, str], *, ui: bool) -> Endpoints:
+    def provision(self, project: Project, env: Mapping[str, str], *, ui: bool, chat: bool = False) -> Endpoints:
         """Start the broker, control plane, node and optionally the frontend, then wait for health."""
+        if chat:
+            msg = 'LibreChat runs only on the local-docker and cloud targets.'
+            raise NotImplementedError(msg)
         require_docker()
         amqp, plane = self._infrastructure()
         port = free_port()
