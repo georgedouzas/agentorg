@@ -54,6 +54,9 @@ class LocalProcess:
         plane_env = ('-e', 'AGENTFIELD_HTTP_ADDR=0.0.0.0:8080', '-e', 'AGENTFIELD_STORAGE_MODE=local')
         host = ('--add-host', 'host.docker.internal:host-gateway')
         self._container('control-plane', CONTROL_PLANE_IMAGE, f'{plane_port}:8080', *plane_env, *host)
+        # Exec'ing rabbitmq-diagnostics before the server has written its Erlang cookie stops it, so read its log.
+        broker = self.containers['rabbitmq']
+        wait_until(lambda: 'Server startup complete' in _run('docker', 'logs', broker, check=False), 'the broker')
         plane = f'http://127.0.0.1:{plane_port}'
         wait_until(lambda: not httpx.get(plane, timeout=2).is_server_error, 'the control plane')
         return f'amqp://guest:guest@127.0.0.1:{broker_port}/', plane

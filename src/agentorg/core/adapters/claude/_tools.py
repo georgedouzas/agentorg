@@ -2,6 +2,7 @@
 
 import inspect
 import json
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -10,6 +11,8 @@ from claude_agent_sdk.types import McpSdkServerConfig
 from pydantic import BaseModel, ValidationError, create_model
 
 from ...agents.tools import side_effect_of
+
+logger = logging.getLogger(__name__)
 
 
 def _input_model(fn: Callable[..., Any]) -> type[BaseModel]:
@@ -27,6 +30,12 @@ def _as_text(value: object) -> str:
     return value if isinstance(value, str) else json.dumps(value, default=str)
 
 
+def tool_error(error: BaseException) -> str:
+    """Return the short text an agent sees when a tool fails: the error type and the first line of its message."""
+    message = str(error).strip().splitlines()
+    return f'{type(error).__name__}: {message[0]}' if message else type(error).__name__
+
+
 def as_sdk_tool(fn: Callable[..., Any]) -> SdkMcpTool[Any]:
     """Wrap a sync or async function as an SDK tool with a schema derived from its signature.
 
@@ -34,7 +43,8 @@ def as_sdk_tool(fn: Callable[..., Any]) -> SdkMcpTool[Any]:
         fn: The tool function. Its docstring summary becomes the tool description.
 
     Returns:
-        tool: An SDK tool whose handler validates the arguments, calls `fn` and returns its result as text.
+        tool: An SDK tool whose handler validates the arguments, calls `fn` and returns its result as text, or a
+            short error result when `fn` raises.
     """
     model = _input_model(fn)
 
@@ -43,9 +53,13 @@ def as_sdk_tool(fn: Callable[..., Any]) -> SdkMcpTool[Any]:
             validated = model.model_validate(args)
         except ValidationError as error:
             return {'content': [{'type': 'text', 'text': str(error)}], 'is_error': True}
-        result = fn(**dict(validated))
-        if inspect.isawaitable(result):
-            result = await result
+        try:
+            result = fn(**dict(validated))
+            if inspect.isawaitable(result):
+                result = await result
+        except Exception as error:
+            logger.exception('Tool %s failed', fn.__name__)
+            return {'content': [{'type': 'text', 'text': tool_error(error)}], 'is_error': True}
         return {'content': [{'type': 'text', 'text': _as_text(result)}]}
 
     description = (inspect.getdoc(fn) or fn.__name__).split('\n\n')[0]

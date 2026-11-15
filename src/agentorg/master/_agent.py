@@ -71,6 +71,15 @@ load_dotenv()
 
 ToolFunction = Callable[..., object]
 
+# The model the interview runs on unless `AGENTORG_MODEL` names another; an empty value keeps this one.
+MASTER_MODEL = 'claude-opus-5-5'
+
+
+def master_model() -> str:
+    """Return the model the master interview runs on."""
+    return os.getenv('AGENTORG_MODEL') or MASTER_MODEL
+
+
 MASTER_INTRODUCTION = dedent(
     """Hi! I'm AgentOrg.
 
@@ -769,7 +778,7 @@ class StageAgent:
     def options(self) -> ClaudeAgentOptions:
         """Return the SDK options: the stage prompt, the stage tools only, no built-in tools, resuming the session."""
         return ClaudeAgentOptions(
-            model=os.getenv('AGENTORG_MODEL', 'sonnet'),
+            model=master_model(),
             system_prompt=stage_instructions(self.stage),
             tools=[],
             allowed_tools=[f'mcp__stage__{fn.__name__}' for fn in self.tools],

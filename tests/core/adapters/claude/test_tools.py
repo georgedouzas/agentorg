@@ -3,7 +3,7 @@
 import pytest
 from pydantic import BaseModel
 
-from agentorg.core.adapters.claude import as_sdk_server, as_sdk_tool
+from agentorg.core.adapters.claude import as_sdk_server, as_sdk_tool, tool_error
 from agentorg.core.agents.tools import tool
 
 
@@ -61,6 +61,19 @@ async def test_as_sdk_tool_reports_invalid_arguments_as_tool_error() -> None:
     result = await as_sdk_tool(lookup).handler({'ticket_id': 'seven'})
     assert result['is_error'] is True
     assert 'ticket_id' in result['content'][0]['text']
+
+
+async def test_as_sdk_tool_reports_failures_without_a_traceback() -> None:
+    """A raising tool returns its error type and first message line, never the traceback."""
+
+    def broken() -> str:
+        """Fail like a provider without a key."""
+        msg = 'Missing API key.\nTraceback (most recent call last):\n  File "/usr/lib/x.py"'
+        raise RuntimeError(msg)
+
+    result = await as_sdk_tool(broken).handler({})
+    assert result == {'content': [{'type': 'text', 'text': 'RuntimeError: Missing API key.'}], 'is_error': True}
+    assert tool_error(ValueError()) == 'ValueError'
 
 
 @pytest.mark.parametrize('functions', [[lookup], [lookup, summarise]])

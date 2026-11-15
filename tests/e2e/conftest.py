@@ -93,6 +93,21 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
     return report
 
 
+@pytest.fixture(scope='session', autouse=True)
+def fresh_cli_config(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Give the Claude Code CLI an empty config, as in a container.
+
+    The developer's own settings and cached feature flags then never change what the agents send.
+    """
+    previous = os.environ.get('CLAUDE_CONFIG_DIR')
+    os.environ['CLAUDE_CONFIG_DIR'] = str(tmp_path_factory.mktemp('claude-config'))
+    yield
+    if previous is None:
+        os.environ.pop('CLAUDE_CONFIG_DIR', None)
+    else:
+        os.environ['CLAUDE_CONFIG_DIR'] = previous
+
+
 @pytest.fixture(scope='session')
 def run_id() -> str:
     """Return the id that names this run's artifacts and cloud resources."""
@@ -148,6 +163,9 @@ def _save_artifacts(
         except Exception as error:  # noqa: BLE001 - the node may be the thing that failed
             (into / 'runs.json').write_text(json.dumps({'error': str(error)}))
     (into / 'model-misses.txt').write_text('\n'.join(mock.misses))
+    for digest, canonical in mock.missed.items():
+        (into / 'model-misses').mkdir(exist_ok=True)
+        (into / 'model-misses' / f'{digest}.json').write_text(json.dumps(json.loads(canonical), indent=2) + '\n')
 
 
 def _watch_budget(client: OrgClient, max_usd: float, exceeded: list[float], stop: threading.Event) -> None:

@@ -1,0 +1,650 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "## Live context\n- stage: refine (next_enabled=True)\n- next_blockers: none\n- next_question: What should we configure next?\n- placeholders: [('ai.agents[helper].tools', '(builtin only)'), ('knowledge.types', '(empty)'), ('parameters', '(empty)'), ('ui.app.icon', '\ud83d\udee0'), ('ui.app.description', 'A new agent organisation in progress.'), ('ui.empty_state.icon', '\u2728'), ('ui.empty_state.title', 'Nothing here yet'), ('ui.empty_state.body', 'Your org is taking shape \u2014 keep chatting with AgentOrg.'), ('ui.knowledge_empty', 'No knowledge entries yet.'), ('ui.agent_groups', '(empty)')]\n- structure: complete\n\n### working_spec\n```python\n\"\"\"Spec for Acme Help.\"\"\"\n\n\nfrom agentorg.core.spec import (\n    AI,\n    Agent,\n    AppUI,\n    Budget,\n    Communication,\n    EmptyState,\n    EnvVar,\n    EnvVars,\n    Governance,\n    Infra,\n    Knowledge,\n    Lifecycle,\n    Limits,\n    Notifications,\n    Operations,\n    Org,\n    Output,\n    Persona,\n    PrincipleSection,\n    Principles,\n    RunsPolicy,\n    Runtime,\n    Spec,\n    UI,\n    Unit,\n)\n\n\nspec = Spec(\n    org=Org(\n        name='Acme Help',\n        slug='acme-help',\n        package_name='acme_help',\n        description='Acme Help answers questions from freelancers about invoicing, expenses and tax exports in our accounting app, explains features step by step, and hands anything about billing disputes to a human. Every answer is grounded in the Ledgerly help articles.',\n        repository='https://example.com/TODO',\n        admin_name='Dana Admin',\n        admin_email='dana@acme.example',\n        visibility='private',\n    ),\n    runtime=Runtime(\n        infra=Infra(\n            packaging='docker',\n            database='sqlite',\n            vector_db='chromadb',\n            embedder='google:gemini-embedding-001',\n            api='none',\n            frontend='none',\n            auth='none',\n        ),\n        env_vars=EnvVars(\n            required=[\n                EnvVar(\n                    name='ANTHROPIC_API_KEY',\n                    description='Anthropic API key of the agents.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='AMQP_URL',\n                    description='RabbitMQ URL that carries runs and events.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='CHAT_API_KEY',\n                    description='Key LibreChat uses to call the chat API.',\n                    required_label='Always',\n                ),\n            ],\n            optional=[],\n        ),\n        setup=[],\n    ),\n    ai=AI(\n        agents=[\n            Agent(\n                id='helper',\n                name='Helper',\n                role='Answers Ledgerly customer questions about the app in a friendly, step-by-step way, grounded in the help articles.',\n                persona=Persona(\n                    tone='warm',\n                    verbosity='balanced',\n                    instructions=\"You are Helper, the friendly support agent for Ledgerly, an accounting app for UK freelancers and sole traders. Customers reach you by email or in-app chat.\\n\\nHow to answer:\\n1. Work out what the customer is asking about (invoicing, expenses, tax summary export, bank sync, plan changes, or billing/refunds).\\n2. For how-to questions, search the knowledge base for the relevant Ledgerly help article and base your answer on it. Give clear, numbered steps in plain language, with no accounting jargon.\\n3. If you can't find a help article that covers the question, say so honestly. Don't guess or make up features, menu names or steps. Offer to pass the question to the team.\\n4. Billing disputes and refund requests: don't try to resolve them and never promise a refund or any outcome. Tell the customer kindly that you're passing it to the finance team, then escalate it with a short summary of the case.\\n5. Don't give personal tax advice. You can explain how to export what the self-assessment return needs from Ledgerly, but suggest an accountant or HMRC guidance for tax decisions.\\n6. Politely decline topics unrelated to Ledgerly.\\n\\nKeep the tone warm and reassuring, and keep it consistent: the same question should always get the same answer.\",\n                    in_scope=[\n                        'Creating and sending invoices',\n                        'Categorising expenses',\n                        'Exporting a tax summary for self-assessment',\n                        'How bank sync works',\n                        'Changing a subscription plan',\n                        'Spotting billing disputes and refund requests',\n                    ],\n                    out_of_scope=[],\n                ),\n                model='sonnet',\n                autonomy='propose',\n                builtin_tools=[\n                    'read',\n                    'glob',\n                    'grep',\n                    'web_search',\n                    'web_fetch',\n                    'todo',\n                    'write',\n                    'edit',\n                ],\n                tools=[],\n                mcp_servers=[],\n                skills=[],\n                workspace='ephemeral',\n                memory='session',\n                limits=Limits(\n                    max_turns=30,\n                    max_run_usd=None,\n                    timeout_s=600,\n                ),\n                output=Output(\n                    format='text',\n                    json_schema=None,\n                    knowledge_type=None,\n                ),\n                replicas=1,\n                tags=[],\n            ),\n        ],\n        root=Unit(\n            id='desk',\n            name='Desk',\n            model='solo',\n            members=[\n                'helper',\n            ],\n            lead=None,\n            routing='least_loaded',\n            decision=None,\n            review='none',\n            owners=[],\n            max_autonomy=None,\n            monthly_usd=None,\n            approval_required=[],\n        ),\n    ),\n    operations=Operations(\n        triggers=[],\n        runs=RunsPolicy(\n            max_concurrent=4,\n            retries=1,\n            on_failure='notify',\n            fallback_agent=None,\n            retention_days=90,\n        ),\n        communication=Communication(\n            max_chain_depth=5,\n        ),\n        governance=Governance(\n            approval_required=[\n                'external_write',\n                'outbound_message',\n            ],\n            approvers=[\n                'dana@acme.example',\n            ],\n            approval_timeout_h=24.0,\n            on_timeout='reject',\n            spend_threshold_usd=1.0,\n        ),\n        budget=Budget(\n            monthly_usd=20.0,\n            per_run_usd=2.0,\n            alert_at=0.8,\n            on_exhausted='pause',\n        ),\n        notifications=Notifications(\n            channels=[\n                'dashboard',\n            ],\n            email_to=[],\n            webhook_url_env=None,\n            amqp_exchange=None,\n        ),\n        lifecycle=Lifecycle(\n            initial='trial',\n            trial_max_runs=50,\n            max_failure_rate=0.5,\n            failure_window=20,\n        ),\n    ),\n    parameters=[],\n    knowledge=Knowledge(\n        principles=Principles(\n            sections=[\n                PrincipleSection(\n                    id='mission',\n                    title='Mission',\n                    body=\"Acme Help exists to give Ledgerly customers fast, friendly and accurate answers to their questions about the app. Every reply should solve the customer's problem step by step, be grounded in the Ledgerly help articles, and stay consistent no matter who (or what) writes it. That includes the busy weeks around UK self-assessment deadlines.\",\n                ),\n                PrincipleSection(\n                    id='audience',\n                    title='Audience',\n                    body=\"We serve Ledgerly's customers: freelancers and sole traders in the UK who use the app to run their books. They reach us by **email** and through the **in-app chat**. Many are not accountants, so replies should use plain language and avoid jargon. Internally, our finance colleague receives billing disputes and refund requests from us.\",\n                ),\n                PrincipleSection(\n                    id='scope-in',\n                    title='In scope',\n                    body='Acme Help owns answering customer questions about Ledgerly, most commonly:\\n\\n- Creating and sending invoices\\n- Categorising expenses\\n- Exporting a tax summary for the self-assessment return\\n- How bank sync works\\n- Changing a subscription plan\\n\\nIt also owns spotting billing-dispute and refund requests and routing them to finance.',\n                ),\n                PrincipleSection(\n                    id='scope-out',\n                    title='Out of scope',\n                    body=\"Acme Help does **not** resolve billing disputes or refunds. Those go to our finance colleague, and we never promise a refund or its outcome to the customer. We explain Ledgerly's features. We do not give personal tax advice beyond how to use the app to export what the self-assessment return needs.\",\n                ),\n                PrincipleSection(\n                    id='typical-flow',\n                    title='Typical flow',\n                    body=\"1. A customer writes in by email or in-app chat.\\n2. We identify what they're asking about (invoicing, expenses, tax export, bank sync, plan change, or billing/refund).\\n3. For how-to questions, we find the relevant Ledgerly help article and write a friendly, step-by-step answer based on it.\\n4. For billing disputes or refunds, we hand the case to finance and let the customer know it's being looked at, without promising any outcome.\",\n                ),\n                PrincipleSection(\n                    id='market-context',\n                    title='Market context',\n                    body='Ledgerly competes in a crowded UK accounting-software market for freelancers and sole traders, against bigger tools. Support quality is one of the main ways we keep customers, so speed, accuracy and warmth all matter. Volume spikes around UK self-assessment tax deadlines, when reply times have reached up to a day.',\n                ),\n                PrincipleSection(\n                    id='principles',\n                    title='Operating principles',\n                    body='- **Accuracy first.** Base answers on the Ledgerly help articles. If unsure, say so rather than guess.\\n- **Friendly and clear.** Plain language, step-by-step instructions, a warm tone.\\n- **Consistent.** The same question gets the same answer whoever handles it.\\n- **Never promise refunds.** Refunds and billing disputes go to finance, and we make no commitments on their behalf.',\n                ),\n            ],\n        ),\n        types=[],\n    ),\n    ui=UI(\n        app=AppUI(\n            name='Acme Help',\n            icon='\ud83d\udee0',\n            description='A new agent organisation in progress.',\n        ),\n        empty_state=EmptyState(\n            icon='\u2728',\n            title='Nothing here yet',\n            body='Your org is taking shape \u2014 keep chatting with AgentOrg.',\n        ),\n        knowledge_empty='No knowledge entries yet.',\n        agent_groups=[],\n        workflow_groups=[],\n        featured_agents=[],\n        agent_icons={},\n        overview=[],\n        agent_configs={},\n        chat_quick_prompts={},\n    ),\n)\n\n```\n\n---\n\nNothing to add for now. Advance to the next stage.",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: true\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Opus 5.5. The exact model ID is claude-opus-5-5. Assistant knowledge cutoff is June 2026.\n\nToday's date is <env>",
+            "type": "text"
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      }
+    ],
+    "model": "claude-opus-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are AgentOrg, the master agent that interviews the user to design and build a\n    coordinated group of agents (`spec.py` plus a working project tree). The \"group\" can\n    be a full organization, a team inside one, a department, a workflow owner, or a\n    capability that plugs into something bigger - same machinery for every shape. The\n    spec's `org.*` fields are the storage location for \"this group\" regardless of how\n    the user frames it. Mirror the user's preferred term (\"team\", \"squad\", \"service\",\n    \"department\", \"org\") in your replies; \"your team\" or \"this group\" are good\n    neutral fallbacks.\n\n    Style - talk like a human\n    - Conversation first. When the user answers something, acknowledge what they said in\n      your own words (\"Got it - Acme Real Estate it is.\"), then move on. Don't repeat\n      their answer back verbatim, don't read out a checklist of \"fields saved\".\n    - One focused question at a time for single-field decisions. Group related fields\n      when it reads natural. Inline prose over bold-tagged labels for ordinary turns.\n    - When the user redirects (\"change X to Y\", \"let's do agents first\"), follow their\n      direction; the placeholder list keeps things from slipping.\n    - Batch turns (\"fill the basics\", \"add 10 agents\", \"you decide\") still do the whole\n      batch in one go.\n    - Markdown is rendered. Use bullet lists when you have 3+ items, inline prose for\n      1-2. Don't bold every label.\n    - DO NOT narrate which stage you are on at the top of every reply. The stage bar in\n      the UI already shows that. The `## Stage N - Label` heading is used EXACTLY ONCE -\n      on the first message AFTER `advance_to_next_stage` succeeds. On every other turn,\n      open with the conversational reply directly. No \"## Stage 1 - Discover\" at the top.\n      No \"We're still in Stage 3\" anywhere. The user knows.\n    - When a tool call fails, state the new approach in ONE SHORT SENTENCE and try it.\n      Do NOT apologise, do NOT rehash the previous attempt, do NOT enumerate what you\n      already tried. The tool-call badges in the UI already show that. Bad:\n      \"My apologies! I jumped the gun. It seems the duckdb package wasn't picked up by\n      the sandbox. Let me try a custom tool instead...\" (six sentences of nothing).\n      Good: \"duckdb isn't installed. Writing a sqlite3-based custom tool instead.\"\n      (one sentence, then the tool call).\n\n    Live context at the top of every user message\n    - `working_spec`: the spec.py source of the current spec.\n    - `placeholders`:  fields still holding seed values.\n    - `next_question`: the most-overdue placeholder, picked deterministically in priority\n                       order. Use it as a default when you're not sure what to ask next.\n    - `stage`:         the current interview stage. You own the transition via the\n                       `advance_to_next_stage` tool, but only after the user explicitly\n                       confirms. Protocol:\n                         1. When this stage's goal is met, summarise what you've captured\n                            and ask \"Ready to move to Stage N+1 (<Label>)?\".\n                         2. Wait for an explicit yes (\"yes\", \"ready\", \"continue\",\n                            \"let's go\", \"next\"). Vague replies don't count.\n                         3. On yes, call `advance_to_next_stage`. The tool replies with\n                            \"Advanced to Stage N - Label.\" or \"Cannot advance: <blockers>\".\n                            If blocked, tell the user what's missing and continue\n                            working on those items in the current stage.\n                         4. After a successful advance, open your next message with the\n                            heading `## Stage N - Label` and walk the user through what\n                            happens in the new stage.\n\n    Hard rules that always apply\n    - End every turn with at least one human-readable sentence. Empty responses are\n      forbidden. After a tool call you keep going and summarise + ask next.\n    - BEFORE calling any `set_*` or `add_or_update_*` tool, glance at `working_spec` and\n      skip the call when every argument you would pass matches the current value. The\n      seed defaults are: `operations.budget.monthly_usd=None`, `runtime.infra.packaging='none'`,\n      `runtime.infra.api='none'`, `runtime.infra.frontend='none'`,\n      `runtime.infra.database='sqlite'`, `runtime.infra.vector_db='chromadb'`,\n      `runtime.infra.auth='none'`. Redundant tool calls aren't free - they clutter the\n      chat with badges that look like real work.\n    - Don't apologise for your own moves. If you notice mid-thought that a tool call was\n      redundant, just move on; the user doesn't need an apology for something the UI\n      barely surfaces.\n    - When you call patch tools, the live `working_spec` updates - confirm by reading the\n      snapshot, not by repeating what you sent in.\n    - Never invent identifiers, repository URLs, emails, or env var values. If you don't\n      have one, ask.\n    - The ONLY tools you have are the ones listed in your per-stage instructions below.\n      Calls to any other tool will fail with \"function not found\". If you think you need\n      one outside that list, the user is on the wrong stage - they need to advance or\n      go back, not have you reach for tools you don't have.\n\n### Stage 4 instructions (REFINE)\n\n    The agents are in and working. Now we polish: knowledge types the agents read /\n    write, tunable parameters, the dashboard's UI shape, and a final pass on the org's\n    principles.\n\n    What to tackle (skip any block the user doesn't need):\n      - **Knowledge types**: `add_or_update_knowledge_type` for each kind of artifact\n        agents will produce (e.g. `research_doc`, `report`, `customer_note`). Metadata\n        fields go here too.\n      - **Parameters**: `add_or_update_parameter` for runtime knobs the operator can\n        tune without re-rendering (e.g. `min_sources=3`).\n      - **Principles**: revisit Stage-1 drafts via `add_or_update_principle_section`.\n        Stage 1 wrote them under domain pressure; this is the consolidation pass.\n      - **Governance**: `set_governance` for which action classes need human approval\n        (external_write, outbound_message, code_execution, knowledge_publish, spend), how\n        long approvals wait and what a timeout does.\n      - **Notifications**: `set_notifications` for where approval requests, escalations,\n        failed runs, budget alerts and lifecycle changes go (dashboard, email, webhook,\n        amqp). Declare webhook URLs as env vars first.\n      - **Run policy**: `set_run_policy` for concurrency, retries and what happens to runs\n        that keep failing (notify, escalate to the inbox, or hand off to a fallback agent).\n      - **Dashboard polish**: `set_ui_app`, `set_ui_empty_state`, `set_knowledge_empty`,\n        `add_or_update_agent_group`, `set_featured_agents`, `set_agent_icons`,\n        `add_or_update_overview_block`.\n\n    Each change appears in the live preview iframe within a couple of seconds.\n\n    Closing\n    -------\n    Ask \"Ready to move to **Stage 5 - Handoff** (finalize the spec + run/deploy\n    walkthrough)?\" On confirmation, call `advance_to_next_stage`.\n\n    Your tools in this stage\n    ------------------------\n    - `add_or_update_knowledge_type`, `remove_knowledge_type`\n    - `add_or_update_parameter`, `remove_parameter`\n    - `add_or_update_principle_section`, `remove_principle_section`\n    - `set_ui_app`, `set_ui_empty_state`, `set_knowledge_empty`\n    - `add_or_update_agent_group`, `remove_agent_group`, `set_featured_agents`,\n      `set_agent_icons`, `add_or_update_overview_block`, `remove_overview_block`\n    - `set_governance`, `set_notifications`, `set_run_policy`\n    - `get_current_spec`, `list_placeholders`\n    - `advance_to_next_stage`",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Ids",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "label",
+            "ids"
+          ],
+          "title": "add_or_update_agent_group_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_agent_group"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type_id": {
+              "title": "Knowledge Type Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "metadata_fields": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata Fields"
+            }
+          },
+          "required": [
+            "knowledge_type_id",
+            "label"
+          ],
+          "title": "add_or_update_knowledge_type_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_knowledge_type"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "body"
+          ],
+          "title": "add_or_update_overview_block_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_overview_block"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "default": {
+              "title": "Default"
+            },
+            "display_format": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Display Format"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "param_type": {
+              "enum": [
+                "int",
+                "float",
+                "string",
+                "bool",
+                "object",
+                "array"
+              ],
+              "title": "Param Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "param_type",
+            "default",
+            "label"
+          ],
+          "title": "add_or_update_parameter_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_parameter"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "section_id": {
+              "title": "Section Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "section_id",
+            "title",
+            "body"
+          ],
+          "title": "add_or_update_principle_section_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_principle_section"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "advance_to_next_stage_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__advance_to_next_stage"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "get_current_spec_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__get_current_spec"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "list_placeholders_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__list_placeholders"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "label"
+          ],
+          "title": "remove_agent_group_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_agent_group"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type_id": {
+              "title": "Knowledge Type Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "knowledge_type_id"
+          ],
+          "title": "remove_knowledge_type_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_knowledge_type"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title"
+          ],
+          "title": "remove_overview_block_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_overview_block"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "remove_parameter_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_parameter"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "section_id": {
+              "title": "Section Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "section_id"
+          ],
+          "title": "remove_principle_section_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_principle_section"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "icons": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "title": "Icons",
+              "type": "object"
+            }
+          },
+          "required": [
+            "icons"
+          ],
+          "title": "set_agent_icons_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_agent_icons"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "ids"
+          ],
+          "title": "set_featured_agents_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_featured_agents"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "approval_required": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Approval Required"
+            },
+            "approval_timeout_h": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Approval Timeout H"
+            },
+            "on_timeout": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "reject",
+                    "approve"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "On Timeout"
+            },
+            "spend_threshold_usd": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spend Threshold Usd"
+            }
+          },
+          "title": "set_governance_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_governance"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "title": "set_knowledge_empty_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_knowledge_empty"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "amqp_exchange": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amqp Exchange"
+            },
+            "channels": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Channels",
+              "type": "array"
+            },
+            "email_to": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email To"
+            },
+            "webhook_url_env": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Webhook Url Env"
+            }
+          },
+          "required": [
+            "channels"
+          ],
+          "title": "set_notifications_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_notifications"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "fallback_agent": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fallback Agent"
+            },
+            "max_concurrent": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Max Concurrent"
+            },
+            "on_failure": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "notify",
+                    "escalate",
+                    "handoff"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "On Failure"
+            },
+            "retention_days": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retention Days"
+            },
+            "retries": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retries"
+            }
+          },
+          "title": "set_run_policy_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_run_policy"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "icon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Icon"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Name"
+            }
+          },
+          "title": "set_ui_app_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_ui_app"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "body": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Body"
+            },
+            "icon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Icon"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "title": "set_ui_empty_state_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_ui_empty_state"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch4kYyVCGENQqP8P6L2EN\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":10810,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":10810,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":2,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}           }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}        }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":50}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":null}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"CAQSqwYKEAgTGAI4AUIIdGhpbmtpbmcSDCpZ6hy/VQwpwWAhHxoMT8UsLV9XmMlTVjYkIjCiUdIBYEEvg02tTXZIgcRVzaLKyJ0qgnxRq3AxaEdkyOX1gU9GoL1svPiROn2XjP4qyAUaZfub+QDXtZcxK22hGF/7Cv3cCZL3Kw18nG5vs8w9b0Ljb7XoVT6f1OXj0hZ2HJ0kkBTT/KkIfAZYzrKCYwOmqNhzKxWHAuzp2I7CeShLGBZrFqH0k8OcjjhxZGC5v4XCwf47Rk7ZNOeiBGZUTMl2wJbg3pqw5mYucanocsL+EkzgCVKXsJbAG3HOCwXQwjFWPin+Tt4v1L54iRN6a8GiIc/eTZK/sTANBjIxURrkEyMsE6dnheVilua/W0mQlGn+yrAGRU9xze5pu9ZGwR9MChuK50OHtfVLnzOeXP3QTWZGBoVjKSj/WUzzggY5RLeXSyUvwCTce86gTaxAlcqPk3QfRHvYdGO1O7uLyrKT92gbWrg4jrjGelj4XHv0dyajJHfRReUjod1roNIn6CAdtC/Zj4XSMZr0s0o/Ol8UbE/zZ1Gyn1IOnqvSjdULMBrArhPKUr5vddkED+J/HRiLrZGx/zPGfXmAoOPx4gsKHnOxF0+lIHTUNF+YpJV3nS2D5pTqQuFMY3yBxHuYifQ2dtxjE/wKIYuQL2iGKlphCGEABkHYcGY4K65DJbQyPOUf34Jr5tL3A4LfXM94Y58IiPZ3httZhOHVAX8VcUlVhAasv3flUvtRTza/22XiveuTIzaJYQkmFwl78vKf2maoNkkz3tsW5jOcoJNUcRqXoPSxJOYDQXBIrMDYmAJnvh4y7cCMnJlQNgMsbrUdrpjB8TVElsGQC4CTXzScz8wCFbaCU0u+GdSIZ/bLRqn3GEdIrgLOVqQegBFDNUH9dS+0OutYyZmvYLP3l7vpTN8DDZuXcS8DrmyT37olnzsfPjt2D86VWrldGExFqfkgLWgineaZOycUfhdvlresawnU+1guMrA5/B5Rb73LqLJ14ONIuBh0ihGqPFs4AhwQMA27kg61VrihfoZXWmyqKeFZ0VsNvBip6kdfGAE=\"}           }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0              }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_01Xt6gEoLB5oFstnyYoGCZTH\",\"name\":\"mcp__stage__advance_to_next_stage\",\"input\":{},\"caller\":{\"type\":\"direct\"}}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\"}         }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1            }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":10810,\"cache_read_input_tokens\":0,\"output_tokens\":107,\"output_tokens_details\":{\"thinking_tokens\":67}},\"context_management\":{\"applied_edits\":[]}             }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"          }\n\n"
+    }
+  ]
+}

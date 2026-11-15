@@ -3,7 +3,7 @@
 from ._options import build_agent_options, resolve_workspace
 from ._prompt import compile_system_prompt
 from ._runtime import RunTarget, register_org
-from ._tools import as_sdk_server, as_sdk_tool
+from ._tools import as_sdk_server, as_sdk_tool, tool_error
 
 __all__ = [
     'RunTarget',
@@ -13,4 +13,5 @@ __all__ = [
     'compile_system_prompt',
     'register_org',
     'resolve_workspace',
+    'tool_error',
 ]

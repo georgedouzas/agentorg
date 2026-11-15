@@ -61,6 +61,7 @@ def test_dockerfile_installs_the_local_wheel_first() -> None:
     dockerfile = 'WORKDIR /app\nRUN uv pip install --system -e .\n'
     adapted = adapt_dockerfile(dockerfile)
     assert adapted.index('wheels/*.whl') < adapted.index('--system -e .')
+    assert 'UV_CONSTRAINT=' in adapted
     with pytest.raises(ValueError, match='no longer installs'):
         adapt_dockerfile('RUN pip install .\n')
 

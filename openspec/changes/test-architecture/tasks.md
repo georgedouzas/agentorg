@@ -15,12 +15,12 @@
 
 - [x] 3.1 Add the `nox -s e2e` session, excluded from `tests`, with the `--target`, `--model-mode` and `--scenario` options. It checks for Docker and validates the target before provisioning. Verify that `nox -s tests` collects zero tests from `tests/e2e/`, and that `nox -s e2e -- --target bogus` fails before provisioning.
 - [x] 3.2 Implement `harness/mock_anthropic.py` with request canonicalisation and hashing, streaming and non-streaming replay, record-mode proxying, and a missing-recording error. Verify with self-tests in `tests/e2e/harness/` (run by `nox -s e2e -- --self-test`) covering hash stability and SSE replay.
-- [ ] 3.3 Implement the `Target` protocol, `local_process.py` and the conftest teardown guarantee and artifact capture. Verify that a deliberately failing smoke scenario leaves `.e2e-artifacts/<run-id>/` populated and no running containers.
-- [ ] 3.4 Implement `harness/client.py`, a typed client for the runs, approvals, inbox, lifecycle, hooks and chat stream endpoints, and the Playwright smoke helpers. Verify with the golden-path scenario in 4.1.
+- [x] 3.3 Implement the `Target` protocol, `local_process.py` and the conftest teardown guarantee and artifact capture. Verify that a deliberately failing smoke scenario leaves `.e2e-artifacts/<run-id>/` populated and no running containers.
+- [x] 3.4 Implement `harness/client.py`, a typed client for the runs, approvals, inbox, lifecycle, hooks and chat stream endpoints, and the Playwright smoke helpers. Verify with the golden-path scenario in 4.1.
 
 ## 4. Scenarios
 
-- [ ] 4.1 Add `test_master_golden_path.py`: a scripted interview, then the spec validates, renders, boots on the target and answers chat. Record its cassettes. Verify that it passes in `replay` × `local-process` twice with identical outputs.
+- [x] 4.1 Add `test_master_golden_path.py`: a scripted interview, then the spec validates, renders, boots on the target and answers chat. Record its cassettes. Verify that it passes in `replay` × `local-process` twice with identical outputs.
 - [ ] 4.2 Add `test_support_desk.py`: signed webhook, approval held, approved through both the API and the Inbox UI, run succeeded. Verify that it passes in `replay` × `local-process`.
 - [ ] 4.3 Add `test_research_reporting.py`: a schedule fires via the clock offset, the `hub` lead delegates, a report knowledge unit is written, and an event triggers the summariser. Verify that it passes in `replay` × `local-process`.
 - [ ] 4.4 Add `test_ops_monitoring.py` with a stub metrics MCP server, `custom.incident` publish, the responder run, and escalation to the inbox on forced failure. Verify that it passes in `replay` × `local-process`.
