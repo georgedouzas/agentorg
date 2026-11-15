@@ -74,7 +74,6 @@ class RunReply:
         self._finish = finish
         self.seen = 0
         self.children: set[str] = set()
-        self.approvals: set[str] = set()
         self.content = ''
         self.run: Run | None = None
 
@@ -85,20 +84,22 @@ class RunReply:
                 lines.append(event['text'])
             elif event['type'] == 'tool_call':
                 lines.append(f"\n> {event['name']} {json.dumps(event.get('input', {}))[:120]}\n")
+            # Holds are read from the transcript, so each shows in order even when decided between two polls.
+            elif event['type'] == 'approval_requested':
+                approval_id = event['approval_id']
+                link = f'{self.console_url}/?tab=inbox&approval={approval_id}'
+                lines.append(
+                    f"\n⏸ `{event['tool']}` is waiting for approval: {link}\n"
+                    f'Approvers can reply `/approve {approval_id}` or `/reject {approval_id} <comment>`.\n',
+                )
+            elif event['type'] == 'approval_decided':
+                by = f" by {event['by']}" if event.get('by') else ''
+                lines.append(f"\n{event['status'].capitalize()}{by}.\n")
         self.seen = len(run.transcript)
         for child in await self.store.list_runs(parent_id=run.id, limit=1000):
             if child.id not in self.children:
                 self.children.add(child.id)
                 lines.append(f'\n> delegated to {child.target}\n')
-        if run.status == 'awaiting_approval':
-            for approval in await self.store.list_approvals(status='pending'):
-                if approval.run_id == run.id and approval.id not in self.approvals:
-                    self.approvals.add(approval.id)
-                    link = f'{self.console_url}/?tab=inbox&approval={approval.id}'
-                    lines.append(
-                        f'\n⏸ `{approval.tool_name}` is waiting for approval: {link}\n'
-                        f'Approvers can reply `/approve {approval.id}` or `/reject {approval.id} <comment>`.\n',
-                    )
         if run.status in TERMINAL and run.status != 'succeeded':
             lines.append(f'\n✖ The run {run.status}: {run.failure_reason or "no reason given"}.')
         return lines

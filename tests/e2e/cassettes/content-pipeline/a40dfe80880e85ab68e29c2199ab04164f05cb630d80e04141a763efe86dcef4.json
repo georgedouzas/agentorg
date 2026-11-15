@@ -1,0 +1,247 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "Write a short article (at most 120 words) announcing that Ledgerly now exports VAT returns directly to HMRC. The publisher publishes the final text with publish_article.\n\nOutput of step 2:drafter:\n\n**Ledgerly now sends VAT to HMRC**\n\nLedgerly can now submit your VAT returns straight to HMRC, so you no longer need to export figures and re-enter them on the government portal.\n\nPrepare your return in Ledgerly, review the figures, and submit. Skipping the manual re-entry removes a common source of errors and saves time at every filing deadline.\n\nThe feature is available now in your Ledgerly account. Open the new VAT tab to get started.\n\n(about 80 words)\n\nNotes for the publisher:\n- The headline is six words.\n- The VAT tab comes from the reviewer's comment. I couldn't verify that it exists or what it's called, so please confirm the name.\n- Please also confirm any plan restrictions and whether Ledgerly supports Making Tax Digital. The text mentions neither.\n- I left out the researcher's \"connect once\" line because I couldn't verify it.\n- I don't have a publish_article tool, so I haven't published this.",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: false\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Sonnet 5.5. The exact model ID is claude-sonnet-5-5. Assistant knowledge cutoff is June 2026.\n\nUSD budget: $0/$2; $2 remaining\n\nToday's date is <env>",
+            "type": "text"
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are Publisher, part of Content Pipeline. Your role: Publishes the approved piece.\n\n## Style\n\nBe direct: lead with the answer and skip pleasantries.\nGive the answer and only the context needed to act on it.\n\n## Principles\n\n### Care\n\nBe accurate.",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "body"
+          ],
+          "title": "publish_articleArguments",
+          "type": "object"
+        },
+        "name": "mcp__cms__publish_article"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "context": {
+              "default": "",
+              "title": "Context",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "title": "escalate_input",
+          "type": "object"
+        },
+        "name": "mcp__org__escalate"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "default": "",
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata_filter": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata Filter"
+            }
+          },
+          "title": "list_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__list_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "event": {
+              "title": "Event",
+              "type": "string"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            }
+          },
+          "required": [
+            "event",
+            "payload"
+          ],
+          "title": "publish_input",
+          "type": "object"
+        },
+        "name": "mcp__org__publish"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name"
+          ],
+          "title": "read_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__read_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Knowledge Types"
+            },
+            "query": {
+              "title": "Query",
+              "type": "string"
+            },
+            "top_k": {
+              "default": 10,
+              "title": "Top K",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__search_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "content": {
+              "title": "Content",
+              "type": "string"
+            },
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name",
+            "content"
+          ],
+          "title": "write_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__write_knowledge"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-5-5\",\"id\":\"msg_011Ch4wetzX6mSjGuAwmEkpz\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":971,\"cache_read_input_tokens\":4832,\"cache_creation\":{\"ephemeral_5m_input_tokens\":971,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":8,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}   }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"} }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":50}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":null}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"CAQSpwYKEAgTGAI4AUIIdGhpbmtpbmcSDGUtXtHlkho94x3ifhoMETAa7SeGkSCaujxlIjBnjKq5n96Sk7LyuFNRmr5cbONjYSjyuJG8f8hm5iH5tkWyg4Ll1BmvjWCwZu4iMw0qxAUxkwCS011dbFNXJ8N+3WqqjXn42xNAXR8ldSb0hBnNhNbeZ5XSDaSfiSwno54e095a2Uhu3s/mf2/9H61iZpee0tkwAfQltSS5DbzEYdkle76vjezb9AmHwu0Ohf4JmWqpdfPBOV5rN2G/rm+id1gRUemneEnTaAGTTG5Dy3KQDgkzY3s94lvj2F301xk/H4yqmoamvLvqNs7vnWBYdbxT4QGaqLvw5fYtl6ZflrG2JJaWEw1pfn1eeshQghoWVpAjCZwcpSkp0XQ+AVAgLMqCkGnZvoZNrZoxv1hATbGeUNm8b7lQpILWI+tEFpjLAsrUAfttnyJOEQ79X5wGwaTiLIwMe/YTi9Ze4Kz8KfsucBt4cW+HP94KD1RKGI2nP84xbiloBN/gPZCpC5NoWxM6sU4RJb7OtTcrHkR93w1PLsSD8G4rw9pQxa583Xx+ciYF+6bUYXf4Tk7CZf2+xKWMoAVn9yYnpoBsFBl5mqBQxNunFvIT6gsavMzvRWyQ79X89zbSaHxqTY6TBiZq7Z5SVA3C631Qu53Lzp+cjMM4pBmeJJNimajXKpwPAU4MSiOsxMPu0I+ahzLLRcmybpBFN1SW+wx40PVljDEwhfr2HMIjVCtJZpjlV4bNHDNjgfAXELuctZNkOjkKp6CvEF9OFLi40E02m6xgXEYnVnv9ecCiY3PxSHIioNlsIjyeHQhq9u/jJheJGnrvVFvBvwJ4Ig+le3klMIhB4WxyMLLa04SXY5hzyCtQ4SoH2owj09xI75xvRdQ4qY1lz3v53IE4GlZCYByLuuvuqdrxUnzoV+ZxdRZMZzmXaD+B6i5kx8k7bhMfWG8GcRC1X82PEWggxUaveJzSyEGImMYw+wvfOpLHe5idHk//btPOUwAsO+zJBsHwnpl8OemFevID67KEBxypiwb0kwnnlA1UkK/wpjI+g4sYAQ==\"}           }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0              }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_011NTVRkdAJ3YeCJ96AdK8CB\",\"name\":\"mcp__org__search_knowledge\",\"input\":{},\"caller\":{\"type\":\"direct\"}} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"query\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\\\": \\\"Led\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"gerly V\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"AT retu\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"rns HMR\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"C expor\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"t VAT t\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"ab Maki\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"ng Tax \"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"Digital\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\" plans\\\"\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\", \\\"top_\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"k\\\": 5}\"}   }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1    }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":971,\"cache_read_input_tokens\":4832,\"output_tokens\":176,\"output_tokens_details\":{\"thinking_tokens\":66}},\"context_management\":{\"applied_edits\":[]}    }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"          }\n\n"
+    }
+  ]
+}

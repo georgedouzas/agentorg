@@ -10,7 +10,7 @@ from agentfield.agent import Agent as AgentFieldNode
 from claude_agent_sdk import ClaudeAgentOptions
 
 from agentorg.core import ConfigurationError
-from agentorg.core.operations import OrgRuntime, database_url, start_operations
+from agentorg.core.operations import OrgRuntime, database_url, output_name, start_operations
 from agentorg.core.spec import Spec
 
 from .conftest import FakeClient, result_message
@@ -171,3 +171,11 @@ def test_database_url_by_infra(spec_dict_minimal: dict[str, Any], tmp_path: Path
     assert database_url(spec, {}, tmp_path, preview=True).startswith('sqlite+aiosqlite')
     with pytest.raises(ConfigurationError, match='DATABASE_URL'):
         database_url(spec, {}, tmp_path)
+
+
+def test_output_name_follows_the_content() -> None:
+    """The same output always files under the same name, and different output under another."""
+    assert output_name('lead', 'Report.') == output_name('lead', 'Report.')
+    assert output_name('lead', 'Report.') != output_name('lead', 'Other.')
+    assert output_name('lead', {'b': 1, 'a': 2}) == output_name('lead', {'a': 2, 'b': 1})
+    assert output_name('lead', 'Report.').startswith('lead-')

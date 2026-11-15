@@ -1,0 +1,226 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "Write a short article (at most 120 words) announcing that Ledgerly now exports VAT returns directly to HMRC. The publisher publishes the final text with publish_article.\n\nOutput of step 1:researcher:\n\n**Ledgerly now files VAT returns directly to HMRC**\n\nLedgerly can now send your VAT returns straight to HMRC. You no longer need to export figures and re-enter them on the government portal.\n\nPrepare your return in Ledgerly, review the figures, and submit. This removes a manual step where errors can creep in, and it saves time at every filing deadline.\n\nThe feature is available now in your Ledgerly account. Connect Ledgerly to your HMRC account once, and you can submit VAT returns from there each period.\n\nLedgerly's aim is to make compliance faster and less error-prone, so more of your time goes to running your business.\n\n(Word count: 98)\n\nNote for the publisher: I wrote this from the brief alone and found no product details to check it against. Before publishing, please confirm the connection and submission steps, any plan restrictions, and whether Ledgerly supports Making Tax Digital.",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: false\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Sonnet 5.5. The exact model ID is claude-sonnet-5-5. Assistant knowledge cutoff is June 2026.\n\nUSD budget: $0/$2; $2 remaining\n\nToday's date is <env>",
+            "type": "text"
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      }
+    ],
+    "model": "claude-sonnet-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are Drafter, part of Content Pipeline. Your role: Drafts the piece.\n\n## Style\n\nBe direct: lead with the answer and skip pleasantries.\nGive the answer and only the context needed to act on it.\n\n## Principles\n\n### Care\n\nBe accurate.",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "context": {
+              "default": "",
+              "title": "Context",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "title": "escalate_input",
+          "type": "object"
+        },
+        "name": "mcp__org__escalate"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "default": "",
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata_filter": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata Filter"
+            }
+          },
+          "title": "list_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__list_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "event": {
+              "title": "Event",
+              "type": "string"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            }
+          },
+          "required": [
+            "event",
+            "payload"
+          ],
+          "title": "publish_input",
+          "type": "object"
+        },
+        "name": "mcp__org__publish"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name"
+          ],
+          "title": "read_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__read_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Knowledge Types"
+            },
+            "query": {
+              "title": "Query",
+              "type": "string"
+            },
+            "top_k": {
+              "default": 10,
+              "title": "Top K",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__search_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "content": {
+              "title": "Content",
+              "type": "string"
+            },
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name",
+            "content"
+          ],
+          "title": "write_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__write_knowledge"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-5-5\",\"id\":\"msg_011Ch4wdnUKzyNJfBaQ4NXJz\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":5644,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":5644,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":3,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}     }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}    }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":50}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":200}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":null}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"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\"}  }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0     }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"**\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Ledgerly now s\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ends VAT returns directly\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" to HMRC**\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n\\nLedgerly can now subm\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"it your VAT returns stra\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ight to HMRC, so\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" you no longer need to export fig\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ures and re-enter them on\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" the government portal.\\n\\nPr\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"epare your return in Led\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"gerly, review the figures\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\", and submit. Skip\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ping the manual re-entry\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" removes a common source of errors\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" and saves time at every filing\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" deadline.\\n\\nThe feature\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" is available now in your Led\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"gerly account.\\n\\n(about\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" 75 words)\\n\\nNot\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"es for the publisher:\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n- I removed the researcher\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"'s line\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" about connecting to\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" H\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"MRC once and subm\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"itting each period. I\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" couldn't verify it\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n- I also\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" removed the closing mar\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"keting sentence, which added\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" no information\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\\n-\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Before publishing, please confir\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"m any\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" plan restrictions and\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" whether Ledgerly\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" supports Making Tax\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Digital. Ne\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ither is\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" mentioned in the text\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\\n- I don't have a\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" publish_article tool, so\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" I\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" haven't published this. The text\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" above\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" is ready for you\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" to publish.\"} }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1      }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":5644,\"cache_read_input_tokens\":0,\"output_tokens\":730,\"output_tokens_details\":{\"thinking_tokens\":425}},\"context_management\":{\"applied_edits\":[]}               }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\" }\n\n"
+    }
+  ]
+}

@@ -43,7 +43,8 @@ and the AgentField control plane.
 `--target` is one of:
 
 - `local-process` (the default): the node and the frontend run as local processes.
-- `local-docker`: the rendered `compose.yaml`. Not implemented yet.
+- `local-docker`: the rendered `compose.yaml`, built with the local agentorg wheel pinned to `uv.lock`, on ephemeral
+  ports under its own compose project. Scenarios that chat through LibreChat run only here.
 - `cloud`: Railway and Vercel. Not implemented yet.
 
 `--model-mode` decides where model calls go. The org always talks to a local mock of the Anthropic API:
@@ -51,14 +52,23 @@ and the AgentField control plane.
 - `replay` (the default): the mock serves the cassettes in `tests/e2e/cassettes/<scenario>/` and costs nothing. A
   request without a recording fails the scenario and names the request.
 - `record`: the mock forwards to the real API and saves each response as a cassette. Run it after changing a prompt,
-  a tool or a spec the scenario uses, then commit the new cassettes.
+  a tool or a spec the scenario uses, then commit the new cassettes. Delete `tests/e2e/cassettes/<scenario>/` first so
+  no stale recording survives.
 - `live`: the mock forwards without saving. A scenario is paused and failed with reason `budget` once its runs cost
   more than its `max_usd` marker, 1.0 by default.
 
 `record` and `live` read `ANTHROPIC_API_KEY` from your environment. The key stays in the mock and never reaches the org.
 
+Recordings replay on every target. Requests are matched on a hash of their model, system prompt, messages, MCP tools
+and `max_tokens`, after dates, ids, temporary paths, working directories and the CLI's version header are normalised.
+The CLI's built-in tools are left out, since they differ between platforms. Each session gives the CLI an empty
+`CLAUDE_CONFIG_DIR`, so your own Claude Code settings never reach a recording. Scenarios that wait for a schedule start
+the node with `AGENTORG_CLOCK_START`, so the scheduler's clock begins just before the cron fires. External systems are
+stub MCP servers in `tests/e2e/harness/stub_mcp.py`.
+
 A failed scenario leaves its rendered project, node, frontend and container logs, run transcripts, unmatched model
-requests and, for browser checks, a Playwright trace and a screenshot in `.e2e-artifacts/<run-id>/<test>/`.
+requests and, for browser checks, a Playwright trace and a screenshot in `.e2e-artifacts/<run-id>/<test>/`. Each
+unmatched request is saved as JSON under `model-misses/`, ready to diff against the closest cassette.
 
 ### Changelog
 

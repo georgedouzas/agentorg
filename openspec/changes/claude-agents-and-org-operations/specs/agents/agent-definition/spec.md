@@ -151,7 +151,8 @@ A run exceeding any limit SHALL stop with a status naming the limit hit.
 
 ### Requirement: Output contract
 Each agent SHALL declare `output` as `text` (default) or `json` with a JSON schema. It MAY also name a `knowledge_type` into
-which successful outputs are written. A `json` output that fails schema validation SHALL fail the run.
+which successful outputs are written, named after the agent and a hash of the content, so the same output is filed
+once. A `json` output that fails schema validation SHALL fail the run.
 
 #### Scenario: Report persisted as knowledge
 - **WHEN** an agent with `output.knowledge_type='report'` completes a run

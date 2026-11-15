@@ -67,21 +67,21 @@
           {
             "content": [
               {
-                "text": "Budget set to 20.0 USD per month.",
-                "type": "text"
-              }
-            ],
-            "tool_use_id": "toolu_01FamezPcfMjcjV9kT81W2Gq",
-            "type": "tool_result"
-          },
-          {
-            "content": [
-              {
                 "text": "Updated runtime.infra fields: packaging.",
                 "type": "text"
               }
             ],
             "tool_use_id": "toolu_019cJeGKUHb1Q2CyuzEJyr3n",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Budget set to 20.0 USD per month.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01FamezPcfMjcjV9kT81W2Gq",
             "type": "tool_result"
           }
         ],

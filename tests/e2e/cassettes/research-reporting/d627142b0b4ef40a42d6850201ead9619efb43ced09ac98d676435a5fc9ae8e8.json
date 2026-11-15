@@ -1,0 +1,336 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "Write a short weekly research report for <datetime>. Ask analyst-markets and analyst-policy for one finding each, then combine them into a report of at most 150 words.",
+        "role": "user"
+      },
+      {
+        "content": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: false\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Opus 5.5. The exact model ID is claude-opus-5-5. Assistant knowledge cutoff is June 2026.\n\nUSD budget: $0/$2; $2 remaining\n\nToday's date is <env>",
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "id": "toolu_015SU2bFCTZY7FysyFLYPLWp",
+            "input": {
+              "target": "analyst-markets",
+              "task": "Provide one key markets finding for the weekly research report dated <datetime>. Keep it to 1-2 sentences, include the source/basis and any key figures."
+            },
+            "name": "mcp__org__delegate",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_01PzQpXjepqkAGkJdbKDBmCX",
+            "input": {
+              "target": "analyst-policy",
+              "task": "Provide one key policy finding for the weekly research report dated <datetime>. Keep it to 1-2 sentences, include the source/basis and any key figures."
+            },
+            "name": "mcp__org__delegate",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": [
+              {
+                "text": "I can't give you a sourced markets finding for this report. The knowledge base had no market data, and the working directory had no files. Any figures I wrote would be invented, and I won't put made-up numbers in a research report.\n\nTo finish this, I need one of these:\n- A data source or file, such as index levels, rates, or commodity prices for the week ending <datetime>.\n- A specific topic to cover, plus the source to cite.\n\nWith either one, I'll write the 1\u20132 sentence finding with its basis and figures.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_015SU2bFCTZY7FysyFLYPLWp",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "I can't give you a sourced policy finding for this report. The knowledge base returned nothing for \"policy finding\", and the workspace has no files. I have no verified source or figures, and I won't make up a finding or a statistic.\n\nTo get this done, I need one of the following:\n- A source document or topic area, such as a specific regulation, bill, or agency report. I'll then summarize it in 1\u20132 sentences with the key figures.\n- Access to the relevant knowledge units or files.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01PzQpXjepqkAGkJdbKDBmCX",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "USD budget: $0.032918/$2; $1.967082 remaining",
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "signature": "CAQStwUKEAgTGAI4AUIIdGhpbmtpbmcSDHAAdB6NfXo4jgwnKRoMgJGggNfYpoVAkjsDIjBFWpgIFoswMO1hp4094nmdxggeSyuyyXrL6yv6D6rpKLk3ykjO1c0JR5BmLCalU4wq1ATIZvBgTkY+4qOdK2znPn1CEbCzyxuTT3UJtKh4OEDvuBSZRJpmYiquq0phvn6ZOTuFnrVgNipSj8hmivlhOWZ0SH8eGPR2e//WmPutDg/4VobBn+c9kCOpqpHlfwq/MGLYWvqTcxJ5UDjgDjCFe/itX6OyXbjWVe0M9xuIzaLUz+xaAZNdyv9CbMbT1I23RZ3Y6WSyb8/iDQZUNJmyju7n4bhpVsukU3lWi6nsLLl+vSYyqp7Y23wFtFutydSA0yLj16RDv/7W/LbLxaZ9h7mGcixcMGxJOW6K5efFLKxJPI+UqsdOwCCppQSBi9yE5AoU1aiqqkqmRBPuMo6y8f3hRysVxz1I9/FlSz+EwHioqnnjxZHXlTmMLxOy/ekDP4gcTPsZ7V/PeDWUvO1kFrvhaxq4H7Lb6GiJUD6phJjp+A7EbX9hWinWCqLtYfbGQFt623c5iHuwT/zTuc/KUFtqSGtdHxB37UmLCQt9tveMEVeHH+3bccZAildbaY4xNiqwX0E6Ej6z6hnGFNsGs+vfnSwcrlmpCe88POYOKGxmHschRKTEiUmqTc9yw+Svbcgfh3/mBpeXVQsHTCYVNIFEo5aQBoXDatpOHguOFTr6KAFVQMFjYVDYgEBHJmlwNhXq9fbBMw73Xj+4IlSDIFvb2ViT5MBBlCXE4cXGwDAy0ZY49YF/YvhcBiS8H3LsoHDB+NB0UI/nkyHBOSzBq/3Cgr2aSORfa2WidKryXgbaP8qZNiaDWiG+pIimzj5xPDVAzcr9R0UD9fMLMSNfRGW+RDOrbBgB",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "id": "toolu_01SnLQFcFpaneZWs47UyTqnv",
+            "input": {
+              "query": "weekly research findings November 2026 markets policy"
+            },
+            "name": "mcp__org__search_knowledge",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": [
+              {
+                "text": "No knowledge units matching 'weekly research findings November 2026 markets policy'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01SnLQFcFpaneZWs47UyTqnv",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "USD budget: $0.039224/$2; $1.960776 remaining",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      }
+    ],
+    "model": "claude-opus-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are Lead Analyst, part of Research Reporting. Your role: Plans research and writes the report.\n\n## Style\n\nBe direct: lead with the answer and skip pleasantries.\nGive the answer and only the context needed to act on it.\n\n## Principles\n\n### Care\n\nBe accurate.\n\n## Output\n\nYour final answer is filed as a 'report' knowledge unit.",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "target": {
+              "title": "Target",
+              "type": "string"
+            },
+            "task": {
+              "title": "Task",
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "task"
+          ],
+          "title": "delegate_input",
+          "type": "object"
+        },
+        "name": "mcp__org__delegate"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "context": {
+              "default": "",
+              "title": "Context",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "title": "escalate_input",
+          "type": "object"
+        },
+        "name": "mcp__org__escalate"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "default": "",
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata_filter": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata Filter"
+            }
+          },
+          "title": "list_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__list_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "event": {
+              "title": "Event",
+              "type": "string"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            }
+          },
+          "required": [
+            "event",
+            "payload"
+          ],
+          "title": "publish_input",
+          "type": "object"
+        },
+        "name": "mcp__org__publish"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name"
+          ],
+          "title": "read_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__read_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "knowledge_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Knowledge Types"
+            },
+            "query": {
+              "title": "Query",
+              "type": "string"
+            },
+            "top_k": {
+              "default": 10,
+              "title": "Top K",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "title": "search_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__search_knowledge"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "content": {
+              "title": "Content",
+              "type": "string"
+            },
+            "knowledge_type": {
+              "title": "Knowledge Type",
+              "type": "string"
+            },
+            "metadata": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metadata"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "required": [
+            "knowledge_type",
+            "name",
+            "content"
+          ],
+          "title": "write_knowledge_input",
+          "type": "object"
+        },
+        "name": "mcp__org__write_knowledge"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch4xJ7jmAaDFRSWxtbB1h\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":148,\"cache_read_input_tokens\":6166,\"cache_creation\":{\"ephemeral_5m_input_tokens\":148,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":3,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null} }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"} }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":50}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":null} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"CAQSoQcKEAgTGAI4AUIIdGhpbmtpbmcSDI3OedvxclsYHFSzQhoMDq/n/37C6yRrjruTIjASrFwsKtnb4O7ihJwYVW9xzoqP0E/J8dHow7M5jAlPzsR1UgJ+r/6q1fanNQEGOSMqvgbNKhC1jIvKTAeT9X2b4QUdMbz9cHP6DuIA0P05EHm0CXKaKaju1tS0gblzWVd8bhfHqXfoTSgrw95yCge1uU1GFFkPxCvQpjXViXJCSkT9jFBQHuuBvKYR6NwvGr4GnYPWQHUe8XUFRej287eXNoVolHzbySdsEFMkiXW4d2sUgno1rAEHWrGWT51Y/26kP3LGmBoTSnLkjLK/3QTCv3+0AN9vlUeIYSWupSRfmz6IToIN+nwgfdc/afDqG+cJj/Ul9cu3hAqZPyCGFz49j1tnecUhAee1HNCm6woub7DUZ05W+7A4Y6XkteBYDdKwCl6MK5CxSj4SZFhFzDxgsQvPTjfI5HBu8ifn2Us6L7t6sgAcAoD0q58w4jVfkVzV6I+h1XhGvv3gmtXD5r3o4k6PaiZn0kck0EMQULmBuwdE4XQW9fnyan9YMe6rYmoXaA2nnvrkubo8O6n+2r8VvZX54bpaU1SFRblP1sD6J14Rl9lfwQULRJwItxwzYRpLuwiBiccrLELcxy8DZ75AQ7XQu6e4LLWsHBf5Sr/ahdTLOICj44J4s4fYyfx+JRSroXgRv42+Fu1m0PE1UutBExDbkyhuhpj2xXJuOAml5I32B3FmarYtihKUYm+HEx+SP4MF2LCLbHzo6MaQ6as65CF5gdF67ebIe104z4dqgXT4/oLNdOkegB0Sp8GZcLsZRF00rvt6HSvzzDmlJDZjoTGt5Jyqhfu2MZxCne8Q8Gn4LOcCfqtjarjL4wQnMgxbMGh3t+Q5g2JPGjr6PFMmpyejsA3tGqwW1UVyNt+8FEkXFfjU7EPPOovslTEVD/8Iva4RZIqaVwa+LmAWYjkJTUPes6pvrODjNJdNCCj6xrjdcxCqjnIOe8OR5cdeoU3tc54deYNDEwHkui8RXJ+mgcfKVKhtGEPqr8sO8u4lviFzC1YWA6w5OB1I8RjPabqBvegZiITRa8FSqtcWScKaxm/jSCZuE96N0qb4AQ/gRANh5lyY6dLw4PQwYFEX5fHq/tOnI2U4Xd7xyLWPicCFv65SjpJrldQmZc6yTsAQwG5QXSEqok71EQwJU9d5W1Oevqur7Xy7BYpHkxPaYMX6JRgB\"}    }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0         }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"I cou\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ldn't write the report with\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" any\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" findings:\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" neither analyst gave one\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\", and I found\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" no source\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" material\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n\\n**Weekly Research\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Report \u2014 2026-11\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"-16T08:00+00\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\":00**\\n\\n**Status:\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" No findings this\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" week,\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" because\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" there was no source\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" data.**\\n\\n**Markets\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" (\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"analyst-markets):**\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" No finding.\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" The analyst found no market data\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" in the knowledge base or\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" the workspace and\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" declined to make\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" up figures.\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n\\n**Policy (analy\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"st-policy):** No fin\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ding. The analyst found no\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" polic\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"y s\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ources or kn\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"owledge units and declined to\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" make up a finding.\\n\\n**\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Lead\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Analyst check:** My own\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" search of the knowledge base\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" for\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" this week's mark\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ets and policy material also returned\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" nothing.\\n\\n**To fin\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ish the\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" report, one of these\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" is needed:**\\n1.\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Market data for the week ending\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" 2026-11-13,\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" such as index levels, rates\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" or\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" commodity prices.\\n2\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\". A policy source or topic\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\", such as a specific regul\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ation, bill or\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" agency report.\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n3. Knowledge\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" units or files added\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" to the sh\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ared workspace.\\n\\nOnce\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" either anal\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"yst has a source, each can\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" tur\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"n it into a\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" s\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ourced 1\u20132 s\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"entence finding,\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" and I'll re\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"issue the report within 150 \"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"words.\"}       }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":148,\"cache_read_input_tokens\":6166,\"output_tokens\":416,\"output_tokens_details\":{\"thinking_tokens\":65}},\"context_management\":{\"applied_edits\":[]}        }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"    }\n\n"
+    }
+  ]
+}

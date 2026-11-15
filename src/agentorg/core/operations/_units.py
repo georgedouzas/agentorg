@@ -34,6 +34,11 @@ def _member_id(member: str | Unit) -> str:
     return member if isinstance(member, str) else member.id
 
 
+def _reason(result: dict[str, Any]) -> str:
+    """Return why a member's run failed, so the unit run fails, retries and escalates for the same reason."""
+    return str(result.get('failure_reason') or 'error')
+
+
 class UnitEngine:
     """Run a unit's work by its model: solo, hub, pool, council or pipeline.
 
@@ -58,7 +63,7 @@ class UnitEngine:
     async def _delegate_whole(self, run: Run, target: str) -> None:
         """Run one member on the whole task and record its outcome."""
         result = await self.call_target(target, run.prompt, run)
-        await self._finish(run, result.get('output'), None if result.get('status') == 'succeeded' else 'error')
+        await self._finish(run, result.get('output'), None if result.get('status') == 'succeeded' else _reason(result))
 
     async def _pick(self, unit: Unit, run: Run) -> str | None:
         """Return the pool member the routing rule selects, or None."""
@@ -131,15 +136,18 @@ class UnitEngine:
     async def _pipeline(self, unit: Unit, run: Run) -> None:
         """Run the pipeline steps in order with their review gates."""
         current: object = run.prompt
+        previous: str | None = None
         for index, member in enumerate(unit.members):
             step = member if isinstance(member, Step) else Step(member=member)
             target, label = _member_id(step.member), f'{index + 1}:{_member_id(step.member)}'
-            task = f'{step.instruction}\n\n{current}' if step.instruction else str(current)
+            # Every step sees the original request; later steps also get the output they build on.
+            work = str(current) if previous is None else f'{run.prompt}\n\nOutput of step {previous}:\n\n{current}'
+            task = f'{step.instruction}\n\n{work}' if step.instruction else work
             decision = ReviewDecision(approved=False)
             for attempt in range(2):
                 result = await self.call_target(target, task, run)
                 if result.get('status') != 'succeeded':
-                    await self._finish(run, result.get('output'), 'error')
+                    await self._finish(run, result.get('output'), _reason(result))
                     return
                 decision = await self._review(unit, run, step, label, result.get('output'))
                 if decision.approved:
@@ -148,7 +156,7 @@ class UnitEngine:
             if not decision.approved:
                 await self._finish(run, {'step': label, 'comment': decision.comment}, 'review_rejected')
                 return
-            current = decision.output
+            current, previous = decision.output, label
         await self._finish(run, current)
 
     async def execute(self, run: Run) -> None:

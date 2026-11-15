@@ -1,6 +1,7 @@
 """Fire schedule triggers on their cron, once per due time across all workers."""
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -15,6 +16,23 @@ from ._store import Store
 TICK = timedelta(seconds=15)
 LEASE = timedelta(seconds=45)
 ACTIVE_STATUSES = ('queued', 'running', 'awaiting_approval')
+CLOCK_START_VAR = 'AGENTORG_CLOCK_START'
+
+
+def scheduler_clock(start: str | None) -> Callable[[], datetime]:
+    """Return the scheduler's clock: real UTC time, or time running from `start` when a test sets it.
+
+    Arguments:
+        start: An ISO 8601 instant from `AGENTORG_CLOCK_START`, a test-only variable. The clock reads `start` when it
+            is created and advances in real time, so a schedule fires at a known moment however long startup took.
+
+    Returns:
+        clock: Returns the current UTC time.
+    """
+    if not start:
+        return lambda: datetime.now(UTC)
+    origin, began = datetime.fromisoformat(start).astimezone(UTC), time.monotonic()
+    return lambda: origin + timedelta(seconds=time.monotonic() - began)
 
 
 def _due_times(trigger: ScheduleTrigger, after: datetime, until: datetime) -> list[datetime]:

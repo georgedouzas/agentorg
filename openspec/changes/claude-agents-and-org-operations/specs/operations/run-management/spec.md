@@ -104,6 +104,8 @@ Runs beyond either cap SHALL wait in `queued`. Queued runs start in priority ord
 ### Requirement: Failed runs retry by policy
 `operations.runs.retries` (default 1) SHALL bound automatic retries of a failed run. Retries use exponential backoff starting
 at 30 seconds. Runs that failed on a limit (`max_turns`, `max_run_usd`, `timeout`) or a denial SHALL NOT be retried.
+A delegated run SHALL NOT be retried or dead-lettered on its own: the run that delegated it waits on it and handles its
+failure. A unit run whose member failed SHALL fail with the member's reason.
 
 #### Scenario: Transient error retried
 - **WHEN** a run fails with an API overload error and `retries=1`
@@ -112,6 +114,14 @@ at 30 seconds. Runs that failed on a limit (`max_turns`, `max_run_usd`, `timeout
 #### Scenario: Budget failure not retried
 - **WHEN** a run fails with reason `max_run_usd`
 - **THEN** no retry is created
+
+#### Scenario: Delegated failure left to the parent
+- **WHEN** a delegated run fails with an API overload error
+- **THEN** no retry of it is created, and the run that delegated it receives the failure
+
+#### Scenario: Unit fails with its member's reason
+- **WHEN** the only member of a `solo` unit fails with reason `max_turns`
+- **THEN** the unit run fails with reason `max_turns` and is not retried
 
 #### Scenario: Retry delayed
 - **WHEN** a run fails and a retry is due after 30 seconds

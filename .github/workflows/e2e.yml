@@ -1,0 +1,152 @@
+name: E2E
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  E2E_RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.diff.outputs.runtime }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Detect render or operations changes
+      id: diff
+      run: |
+        if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            | grep -qE '^src/agentorg/core/(render|operations)/'; then
+          echo "runtime=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "runtime=false" >> "$GITHUB_OUTPUT"
+        fi
+
+  replay-local-process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run the scenarios from their recordings
+      run: uv run nox -s e2e -- --target local-process --model-mode replay
+
+    - name: Upload artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-replay-local-process
+        path: .e2e-artifacts/
+        if-no-files-found: ignore
+
+  replay-local-docker:
+    needs: changes
+    if: needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+
+    - name: Run the scenarios from their recordings on the rendered compose stack
+      run: uv run nox -s e2e -- --target local-docker --model-mode replay
+
+    - name: Upload artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-replay-local-docker
+        path: .e2e-artifacts/
+        if-no-files-found: ignore
+
+  # Secrets are used only on the schedule and on manual dispatch, never for pull requests, forks included.
+  live-local-docker:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+
+    - name: Run the scenarios against the real API within their budgets
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      run: uv run nox -s e2e -- --target local-docker --model-mode live
+
+    - name: Upload artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-live-local-docker
+        path: .e2e-artifacts/
+        if-no-files-found: ignore
+
+  # Enabled with the E2E_CLOUD repository variable once the cloud target exists.
+  replay-cloud:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_CLOUD == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+
+    - name: Run the scenarios from their recordings on Railway and Vercel
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      run: uv run nox -s e2e -- --target cloud --model-mode replay
+
+    - name: Upload artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-replay-cloud
+        path: .e2e-artifacts/
+        if-no-files-found: ignore

@@ -162,9 +162,10 @@ class Dispatcher:
         await self._after(run_id)
 
     async def _after(self, run_id: str) -> None:
-        """Retry a failed run by policy, or dead-letter it."""
+        """Retry a failed run by policy, or dead-letter it, unless its parent handles the failure."""
         run = await self.store.get_run(run_id)
-        if run is None or run.status != 'failed':
+        # A delegated run's parent waits on it and handles its failure, so it is neither retried nor dead-lettered.
+        if run is None or run.status != 'failed' or run.trigger_kind == 'delegation':
             return
         retries = self.spec.operations.runs.retries
         if run.failure_reason in NON_RETRYABLE or run.attempt >= retries:

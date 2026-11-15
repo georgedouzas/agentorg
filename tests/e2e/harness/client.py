@@ -77,6 +77,10 @@ class OrgClient:
         """List the inbox items waiting for a human."""
         return self._json('GET', '/api/v1/inbox')
 
+    def knowledge(self, knowledge_type: str = '') -> list[dict[str, Any]]:
+        """List knowledge units, newest first, optionally of one type."""
+        return self._json('GET', '/api/v1/knowledge', params={'type': knowledge_type})
+
     def lifecycle(self) -> dict[str, Any]:
         """Return the lifecycle state and its history."""
         return self._json('GET', '/api/v1/lifecycle')

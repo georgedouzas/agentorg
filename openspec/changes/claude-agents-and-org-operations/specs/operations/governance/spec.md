@@ -38,7 +38,12 @@ An action SHALL require approval when either of these holds:
 - `approval_timeout_h`: default 24;
 - `on_timeout`: `reject`, which is the default, or `approve`.
 
-An approver SHALL be able to approve, reject with a comment, or approve with edited arguments.
+An approver SHALL be able to approve, reject with a comment, or approve with edited arguments. Time a run spends waiting
+for a decision SHALL NOT count toward its `timeout_s`.
+
+#### Scenario: Waiting does not time the run out
+- **WHEN** an agent with `timeout_s=600` waits 20 minutes for an approval and then finishes
+- **THEN** the run succeeds
 
 #### Scenario: Timeout rejects
 - **WHEN** an approval is not decided within `approval_timeout_h` and `on_timeout='reject'`
