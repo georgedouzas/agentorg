@@ -85,7 +85,7 @@ def build_agent_options(
         org_tools: The org communication and knowledge tools this agent's position permits.
         can_use_tool: The permission callback consulted before every tool call.
         parameter_values: Current parameter values for principle placeholders.
-        resume: The SDK session id to resume, when the agent keeps session memory.
+        resume: The SDK session id to fork and continue, when the agent keeps session memory.
 
     Returns:
         options: The SDK options for one run.
@@ -115,4 +115,5 @@ def build_agent_options(
         permission_mode='default',
         can_use_tool=can_use_tool,
         resume=resume if agent.memory != 'none' else None,
+        fork_session=resume is not None and agent.memory != 'none',
     )

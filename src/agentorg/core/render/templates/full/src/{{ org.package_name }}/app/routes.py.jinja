@@ -2,21 +2,18 @@
 
 import asyncio
 import contextlib
-import json
 import os
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, create_model
-from sse_starlette.sse import EventSourceResponse
 
 from agentorg.core.agents.tools import PREFIX as _KN_PREFIX, similarity_units
-from agentorg.core.operations import TERMINAL, OrgRuntime, Run, broker_health
+from agentorg.core.operations import OrgRuntime, Run, broker_health
 from agentorg.core.spec import Agent, Spec, Unit
 
 _MASTER_AGENT_ID = 'master'
-_STREAM_POLL_S = 0.3
 
 
 class _Safe(dict):
@@ -209,6 +206,7 @@ def build_router(app: Any, spec: Spec, runtime: OrgRuntime) -> APIRouter:  # noq
             'platform_agents': [{'id': _MASTER_AGENT_ID, 'name': 'Master'}],
             # Principles owner - the master owns them in the deployed org.
             'principles_owner': _MASTER_AGENT_ID,
+            'chat_url': os.getenv('LIBRECHAT_URL', 'http://localhost:3080'),
         }
 
     # ── Org instance parameters ─────────────────────────────────────────────
@@ -288,37 +286,6 @@ def build_router(app: Any, spec: Spec, runtime: OrgRuntime) -> APIRouter:  # noq
             raise HTTPException(status_code=404, detail=f'{target_id!r} is not an agent or unit')
         await runtime.lifecycle.set_enabled(target_id, enabled=body.enabled, actor=body.actor)
         return {'id': target_id, 'enabled': body.enabled}
-
-    # ── Streaming chat (SSE over the run transcript) ────────────────────────
-    @router.post('/reasoners/{name}/stream')
-    async def stream_reasoner(name: str, request: Request, user_id: str = Query(default='default')) -> EventSourceResponse:
-        if name not in targets:
-            raise HTTPException(status_code=404, detail=f'reasoner {name!r} not found')
-        body = await request.json()
-        started = await runtime.start_run(name, body.get('message', ''), body.get('session_id'), body.get('user_id', user_id))
-
-        async def event_gen() -> Any:
-            if started['status'] == 'refused':
-                yield {'event': 'end', 'data': json.dumps({'status': 'refused', 'output': started['output']})}
-                return
-            yield {'event': 'started', 'data': json.dumps({'run_id': started['run_id']})}
-            seen, status = 0, ''
-            while True:
-                run = await runtime.store.get_run(started['run_id'])
-                if run is None:
-                    return
-                for event in run.transcript[seen:]:
-                    yield {'event': event['type'], 'data': json.dumps(event, default=str)}
-                seen = len(run.transcript)
-                if run.status != status:
-                    status = run.status
-                    yield {'event': 'status', 'data': json.dumps({'status': status})}
-                if run.status in TERMINAL:
-                    yield {'event': 'end', 'data': json.dumps(_run_summary(run), default=str)}
-                    return
-                await asyncio.sleep(_STREAM_POLL_S)
-
-        return EventSourceResponse(event_gen())
 
     # ── Runs ────────────────────────────────────────────────────────────────
     @router.get('/runs')

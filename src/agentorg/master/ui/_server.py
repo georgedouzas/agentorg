@@ -5,7 +5,7 @@ import io
 import logging
 import tempfile
 import zipfile
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -14,15 +14,16 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from ...core.operations import build_chat_router
 from ...core.render import jinja_context
 from ...core.render import render as render_project
-from .._agent import _reset_workflow_cache, agent_for_current_stage
+from .._agent import agent_for_current_stage
 from .._persistence import save_draft
 from .._seed import PLACEHOLDER_VALUES
-from .._stages import STAGE_LABELS, STAGES, stage_summary
-from .._stages import advance as advance_stage
-from .._state import State, get_state, reset_state
+from .._stages import stage_summary
+from .._state import State, get_state
 from .._tools import finalize_spec
+from ._chat import MasterChat
 from ._preview import PreviewManager
 
 logger = logging.getLogger(__name__)
@@ -32,19 +33,6 @@ INDEX_HTML = STATIC_DIR / 'index.html'
 
 CHAT_RETRY_ATTEMPTS = 3
 CHAT_RETRY_BASE_DELAY = 1.0
-
-
-class ChatRequest(BaseModel):
-    """Body of a `POST /api/chat` request - just the user's message text."""
-
-    message: str
-
-
-class ChatResponse(BaseModel):
-    """Result of a `POST /api/chat` call - the master's reply text and the tool calls it made."""
-
-    response: str
-    tool_calls: list[str]
 
 
 class RenderRequest(BaseModel):
@@ -86,11 +74,6 @@ def _agent_factory_default() -> Any:  # noqa: ANN401 - a StageAgent, or a test d
     agent. Override in tests via `build_app(agent_factory=...)`.
     """
     return agent_for_current_stage()
-
-
-def _extract_tool_calls(run_output: Any) -> list[str]:  # noqa: ANN401 - a MasterReply or a test double
-    """Return the names of the tools a master turn called."""
-    return [str(name) for name in getattr(run_output, 'tool_calls', None) or []]
 
 
 def _spec_snapshot() -> dict[str, Any]:
@@ -171,12 +154,14 @@ async def _arun_with_retry(agent: Any, message: str) -> Any:  # noqa: ANN401
     raise last_exc
 
 
-def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grows with route count)
+def build_app(  # noqa: C901  (route-registry function; complexity grows with route count)
     *,
     agent_factory: Callable[[], Any] = _agent_factory_default,
     draft_path: Path | None = None,
     autosave: bool = True,
     preview: PreviewManager | None = None,
+    chat_api_key: str | None = None,
+    chat_url: str = 'http://localhost:3080',
 ) -> FastAPI:
     """Build a FastAPI app wrapping the master agent.
 
@@ -189,6 +174,8 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
         preview: Optional preview-manager singleton. When supplied, the server boots it on
             startup, schedules a re-render after each spec-mutating chat turn, and exposes
             its state via `GET /api/preview`. Tests pass `None` to skip subprocess spawn.
+        chat_api_key: The key LibreChat sends; when set, the interview is served at `/v1` as the `agentorg` model.
+        chat_url: The LibreChat address the page links to.
 
     Returns:
         app: The configured FastAPI app.
@@ -214,9 +201,22 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
         # agent design cached the FIRST stage's agent forever, freezing tool scope.
         return agent_factory()
 
-    async def _post_chat_hook() -> None:
+    async def _after_turn() -> None:
         if autosave and draft_path is not None:
             save_draft(draft_path)
+        # The spec almost certainly changed, so re-render the preview; uvicorn --reload and Vite pick it up.
+        if preview is not None:
+            preview.schedule_rerender()
+
+    def _preview_status() -> dict[str, Any]:
+        if preview is None:
+            return {'status': 'disabled', 'detail': 'Preview is not enabled for this app.'}
+        snap = preview.snapshot()
+        return {'status': snap.status, 'detail': snap.detail, 'slug': snap.slug, 'frontend_url': snap.frontend_url}
+
+    if chat_api_key:
+        chat = MasterChat(lambda message: _arun_with_retry(_agent(), message), _after_turn, _preview_status)
+        app.include_router(build_chat_router(chat, api_key=chat_api_key, owner='agentorg'))
 
     @app.get('/', response_class=HTMLResponse)
     async def index() -> str:
@@ -247,79 +247,9 @@ def build_app(  # noqa: C901, PLR0915  (route-registry function; complexity grow
             'started_at': snap.started_at,
         }
 
-    @app.post('/api/chat', response_model=ChatResponse)
-    async def post_chat(req: ChatRequest) -> ChatResponse:
-        try:
-            run_output = await _arun_with_retry(_agent(), req.message)
-        except Exception as exc:
-            if _is_transient(exc):
-                logger.warning('chat: upstream still unavailable after retries: %s', exc)
-                raise HTTPException(
-                    status_code=503,
-                    detail='Upstream model is temporarily unavailable. Please retry your message.',
-                ) from exc
-            logger.exception('chat: agent.arun raised')
-            raise HTTPException(status_code=500, detail=f'Chat failed: {exc}') from exc
-        content = getattr(run_output, 'content', None) or ''
-        tool_calls = _extract_tool_calls(run_output)
-        await _post_chat_hook()
-        # Spec almost certainly changed this turn - schedule a debounced re-render so the
-        # preview iframe reflects it in ~1-2s via uvicorn --reload + Vite HMR.
-        if preview is not None:
-            preview.schedule_rerender()
-        return ChatResponse(response=str(content), tool_calls=tool_calls)
-
-    @app.post('/api/reset')
-    async def post_reset() -> dict[str, str]:
-        reset_state()
-        # Drop the cached per-stage agent registry so the next chat builds fresh agents
-        # against the reset state (no leaked chat history from the old session).
-        _reset_workflow_cache()
-        if preview is not None:
-            preview.schedule_rerender()
-        return {'status': 'reset'}
-
-    @app.post('/api/advance')
-    async def post_advance() -> dict[str, Any]:
-        state = get_state()
-        prev_stage = state.stage
-        ok, new_stage, blockers = advance_stage(state)
-        if not ok:
-            raise HTTPException(
-                status_code=409,
-                detail={'stage': new_stage, 'blockers': blockers},
-            )
-
-        # Ask the agent to immediately narrate the transition + walk the user through what
-        # happens in the new stage. The synthetic prompt becomes the user-side turn in
-        # agent's conversation, which is correct - subsequent turns benefit from knowing the
-        # transition happened.
-        prev_idx = STAGES.index(prev_stage) + 1
-        new_idx = STAGES.index(new_stage) + 1
-        trigger = (
-            f"The user just clicked Next and advanced from Stage {prev_idx} "
-            f"({STAGE_LABELS[prev_stage]}) to Stage {new_idx} ({STAGE_LABELS[new_stage]}). "
-            f"Open with the markdown heading `## Stage {new_idx} - {STAGE_LABELS[new_stage]}` "
-            f"and walk them through what happens in this stage, per your per-stage instructions."
-        )
-        response: str = ''
-        tool_calls: list[str] = []
-        try:
-            run_output = await _arun_with_retry(_agent(), trigger)
-            response = str(getattr(run_output, 'content', None) or '')
-            tool_calls = _extract_tool_calls(run_output)
-        except Exception:
-            # The stage advanced successfully; failing to narrate is non-fatal. The UI will
-            # still show the new stage and the user can prompt the agent themselves.
-            logger.exception('advance: agent.arun raised; advanced silently')
-
-        await _post_chat_hook()
-        return {
-            'stage': new_stage,
-            'stage_summary': stage_summary(state),
-            'response': response,
-            'tool_calls': tool_calls,
-        }
+    @app.get('/api/chat-app')
+    async def get_chat_app() -> dict[str, str]:
+        return {'url': chat_url}
 
     async def _render_zip() -> Response:
         state = get_state()
@@ -374,32 +304,28 @@ def serve(
     port: int = 8765,
     draft_path: Path | None = None,
     preview_enabled: bool = True,
+    chat_api_key: str | None = None,
+    chat_url: str = 'http://localhost:3080',
 ) -> None:
-    """Run the UI server with uvicorn.
-
-    Blocks until interrupted.
+    """Run the UI server with uvicorn until interrupted.
 
     Arguments:
-            host: Bind address.
-            port: Bind port.
-            draft_path: Where the autosave hook writes the in-progress draft.
-            preview_enabled: When True (default), boot the live preview subprocesses on
-                startup. Disable for tests or for environments without uv/npm available.
+        host: Bind address.
+        port: Bind port; the preview node listens on the next port.
+        draft_path: Where the autosave hook writes the in-progress draft.
+        preview_enabled: Whether to boot the live preview subprocesses on startup.
+        chat_api_key: The key LibreChat sends to the master and the preview.
+        chat_url: The LibreChat address the page links to.
     """
     import uvicorn  # noqa: PLC0415  (defer import - uvicorn is heavy)
 
-    preview = PreviewManager() if preview_enabled else None
-    app = build_app(draft_path=draft_path, preview=preview)
+    preview = PreviewManager(fixed_api_port=port + 1, chat_api_key=chat_api_key) if preview_enabled else None
+    app = build_app(draft_path=draft_path, preview=preview, chat_api_key=chat_api_key, chat_url=chat_url)
     uvicorn.run(app, host=host, port=port, log_level='warning')
 
 
 __all__: list[str] = [
-    'ChatRequest',
-    'ChatResponse',
     'RenderRequest',
     'build_app',
     'serve',
 ]
-
-# typing helper for ruff/mypy peace
-_HookT = Callable[[], Awaitable[None]]

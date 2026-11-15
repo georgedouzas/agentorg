@@ -16,12 +16,14 @@ from ..spec import Agent, QueueTrigger, Spec
 from ._approvals import ApprovalGate, Approvals
 from ._broker import Broker
 from ._bus import EventBus
+from ._chat_api import build_chat_router
+from ._chat_org import OrgChat
 from ._comms import OrgTools
 from ._consumers import QueueBroker, QueueConsumers
 from ._lifecycle import Lifecycle
 from ._notify import Notifier
 from ._policy import LifecycleState
-from ._queue import HEARTBEAT, Dispatcher, InlineDispatcher, resolve_amqp_url
+from ._queue import HEARTBEAT, Dispatcher, InlineDispatcher, broker_health, resolve_amqp_url
 from ._runner import ClientFactory, Runner
 from ._scheduler import Scheduler
 from ._store import TERMINAL, InboxItem, Run, Store
@@ -323,7 +325,7 @@ def start_operations(
     environ: Mapping[str, str] | None = None,
     client_factory: ClientFactory = ClaudeSDKClient,
 ) -> OrgRuntime:
-    """Create the org's operations runtime, mount its webhook routes and start it with the app.
+    """Create the org's operations runtime, mount its webhook and chat routes and start it with the app.
 
     Arguments:
         app: The org's FastAPI application, usually its AgentField node.
@@ -345,6 +347,18 @@ def start_operations(
     )
     bind_node(app)
     app.include_router(runtime.router)
+    if runtime.environ.get('CHAT_API_KEY'):
+        console = runtime.environ.get('CONSOLE_URL', 'http://localhost:5173')
+        chat = OrgChat(
+            spec,
+            runtime.store,
+            runtime.start_run,
+            runtime.approvals,
+            lifecycle=runtime.lifecycle,
+            broker_status=lambda: broker_health(runtime.broker),
+            console_url=console,
+        )
+        app.include_router(build_chat_router(chat, api_key=runtime.environ['CHAT_API_KEY'], owner=spec.org.slug))
     app.router.add_event_handler('startup', runtime.start)
     app.router.add_event_handler('shutdown', runtime.stop)
     return runtime

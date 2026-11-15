@@ -41,6 +41,17 @@ def _reset() -> None:
     reset_state()
 
 
+KEY = 'master-key'
+
+
+def _chat(client: TestClient, message: str) -> str:
+    """Send one message to the `agentorg` model and return the reply text."""
+    body = {'model': 'agentorg', 'messages': [{'role': 'user', 'content': message}]}
+    response = client.post('/v1/chat/completions', json=body, headers={'Authorization': f'Bearer {KEY}'})
+    assert response.status_code == 200, response.text
+    return str(response.json()['choices'][0]['message']['content'])
+
+
 def test_index_serves_the_html_page():
     """`GET /` returns the bundled index.html (we just look for a sentinel string)."""
     app = build_app(agent_factory=_FakeAgent)
@@ -77,63 +88,32 @@ def test_get_api_spec_reflects_state_mutations_between_requests():
     assert body['structure_error'] is None
 
 
-def test_post_api_chat_forwards_to_arun_and_returns_response_plus_tool_calls():
-    """A chat POST is routed to `agent.arun`; the reply text and tool call names are returned."""
+def test_chat_api_forwards_to_the_stage_agent_with_tool_lines():
+    """A chat completion reaches the stage agent; its tool calls and reply come back as text."""
     fake = _FakeAgent(response='ok', tool_calls=['set_org_identity'])
-    app = build_app(agent_factory=lambda: fake)
-    client = TestClient(app)
-    response = client.post('/api/chat', json={'message': 'hi'})
-    assert response.status_code == 200
-    body = response.json()
-    assert body['response'] == 'ok'
-    assert body['tool_calls'] == ['set_org_identity']
+    client = TestClient(build_app(agent_factory=lambda: fake, chat_api_key=KEY))
+    assert _chat(client, 'hi') == '> set_org_identity\n\nok'
     assert fake.calls == ['hi']
 
 
-def test_post_api_chat_reuses_the_same_agent_instance_across_requests():
-    """The agent is built lazily once and reused, so chat history accumulates."""
-    fake = _FakeAgent()
-    app = build_app(agent_factory=lambda: fake)
-    client = TestClient(app)
-    client.post('/api/chat', json={'message': 'one'})
-    client.post('/api/chat', json={'message': 'two'})
-    assert fake.calls == ['one', 'two']
+def test_chat_api_is_absent_without_a_key():
+    """Without a chat key the master serves no chat API."""
+    client = TestClient(build_app(agent_factory=_FakeAgent))
+    assert client.get('/v1/models').status_code == 404
 
 
-def test_post_api_reset_drops_state_and_agent(tmp_path):
-    """`POST /api/reset` resets the singleton state; a subsequent chat builds a fresh agent."""
-    get_state().stage = 'configure'
-    set_org_identity(name='To Be Reset')
-    fakes: list[_FakeAgent] = []
-
-    def factory() -> _FakeAgent:
-        fake = _FakeAgent()
-        fakes.append(fake)
-        return fake
-
-    app = build_app(agent_factory=factory)
-    client = TestClient(app)
-    client.post('/api/chat', json={'message': 'first'})
-    assert len(fakes) == 1
-
-    response = client.post('/api/reset')
-    assert response.status_code == 200
-    body = client.get('/api/spec').json()
-    assert body['spec']['org']['name'] == 'Untitled org'  # back to seed
-
-    client.post('/api/chat', json={'message': 'second'})
-    assert len(fakes) == 2  # a fresh agent was built after reset
-
-
-def test_post_api_chat_writes_a_draft_when_autosave_is_enabled(tmp_path):
+def test_chat_turn_writes_a_draft_when_autosave_is_enabled(tmp_path):
     """When `draft_path` is supplied, each chat turn snapshots state to disk."""
     draft = tmp_path / 'draft.json'
-    fake = _FakeAgent()
-    app = build_app(agent_factory=lambda: fake, draft_path=draft)
-    client = TestClient(app)
-    client.post('/api/chat', json={'message': 'hello'})
-    assert draft.exists()
+    client = TestClient(build_app(agent_factory=_FakeAgent, draft_path=draft, chat_api_key=KEY))
+    _chat(client, 'hello')
     assert '"spec"' in draft.read_text()
+
+
+def test_chat_app_reports_the_librechat_address():
+    """The page asks the server where LibreChat runs."""
+    client = TestClient(build_app(agent_factory=_FakeAgent, chat_url='http://chat.local'))
+    assert client.get('/api/chat-app').json() == {'url': 'http://chat.local'}
 
 
 def _make_spec_ready() -> None:
@@ -149,7 +129,7 @@ def _make_spec_ready() -> None:
         admin_email='maintainer@example.com',
     )
     set_budget(monthly_usd=100)
-    get_state().stage = 'discover'  # let the test exercise /api/advance from Stage 1
+    get_state().stage = 'discover'  # let the test advance from Stage 1
     build_hub_org()
 
 
@@ -195,60 +175,6 @@ def test_api_spec_stage_summary_reports_next_enabled_after_recording_discovery()
     assert summary['next_blockers'] == []
 
 
-def test_post_api_advance_advances_when_threshold_satisfied():
-    """`POST /api/advance` moves the cursor when the current stage's threshold is satisfied."""
-    seed_discovery()
-    app = build_app(agent_factory=_FakeAgent)
-    client = TestClient(app)
-    response = client.post('/api/advance')
-    assert response.status_code == 200
-    assert response.json()['stage'] == 'configure'
-
-
-def test_post_api_advance_returns_agent_narration_for_the_new_stage():
-    """The advance handler invokes the agent so the UI can show stage-specific instructions."""
-    seed_discovery()
-    fake = _FakeAgent(response='## Stage 2 - Configure\n\nLet me know the slug and admin info.')
-    app = build_app(agent_factory=lambda: fake)
-    client = TestClient(app)
-    response = client.post('/api/advance')
-    assert response.status_code == 200
-    body = response.json()
-    assert body['stage'] == 'configure'
-    assert 'Stage 2' in body['response']
-    # The agent was invoked with a transition prompt naming both stages so it can branch.
-    assert any('Discover' in c and 'Configure' in c for c in fake.calls)
-
-
-def test_post_api_advance_returns_silent_advance_when_agent_fails():
-    """If the agent raises while narrating, the stage still advances and the UI sees an empty response."""
-    seed_discovery()
-
-    boom = RuntimeError('model down')
-
-    class _BoomAgent:
-        async def arun(self, _message: str, *_a: object, **_kw: object) -> Any:
-            raise boom
-
-    app = build_app(agent_factory=_BoomAgent)
-    client = TestClient(app)
-    response = client.post('/api/advance')
-    assert response.status_code == 200
-    body = response.json()
-    assert body['stage'] == 'configure'
-    assert body['response'] == ''
-
-
-def test_post_api_advance_returns_409_with_blockers_when_threshold_not_met():
-    """A premature advance is rejected with the blocker list."""
-    app = build_app(agent_factory=_FakeAgent)
-    client = TestClient(app)
-    response = client.post('/api/advance')
-    assert response.status_code == 409
-    assert response.json()['detail']['stage'] == 'discover'
-    assert response.json()['detail']['blockers']
-
-
 def test_get_api_render_serves_the_zip_for_anchor_clicks(monkeypatch):
     """Plain `<a href="/api/render">` anchor clicks (GET) trigger the download in Stage 3+."""
     _make_spec_ready()
@@ -258,7 +184,7 @@ def test_get_api_render_serves_the_zip_for_anchor_clicks(monkeypatch):
 
     monkeypatch.setattr(ui_server, 'render_project', fake_render)
 
-    app = build_app(agent_factory=_FakeAgent)
+    app = build_app(agent_factory=_FakeAgent, chat_api_key=KEY)
     client = TestClient(app)
     _advance_to_generate_stage(client)
     response = client.get('/api/render')
@@ -287,13 +213,9 @@ def test_post_api_render_returns_409_when_not_in_generate_stage():
 
 
 def _advance_to_generate_stage(client: TestClient) -> None:
-    """Walk the stage cursor from `discover` to `generate` via /api/advance."""
-    # Discover -> Configure
-    r = client.post('/api/advance')
-    assert r.status_code == 200, r.text
-    # Configure -> Generate (requires admin name/email; we've already set them in _make_spec_ready)
-    r = client.post('/api/advance')
-    assert r.status_code == 200, r.text
+    """Walk the stage cursor from `discover` to `build` with the `/next` command."""
+    assert 'Now in' in _chat(client, '/next')
+    assert 'Now in' in _chat(client, '/next')
 
 
 def test_post_api_render_returns_zip_with_spec_and_invokes_render_when_ready(monkeypatch):
@@ -307,7 +229,7 @@ def test_post_api_render_returns_zip_with_spec_and_invokes_render_when_ready(mon
 
     monkeypatch.setattr(ui_server, 'render_project', fake_render)
 
-    app = build_app(agent_factory=_FakeAgent)
+    app = build_app(agent_factory=_FakeAgent, chat_api_key=KEY)
     client = TestClient(app)
     _advance_to_generate_stage(client)
 
@@ -344,46 +266,37 @@ class _FlakyAgent:
         return SimpleNamespace(content=self.response, tool_calls=[])
 
 
-def test_post_api_chat_retries_transient_upstream_errors_then_succeeds(monkeypatch):
-    """A 503 from the upstream model is retried, and the eventual success is returned to the client."""
+def test_chat_retries_transient_upstream_errors_then_succeeds(monkeypatch):
+    """A 503 from the upstream model is retried, and the eventual success is returned."""
     monkeypatch.setattr(ui_server, 'CHAT_RETRY_BASE_DELAY', 0.0)
     flaky = _FlakyAgent(fail_times=2, exception=RuntimeError('503 Service Unavailable'))
-    app = build_app(agent_factory=lambda: flaky)
-    client = TestClient(app)
-    response = client.post('/api/chat', json={'message': 'hi'})
-    assert response.status_code == 200
-    assert response.json()['response'] == 'ok after retry'
-    assert len(flaky.calls) == 3  # 2 failures + 1 success
+    client = TestClient(build_app(agent_factory=lambda: flaky, chat_api_key=KEY))
+    assert _chat(client, 'hi') == 'ok after retry'
+    assert len(flaky.calls) == 3
 
 
-def test_post_api_chat_returns_503_when_retries_are_exhausted(monkeypatch):
-    """When every retry hits the same transient error, the endpoint surfaces a clean 503."""
+def test_chat_reports_a_failure_after_retries(monkeypatch):
+    """When retries are exhausted the reply says so instead of dropping the stream."""
     monkeypatch.setattr(ui_server, 'CHAT_RETRY_BASE_DELAY', 0.0)
     flaky = _FlakyAgent(fail_times=99, exception=RuntimeError('429 Too Many Requests'))
-    app = build_app(agent_factory=lambda: flaky)
-    client = TestClient(app)
-    response = client.post('/api/chat', json={'message': 'hi'})
-    assert response.status_code == 503
-    assert 'temporarily unavailable' in response.json()['detail'].lower()
+    client = TestClient(build_app(agent_factory=lambda: flaky, chat_api_key=KEY))
+    assert 'The interviewer failed' in _chat(client, 'hi')
     assert len(flaky.calls) == ui_server.CHAT_RETRY_ATTEMPTS
 
 
-def test_post_api_chat_does_not_retry_non_transient_errors():
-    """A plain bug in a tool call propagates immediately - no retry, surfaces as 500."""
+def test_chat_does_not_retry_non_transient_errors():
+    """A plain bug fails on the first attempt and is reported in the reply."""
     flaky = _FlakyAgent(fail_times=99, exception=ValueError('bad arg'))
-    app = build_app(agent_factory=lambda: flaky)
-    client = TestClient(app)
-    response = client.post('/api/chat', json={'message': 'hi'})
-    assert response.status_code == 500
-    assert 'bad arg' in response.json()['detail']
-    assert len(flaky.calls) == 1  # only the first attempt
+    client = TestClient(build_app(agent_factory=lambda: flaky, chat_api_key=KEY))
+    assert 'bad arg' in _chat(client, 'hi')
+    assert len(flaky.calls) == 1
 
 
 def test_post_api_render_returns_500_when_render_raises(monkeypatch):
     """If render itself throws, the endpoint surfaces a 500 with the underlying message."""
     _make_spec_ready()
     monkeypatch.setattr(ui_server, 'render_project', lambda *_a: (_ for _ in ()).throw(RuntimeError('boom')))
-    app = build_app(agent_factory=_FakeAgent)
+    app = build_app(agent_factory=_FakeAgent, chat_api_key=KEY)
     client = TestClient(app)
     _advance_to_generate_stage(client)
     response = client.post('/api/render', json={})

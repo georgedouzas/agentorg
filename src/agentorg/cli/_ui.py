@@ -11,6 +11,7 @@ from ..master import (
     load_draft,
     reset_state,
 )
+from ..master.ui import LibreChatStack, docker_available
 from ..master.ui._server import serve
 
 
@@ -53,8 +54,32 @@ from ..master.ui._server import serve
         'have uv or npm available.'
     ),
 )
-def ui(*, host: str, port: int, resume: bool, draft: Path, open_browser: bool, preview: bool) -> None:
-    """Run the browser-based master interview UI."""
+@click.option(
+    '--chat/--no-chat',
+    default=True,
+    help='Start LibreChat (needs Docker), where the interview and the preview agents are chatted with.',
+)
+@click.option(
+    '--librechat-dir',
+    default=str(Path.home() / '.agentorg' / 'librechat'),
+    type=click.Path(path_type=Path),
+    help='Where the LibreChat stack keeps its configuration and secrets.',
+)
+def ui(
+    *,
+    host: str,
+    port: int,
+    resume: bool,
+    draft: Path,
+    open_browser: bool,
+    preview: bool,
+    chat: bool,
+    librechat_dir: Path,
+) -> None:
+    """Run the master interview: LibreChat for the conversation, a browser page for the live preview."""
+    if chat and not docker_available():
+        msg = 'Docker is required: the interview runs in LibreChat, which needs MongoDB and Meilisearch containers.'
+        raise click.ClickException(msg)
     if resume and draft.exists():
         load_draft(draft)
         click.echo(f'Resumed draft from {draft}.')
@@ -63,6 +88,26 @@ def ui(*, host: str, port: int, resume: bool, draft: Path, open_browser: bool, p
 
     url = f'http://{host}:{port}/'
     click.echo(f'AgentOrg UI: {url}  (Ctrl-C to stop)')
+    if not chat:
+        if open_browser:
+            Timer(0.8, lambda: webbrowser.open(url)).start()
+        serve(host=host, port=port, draft_path=draft, preview_enabled=preview)
+        return
+    stack = LibreChatStack(librechat_dir)
+    stack.prepare(master_port=port, preview_port=port + 1)
+    click.echo('Starting LibreChat...')
+    stack.up()
+    click.echo(f'Chat: {stack.url}  (pick the AgentOrg model)')
     if open_browser:
-        Timer(0.8, lambda: webbrowser.open(url)).start()
-    serve(host=host, port=port, draft_path=draft, preview_enabled=preview)
+        Timer(3.0, lambda: webbrowser.open(stack.url)).start()
+    try:
+        serve(
+            host=host,
+            port=port,
+            draft_path=draft,
+            preview_enabled=preview,
+            chat_api_key=stack.chat_api_key,
+            chat_url=stack.url,
+        )
+    finally:
+        stack.down()

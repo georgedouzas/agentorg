@@ -71,6 +71,8 @@ class PreviewManager:
     """Boots and supervises the rendered org as two subprocesses next to the master UI."""
 
     cache_root: Path = field(default_factory=lambda: Path.home() / '.agentorg' / 'preview')
+    fixed_api_port: int | None = None
+    chat_api_key: str | None = None
     status: PreviewStatus = 'idle'
     detail: str | None = None
     api_port: int | None = None
@@ -154,11 +156,12 @@ class PreviewManager:
             await self._run_sync(['npm', 'install', '--no-fund', '--no-audit'], cwd=frontend_dir, label='npm install')
 
         # 4. Spawn uvicorn --reload on the rendered API
-        self.api_port = _pick_port()
+        self.api_port = self.fixed_api_port or _pick_port()
         package = state.spec.org.package_name
         api_env = {
             **os.environ,
             'AGENTORG_PREVIEW_MODE': 'true',
+            **({'CHAT_API_KEY': self.chat_api_key} if self.chat_api_key else {}),
         }
         api_log = self.work_dir / '.preview-api.log'
         # `start_new_session=True` makes the subprocess its own process-group leader, so

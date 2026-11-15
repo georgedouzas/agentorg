@@ -8,12 +8,10 @@ import { LoginScreen } from './components/Login/LoginScreen';
 import { Header } from './components/Shell/Header';
 import { Sidebar } from './components/Shell/Sidebar';
 import { ActivityStrip } from './components/Shell/ActivityStrip';
-import { AgentPanel } from './components/AgentPanel/AgentPanel';
 import { Panel } from './components/Panel/Panel';
 import { DashboardView } from './components/Views/DashboardView';
 import { KnowledgeView } from './components/Views/KnowledgeView';
 import { SettingsView } from './components/Views/SettingsView';
-import { MasterView } from './components/Views/MasterView';
 import { RunsView } from './components/Views/RunsView';
 import { InboxView } from './components/Views/InboxView';
 import { LifecycleBanner } from './components/Shell/LifecycleBanner';
@@ -21,7 +19,7 @@ import { ParameterSetupModal } from './components/Views/ParameterSetupModal';
 import type { AgentItem, WorkflowItem, SelectedAgent } from './types';
 import styles from './App.module.css';
 
-type Tab = 'dashboard' | 'knowledge' | 'runs' | 'inbox' | 'settings' | 'master';
+type Tab = 'dashboard' | 'knowledge' | 'runs' | 'inbox' | 'settings';
 
 // True when this build is rendered by `agentorg ui` for the live preview iframe. In
 // that mode we skip first-run friction (parameter setup modal, setup-status block) so
@@ -64,13 +62,6 @@ function SettingsIcon() {
   );
 }
 
-function MasterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    </svg>
-  );
-}
 
 export default function App() {
   const identity = useIdentity();
@@ -79,8 +70,8 @@ export default function App() {
 
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState<SelectedAgent | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const query = new URLSearchParams(window.location.search);
+  const [activeTab, setActiveTab] = useState<Tab>((query.get('tab') as Tab | null) ?? 'dashboard');
   const [panel, setPanel] = useState<PanelState>({ open: false, title: '', content: '' });
   const setupStatus = useSetupStatus(refreshKey);
   const [configured, setConfigured] = useState<boolean | null>(null);
@@ -132,8 +123,9 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identity.loggedIn, refreshKey]);
 
-  function handleAgentSelect(agent: SelectedAgent) {
-    setSelectedAgent(agent);
+  // LibreChat is the org's chat app; selecting an agent opens it.
+  function handleAgentSelect(_agent: SelectedAgent) {
+    window.open(config.chat_url, '_blank', 'noopener');
   }
 
   function closePanel() {
@@ -173,7 +165,7 @@ export default function App() {
         config={config}
         agents={agents}
         workflows={workflows}
-        selected={selectedAgent}
+        selected={null}
         onSelect={handleAgentSelect}
         blocked={setupBlocked}
         onBlockedClick={() => setActiveTab('settings')}
@@ -187,12 +179,6 @@ export default function App() {
             onClick={() => setActiveTab('dashboard')}
           >
             <DashboardIcon /> Dashboard
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'master' ? styles.tabBtnActive : ''}`}
-            onClick={() => setActiveTab('master')}
-          >
-            <MasterIcon /> Master
           </button>
           <button
             className={`${styles.tabBtn} ${activeTab === 'knowledge' ? styles.tabBtnActive : ''}`}
@@ -219,6 +205,9 @@ export default function App() {
             <SettingsIcon /> Settings
             {setupBlocked && <span className={styles.tabDot} aria-hidden />}
           </button>
+          <a className={styles.tabBtn} href={config.chat_url} target="_blank" rel="noopener noreferrer">
+            Chat ↗
+          </a>
         </nav>
 
         <div className={styles.viewArea}>
@@ -227,18 +216,11 @@ export default function App() {
             <KnowledgeView config={config} />
           )}
           {activeTab === 'runs' && <RunsView />}
-          {activeTab === 'inbox' && <InboxView actor={identity.userId ?? 'default'} />}
+          {activeTab === 'inbox' && <InboxView actor={identity.userId ?? 'default'} focus={query.get('approval')} />}
           {activeTab === 'settings' && (
             <SettingsView
               orgName={config.app_name}
               setupStatus={setupStatus}
-            />
-          )}
-          {activeTab === 'master' && (
-            <MasterView
-              config={config}
-              agents={agents}
-              onSelect={setSelectedAgent}
             />
           )}
         </div>
@@ -246,14 +228,6 @@ export default function App() {
 
       <ActivityStrip refreshKey={refreshKey} />
 
-      {selectedAgent && (
-        <AgentPanel
-          selected={selectedAgent}
-          config={config}
-          userId={identity.userId ?? 'default'}
-          onClose={() => setSelectedAgent(null)}
-        />
-      )}
 
       <Panel
         open={panel.open}

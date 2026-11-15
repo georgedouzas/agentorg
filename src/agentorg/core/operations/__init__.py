@@ -3,6 +3,8 @@
 from ._approvals import ApprovalGate, Approvals
 from ._broker import Broker
 from ._bus import EventBus
+from ._chat_api import ChatBackend, ChatReply, ChatUser, build_chat_router, conversation_key, message_text
+from ._chat_org import OrgChat
 from ._comms import OrgTools
 from ._consumers import QueueConsumers
 from ._intake import Admit, Enqueue, Parameters, admit_all, payload_tags
@@ -35,6 +37,9 @@ __all__ = [
     'ApprovalGate',
     'Approvals',
     'Broker',
+    'ChatBackend',
+    'ChatReply',
+    'ChatUser',
     'ClientFactory',
     'Decision',
     'Dispatcher',
@@ -47,6 +52,7 @@ __all__ = [
     'LifecycleEvent',
     'LifecycleState',
     'Notifier',
+    'OrgChat',
     'OrgRuntime',
     'OrgTools',
     'Parameters',
@@ -63,12 +69,15 @@ __all__ = [
     'admit_all',
     'approvers_for',
     'broker_health',
+    'build_chat_router',
     'build_webhook_router',
     'classify_tool',
+    'conversation_key',
     'database_url',
     'decide',
     'effective_autonomy',
     'effective_governed',
+    'message_text',
     'payload_tags',
     'render_prompt',
     'resolve_amqp_url',

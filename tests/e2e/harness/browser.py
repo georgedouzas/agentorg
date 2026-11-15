@@ -36,19 +36,6 @@ def open_tab(page: Page, name: str) -> None:
     page.get_by_role('button', name=name, exact=True).click()
 
 
-def chat(page: Page, agent_name: str, message: str) -> None:
-    """Select an agent in the sidebar and send it `message`."""
-    page.get_by_role('button', name=agent_name).first.click()
-    box = page.locator('textarea').last
-    box.fill(message)
-    box.press('Enter')
-
-
-def expect_reply(page: Page, text: str) -> None:
-    """Wait until the streamed reply containing `text` is on the page."""
-    expect(page.get_by_text(text[:60]).first).to_be_visible()
-
-
 def expect_run_listed(page: Page, target: str) -> None:
     """Open the Runs view and wait until a run of `target` is listed."""
     open_tab(page, 'Runs')

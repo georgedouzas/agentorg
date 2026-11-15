@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Frontend partial: the React dashboard runs standalone. Without a real backend the
-// /api/* and /reasoners/* calls 404 gracefully (the app catches and falls back to empty
+// /api/* calls 404 gracefully (the app catches and falls back to empty
 // state). Point VITE_API_HOST at a running backend to see live data.
 const apiHost = process.env.VITE_API_HOST ?? 'http://localhost:8000'
 
@@ -10,7 +10,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/reasoners': { target: apiHost, changeOrigin: true },
       '/api': { target: apiHost, changeOrigin: true, ws: true },
     }
   }

@@ -323,9 +323,12 @@ CONFIGURE_INSTRUCTIONS = dedent(
       - Railway (packaging=docker, api=railway): cloud API and database, plus a hosted
         RabbitMQ the setup checklist walks through. About $5/month.
       - Vercel (frontend=vercel): cloud dashboard on the free tier.
+    People chat with the org in LibreChat, which every org ships with; the dashboard is the
+    operations console for runs, approvals and settings. Docker packaging runs LibreChat in
+    compose; Railway gets a setup step for it. The live preview keeps a built-in chat panel.
     For every cloud choice, declare the token via `add_or_update_env_var` and a setup
     step via `add_or_update_setup_step`: `RAILWAY_TOKEN`, `VERCEL_TOKEN`.
-    `ANTHROPIC_API_KEY` and `AMQP_URL` are always required; they are added for you.
+    `ANTHROPIC_API_KEY`, `AMQP_URL` and `CHAT_API_KEY` are always required; they are added for you.
 
     Closing
     -------

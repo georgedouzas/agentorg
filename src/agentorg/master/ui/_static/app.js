@@ -1,21 +1,14 @@
-/* AgentOrg UI - canvas iframe + draggable popup chat + stage progress */
+/* AgentOrg UI - live preview iframe + stage progress; the interview itself runs in LibreChat */
 
 // ---------- handles ----------
-const chatLog = document.getElementById('chat-log');
-const chatForm = document.getElementById('chat-form');
-const chatInput = document.getElementById('chat-input');
-const chatSend = document.getElementById('chat-send');
-const status = document.getElementById('status');
-const resetBtn = document.getElementById('reset-btn');
+const chatLink = document.getElementById('chat-link');
 const stageBar = document.getElementById('stage-bar');
 const previewFrame = document.getElementById('preview-frame');
 const previewPlaceholder = document.getElementById('preview-placeholder');
 const previewMessage = document.getElementById('preview-message');
 const previewSub = document.getElementById('preview-sub');
-const chatPopup = document.getElementById('chat-popup');
-const chatPopupHeader = document.getElementById('chat-popup-header');
 
-// ---------- placeholder detection (kept; still used by chat empty hero etc) ----------
+// ---------- placeholder detection ----------
 const PLACEHOLDER_VALUES = new Set([
   'Not set yet', 'Untitled org', 'untitled-org', 'untitled_org',
   'you@example.com', '🛠', 'You',
@@ -59,10 +52,6 @@ const el = (tag, attrs = {}, ...children) => {
   return node;
 };
 
-const renderMarkdown = (text) => {
-  if (window.marked) return window.marked.parse(text, { breaks: true });
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-};
 
 const labelFor = (id) => id.charAt(0).toUpperCase() + id.slice(1);
 
@@ -92,49 +81,6 @@ const applyStageSummary = (summary) => {
   // updates to show progress.
   lastStageSummary = summary || lastStageSummary;
   renderStageBar(lastStageSummary);
-};
-
-// ---------- chat rendering ----------
-const showEmptyHero = () => {
-  chatLog.innerHTML = '';
-  chatLog.appendChild(el('div', { className: 'empty-hero' },
-    el('div', { className: 'lead' }, "Hi, I'm AgentOrg."),
-    el('div', {}, 'Tell me what you want to build and watch your organziation take shape as we go.'),
-  ));
-};
-
-const appendMessage = (role, content) => {
-  if (chatLog.querySelector('.empty-hero')) chatLog.innerHTML = '';
-  const roleLabel = role === 'user' ? 'You' : 'Master';
-  const body = role === 'master'
-    ? el('div', { innerHTML: renderMarkdown(content) })
-    : el('div', {}, content);
-  const bubble = el('div', { className: `bubble ${role}` },
-    el('div', { className: 'role' }, roleLabel),
-    body,
-  );
-  chatLog.appendChild(bubble);
-  if (role === 'user') bubble.scrollIntoView({ block: 'start', behavior: 'smooth' });
-};
-
-const appendToolCalls = (calls) => {
-  if (!calls?.length) return;
-  const bubble = el('div', { className: 'bubble tool-calls' }, `🛠  ${calls.join('  ·  ')}`);
-  chatLog.appendChild(bubble);
-};
-
-const setBusy = (busy) => {
-  chatSend.disabled = busy;
-  chatInput.disabled = busy;
-  if (busy) {
-    status.innerHTML = '';
-    status.appendChild(el('span', { className: 'dots' },
-      el('span', {}), el('span', {}), el('span', {}),
-    ));
-    status.appendChild(document.createTextNode(' Thinking…'));
-  } else {
-    status.textContent = '';
-  }
 };
 
 // ---------- preview placeholder ----------
@@ -209,67 +155,6 @@ const startPreviewPolling = () => {
   setPollCadence(POLL_FAST_MS);
 };
 
-// ---------- popup chat: drag-to-move (always visible, no hide/show) ----------
-const POPUP_POS_KEY = 'agentorg.chat.popup.pos';
-
-const savePopupPos = () => {
-  const rect = chatPopup.getBoundingClientRect();
-  localStorage.setItem(POPUP_POS_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
-};
-const restorePopupPos = () => {
-  try {
-    const pos = JSON.parse(localStorage.getItem(POPUP_POS_KEY) || 'null');
-    if (pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
-      // Clamp the saved position to the current viewport so a stale drag from a
-      // larger window doesn't park the popup off-screen.
-      const w = chatPopup.offsetWidth || 340;
-      const h = chatPopup.offsetHeight || 440;
-      const maxLeft = Math.max(4, window.innerWidth - w - 4);
-      const maxTop = Math.max(4, window.innerHeight - h - 4);
-      const left = Math.max(4, Math.min(maxLeft, pos.left));
-      const top = Math.max(4, Math.min(maxTop, pos.top));
-      chatPopup.style.right = 'auto';
-      chatPopup.style.bottom = 'auto';
-      chatPopup.style.left = `${left}px`;
-      chatPopup.style.top = `${top}px`;
-    }
-  } catch { /* ignore */ }
-};
-
-// Drag handling
-let dragState = null;
-chatPopupHeader.addEventListener('pointerdown', (ev) => {
-  if (ev.target.closest('.chat-popup-btn')) return;
-  const rect = chatPopup.getBoundingClientRect();
-  dragState = {
-    offsetX: ev.clientX - rect.left,
-    offsetY: ev.clientY - rect.top,
-    pointerId: ev.pointerId,
-  };
-  chatPopupHeader.setPointerCapture(ev.pointerId);
-  // Switch to absolute positioning if not already.
-  chatPopup.style.right = 'auto';
-  chatPopup.style.bottom = 'auto';
-});
-chatPopupHeader.addEventListener('pointermove', (ev) => {
-  if (!dragState || ev.pointerId !== dragState.pointerId) return;
-  const maxLeft = window.innerWidth - chatPopup.offsetWidth - 4;
-  const maxTop = window.innerHeight - chatPopup.offsetHeight - 4;
-  const left = Math.max(4, Math.min(maxLeft, ev.clientX - dragState.offsetX));
-  const top = Math.max(4, Math.min(maxTop, ev.clientY - dragState.offsetY));
-  chatPopup.style.left = `${left}px`;
-  chatPopup.style.top = `${top}px`;
-});
-chatPopupHeader.addEventListener('pointerup', (ev) => {
-  if (!dragState || ev.pointerId !== dragState.pointerId) return;
-  chatPopupHeader.releasePointerCapture(ev.pointerId);
-  savePopupPos();
-  dragState = null;
-});
-
-// Restore position on load
-restorePopupPos();
-
 // ---------- API ----------
 const fetchSpec = async () => {
   try {
@@ -282,75 +167,18 @@ const fetchSpec = async () => {
   }
 };
 
-const sendChat = async (message) => {
-  const r = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
-  });
-  let body = null;
-  try { body = await r.json(); } catch { /* keep null */ }
-  if (!r.ok) {
-    const detail = body?.detail;
-    const err = new Error(typeof detail === 'string' ? detail : `Chat failed (HTTP ${r.status}).`);
-    err.transient = r.status === 503;
-    throw err;
-  }
-  return body;
-};
-
-const doReset = async () => {
-  if (!confirm('Start over from scratch? The current draft will be discarded.')) return;
+const fetchChatUrl = async () => {
   try {
-    await fetch('/api/reset', { method: 'POST' });
-    showEmptyHero();
-    // The preview URL didn't change (same subprocesses) but the rendered spec did, so the
-    // iframe is now showing stale React state. Force a reload by re-assigning the src.
-    if (previewCurrentUrl) {
-      previewFrame.src = previewCurrentUrl;
-    }
-    await fetchSpec();
-    chatInput.focus();
-  } catch (e) {
-    appendMessage('master', `**Error resetting:** ${e.message}`);
-  }
+    const r = await fetch('/api/chat-app');
+    const data = await r.json();
+    if (data.url) chatLink.href = data.url;
+  } catch { /* keep the default address */ }
 };
 
 // ---------- wiring ----------
-chatForm.addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const msg = chatInput.value.trim();
-  if (!msg) return;
-  chatInput.value = '';
-  appendMessage('user', msg);
-  setBusy(true);
-  try {
-    const { response, tool_calls } = await sendChat(msg);
-    appendToolCalls(tool_calls);
-    appendMessage('master', response || '(no reply)');
-    await fetchSpec();
-  } catch (e) {
-    const hint = e.transient
-      ? "\n\n_Your message is still in the input — press Enter to retry once the model comes back._"
-      : '';
-    appendMessage('master', `**Error:** ${e.message}${hint}`);
-    chatInput.value = msg;
-  } finally {
-    setBusy(false);
-    chatInput.focus();
-  }
-});
-
-chatInput.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Enter' && !ev.shiftKey) {
-    ev.preventDefault();
-    chatForm.requestSubmit();
-  }
-});
-
-resetBtn.addEventListener('click', doReset);
-
-showEmptyHero();
+// The interview happens in LibreChat, so poll the draft to keep the stage bar current.
+const SPEC_POLL_MS = 2000;
+fetchChatUrl();
 fetchSpec();
+setInterval(fetchSpec, SPEC_POLL_MS);
 startPreviewPolling();
-chatInput.focus();

@@ -2,7 +2,6 @@
 
 import json
 import time
-from dataclasses import dataclass, field
 from typing import Any, TypedDict
 
 import httpx
@@ -35,25 +34,13 @@ class Approval(TypedDict):
     status: str
 
 
-@dataclass
-class ChatReply:
-    """The events of one streamed chat turn."""
-
-    run_id: str | None = None
-    events: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
-
-    @property
-    def end(self) -> dict[str, Any]:
-        """The final `end` event's data."""
-        return next(data for name, data in reversed(self.events) if name == 'end')
-
-
 class OrgClient:
     """Drive a deployed org through its HTTP API."""
 
-    def __init__(self, base_url: str, actor: str = 'e2e') -> None:
-        """Connect to the org at `base_url`, deciding approvals as `actor`."""
+    def __init__(self, base_url: str, chat_key: str, actor: str = 'e2e') -> None:
+        """Connect to the org at `base_url`, chatting with `chat_key` and deciding approvals as `actor`."""
         self.http = httpx.Client(base_url=base_url, timeout=30)
+        self.chat_key = chat_key
         self.actor = actor
 
     def _json(self, method: str, path: str, **kwargs: Any) -> Any:  # noqa: ANN401
@@ -106,21 +93,16 @@ class OrgClient:
             headers['Idempotency-Key'] = idempotency_key
         return str(self._json('POST', f'/hooks/{trigger_id}', content=body, headers=headers)['run_id'])
 
-    def chat(self, target: str, message: str, session_id: str | None = None) -> ChatReply:
-        """Send a chat message to an agent or unit and collect the streamed reply until it ends."""
-        reply = ChatReply()
-        body = {'message': message, 'session_id': session_id}
-        with self.http.stream('POST', f'/api/v1/reasoners/{target}/stream', json=body, timeout=None) as stream:
-            stream.raise_for_status()
-            name = 'message'
-            for line in stream.iter_lines():
-                if line.startswith('event:'):
-                    name = line.removeprefix('event:').strip()
-                elif line.startswith('data:'):
-                    data = json.loads(line.removeprefix('data:').strip())
-                    reply.events.append((name, data))
-                    reply.run_id = data.get('run_id', reply.run_id) if name == 'started' else reply.run_id
-        return reply
+    def chat(self, target: str, message: str, *, email: str = '', conversation: str = '') -> dict[str, Any]:
+        """Send a message or a `/` command to an agent or unit through the chat API and return the completion."""
+        headers = {
+            'Authorization': f'Bearer {self.chat_key}',
+            'X-Agentorg-User-Id': self.actor,
+            'X-Agentorg-User-Email': email,
+            'X-Agentorg-Conversation-Id': conversation,
+        }
+        body = {'model': target, 'messages': [{'role': 'user', 'content': message}]}
+        return self._json('POST', '/v1/chat/completions', json=body, headers=headers, timeout=None)
 
     def wait_for_run(self, run_id: str, statuses: tuple[str, ...] = TERMINAL, timeout: float = 300) -> dict[str, Any]:
         """Poll a run until its status is in `statuses`, failing after `timeout` seconds."""
