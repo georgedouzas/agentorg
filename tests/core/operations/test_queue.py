@@ -52,11 +52,15 @@ async def test_dispatcher_runs_manual_before_schedule(spec: Spec, store: Store, 
     """Queued work starts in priority order, manual first."""
     recorder = Recorder(store)
     dispatcher = _dispatcher(spec, store, fake_broker, recorder)
-    await dispatcher.enqueue('assistant', 'schedule', 'scheduled')
-    await dispatcher.enqueue('assistant', 'manual', 'manual')
+    scheduled = await dispatcher.enqueue('assistant', 'schedule', 'scheduled')
+    manual = await dispatcher.enqueue('assistant', 'manual', 'manual')
     await dispatcher.start()
     await fake_broker.drain()
-    assert recorder.order == ['manual', 'scheduled']
+    delivered = [
+        json.loads(message.body)['run_id'] for queue, message in fake_broker.delivered if queue == 'runs.assistant'
+    ]
+    assert delivered == [manual.id, scheduled.id]
+    assert sorted(recorder.order) == ['manual', 'scheduled']
 
 
 async def test_dispatcher_retries_transient_failure_once(spec: Spec, store: Store, fake_broker: FakeBroker) -> None:
@@ -109,6 +113,9 @@ async def test_dispatcher_defers_claims_beyond_replicas(spec: Spec, store: Store
     await dispatcher.start()
     for prompt in ('one', 'two', 'three'):
         await dispatcher.enqueue('assistant', 'manual', prompt)
+    async with asyncio.timeout(5):
+        while len(recorder.order) < 2 or not fake_broker.retries:
+            await asyncio.sleep(0.01)
     await asyncio.sleep(0.05)
     assert len(recorder.order) == 2
     assert len(fake_broker.retries) == 1

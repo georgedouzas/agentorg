@@ -44,8 +44,9 @@ class Approvals:
             arguments=arguments,
             approvers=approvers_for(self.spec, run.target),
         )
-        await self.store.add(approval)
+        # Hold the run first, so anyone who sees the pending approval also sees the run waiting on it.
         await self.store.transition(run.id, 'awaiting_approval')
+        await self.store.add(approval)
         await self.store.append_transcript(
             run.id,
             [{'type': 'approval_requested', 'approval_id': approval.id, 'tool': tool_name}],
