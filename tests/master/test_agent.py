@@ -2,11 +2,13 @@
 
 from typing import Any
 
+import pytest
 from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock
 
 from agentorg.master import (
     MASTER_INSTRUCTIONS,
     MASTER_INTRODUCTION,
+    MASTER_MODEL,
     MASTER_TOOLS,
     STAGE_TOOLS,
     StageAgent,
@@ -15,6 +17,7 @@ from agentorg.master import (
     agent_for_current_stage,
     finalize_spec,
     get_state,
+    master_model,
     set_budget,
     set_org_identity,
     stage_instructions,
@@ -27,6 +30,17 @@ from .conftest import ScriptedClient, result_message
 def _agent(stage: str, *messages: object) -> StageAgent:
     ScriptedClient.calls = []
     return StageAgent(stage, STAGE_TOOLS[stage], client_factory=lambda options: ScriptedClient(options, list(messages)))
+
+
+@pytest.mark.parametrize(('value', 'expected'), [(None, MASTER_MODEL), ('', MASTER_MODEL), ('haiku', 'haiku')])
+def test_master_model_defaults_to_opus(monkeypatch: pytest.MonkeyPatch, value: str | None, expected: str) -> None:
+    """The interview runs on Opus 5.5 unless `AGENTORG_MODEL` names another model; an empty value keeps Opus."""
+    monkeypatch.delenv('AGENTORG_MODEL', raising=False)
+    if value is not None:
+        monkeypatch.setenv('AGENTORG_MODEL', value)
+    assert MASTER_MODEL == 'claude-opus-5-5'
+    assert master_model() == expected
+    assert _agent('discover').options().model == expected
 
 
 def test_stage_agent_has_only_its_stage_tools() -> None:

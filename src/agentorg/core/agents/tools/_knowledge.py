@@ -1,6 +1,7 @@
 """Agent-callable knowledge tools plus the storage primitives they share with the rendered org's routes."""
 
 import contextlib
+import logging
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -11,6 +12,8 @@ from agentfield.memory import GlobalMemoryClient, ScopedMemoryClient
 
 from ._node import current_memory, current_node
 from ._tags import tool
+
+logger = logging.getLogger(__name__)
 
 PREFIX = 'kn:'
 PREVIEW_WRITE_MSG = '(Preview mode: knowledge writes are disabled. Set `AGENTORG_PREVIEW_MODE=false` to disable it.)'
@@ -45,14 +48,18 @@ async def _embed(text: str, model: str | None) -> list[float] | None:
         model: A `provider:name` pair, or None to disable embedding.
 
     Returns:
-        vector: The embedding, or None when no model is configured.
+        vector: The embedding, or None when no model is configured or embedding fails.
     """
     if not model:
         return None
     provider, _, leaf = model.partition(':')
     aliases = {'google': 'gemini'}
     full = f'{aliases.get(provider, provider)}/{leaf}' if provider and leaf else model
-    resp = await litellm.aembedding(model=full, input=text)
+    try:
+        resp = await litellm.aembedding(model=full, input=text)
+    except Exception as error:  # noqa: BLE001 - a missing key or outage degrades to substring search
+        logger.warning('Embedding with %s failed, continuing without vectors: %s', full, str(error).splitlines()[0])
+        return None
     return list(resp.data[0]['embedding'])
 
 

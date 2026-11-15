@@ -18,6 +18,7 @@ REPOSITORY = Path(__file__).parents[3]
 COMPOSE_FILE = 'compose.e2e.yaml'
 DOCKERFILE = 'Dockerfile.e2e'
 WHEELS = '.e2e-wheels'
+CONSTRAINTS = 'constraints.txt'
 DOCKER_HOST = 'host.docker.internal'
 LOCAL_URL = re.compile(r'^(https?://)(127\.0\.0\.1|localhost)([:/]|$)')
 # Byte lengths of the LibreChat secrets each run generates, not the secrets themselves.
@@ -85,13 +86,20 @@ def adapt_compose(compose: dict[str, Any], slug: str, env: Mapping[str, str], im
 
 
 def adapt_dockerfile(dockerfile: str) -> str:
-    """Install the locally built agentorg wheel before the rendered Dockerfile resolves the org's dependencies."""
+    """Install the local agentorg wheel, pinned to the repository's lock, before the org's dependencies resolve.
+
+    The pin keeps the image on the same Claude Code CLI as the host, so recordings replay on every target.
+    """
     marker = 'RUN uv pip install --system -e'
     head, found, tail = dockerfile.partition(marker)
     if not found:
         msg = 'The rendered Dockerfile no longer installs the package with `uv pip install --system -e`.'
         raise ValueError(msg)
-    local = f'COPY {WHEELS}/ /tmp/wheels/\nRUN uv pip install --system /tmp/wheels/*.whl\n'
+    local = (
+        f'COPY {WHEELS}/ /tmp/wheels/\n'
+        f'ENV UV_CONSTRAINT=/tmp/wheels/{CONSTRAINTS}\n'
+        'RUN uv pip install --system /tmp/wheels/*.whl\n'
+    )
     return f'{head}{local}{found}{tail}'
 
 
@@ -119,9 +127,14 @@ class LocalDocker:
         return f'http://127.0.0.1:{address.rsplit(":", 1)[-1]}'
 
     def _prepare(self, project: Project, env: Mapping[str, str]) -> None:
+        if not (project.root / 'compose.yaml').exists():
+            msg = f'{project.slug} has no compose.yaml; local-docker needs runtime.infra.packaging set to docker.'
+            raise RuntimeError(msg)
         wheels = project.root / WHEELS
         shutil.rmtree(wheels, ignore_errors=True)
         _run('uv', 'build', '--wheel', '--out-dir', str(wheels), cwd=REPOSITORY)
+        export = ('uv', 'export', '--frozen', '--no-hashes', '--no-dev', '--no-emit-project')
+        _run(*export, '--output-file', str(wheels / CONSTRAINTS), cwd=REPOSITORY)
         dockerfile = (project.root / 'Dockerfile').read_text()
         (project.root / DOCKERFILE).write_text(adapt_dockerfile(dockerfile))
         compose = yaml.safe_load((project.root / 'compose.yaml').read_text())

@@ -2,6 +2,10 @@
 
 import re
 
+import pytest
+
+from agentorg.core.agents.tools import _knowledge
+
 
 async def test_read_knowledge_returns_not_found_for_missing_unit(call):
     """Reading a unit that was never written returns the not-found message."""
@@ -146,3 +150,17 @@ async def test_delete_knowledge_short_circuits_under_preview_mode(call, monkeypa
     monkeypatch.setenv('AGENTORG_PREVIEW_MODE', 'false')
     read_msg = await call('read_knowledge', knowledge_type='disposable', name='preview-survives')
     assert 'Stays put' in read_msg
+
+
+async def test_search_knowledge_falls_back_when_the_embedder_fails(call, monkeypatch: pytest.MonkeyPatch):
+    """A failing embedder, such as one without its API key, degrades writes and searches to substring matching."""
+
+    async def no_key(**_kwargs: object) -> object:
+        msg = 'Missing Gemini API key.'
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(_knowledge, '_embedder', lambda: 'google:gemini-embedding-001')
+    monkeypatch.setattr('litellm.aembedding', no_key)
+    await call('write_knowledge', knowledge_type='embed-down', name='hit', content='unique_embedfail_gamma here.')
+    result = await call('search_knowledge', query='unique_embedfail_gamma', knowledge_types=['embed-down'])
+    assert 'embed-down/hit' in result

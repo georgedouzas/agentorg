@@ -27,6 +27,10 @@ DEFAULT_RULES: tuple[tuple[str, str], ...] = (
     (r'\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?', '<datetime>'),
     (r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '<uuid>'),
     (r'/(private/)?(tmp|var/folders)/[^\s"\'`]*', '<tmp>'),
+    (r'\b[0-9a-f]{32}\b', '<id>'),
+    (r'x-anthropic-billing-header:[^\n]*', 'x-anthropic-billing-header: <cli>'),
+    (r'Primary working directory:[^\n]*', 'Primary working directory: <cwd>'),
+    (r'\n - Additional working directories:(\n  - [^\n]*)*', ''),
 )
 
 
@@ -50,13 +54,20 @@ def canonical_request(path: str, body: dict[str, Any], rules: tuple[tuple[str, s
         body: The decoded request body.
         rules: Regex replacements that strip volatile text such as dates and temp paths.
 
+    Only MCP tools are kept, since the CLI's built-in tools differ between its versions and platforms.
+
     Returns:
         canonical: Sorted, normalised JSON of the path and the hashed fields.
     """
     compiled = [(re.compile(pattern), replacement) for pattern, replacement in rules]
     fields = {name: body[name] for name in HASHED_FIELDS if name in body}
     if 'tools' in fields:
-        fields['tools'] = [{'name': t.get('name'), 'input_schema': t.get('input_schema')} for t in fields['tools']]
+        # The CLI's built-in tools vary with its version and platform; the org's own MCP tools are what is tested.
+        fields['tools'] = [
+            {'name': t.get('name'), 'input_schema': t.get('input_schema')}
+            for t in fields['tools']
+            if str(t.get('name', '')).startswith('mcp__')
+        ]
     return json.dumps({'path': path, **_scrub(fields, compiled)}, sort_keys=True, separators=(',', ':'))
 
 
@@ -90,6 +101,7 @@ class MockAnthropic:
     transport: httpx.AsyncBaseTransport | None = None
     url: str = ''
     misses: list[str] = field(default_factory=list)
+    missed: dict[str, str] = field(default_factory=dict)
     calls: Counter[str] = field(default_factory=Counter)
 
     def _path(self, digest: str) -> Path:
@@ -138,6 +150,7 @@ class MockAnthropic:
         recorded = self._load(digest)
         if not recorded:
             self.misses.append(f'{request.method} {path} {digest}')
+            self.missed[digest] = canonical
             message = (
                 f'No recording for {path} request {digest} in {self.cassettes.name}; '
                 're-run the scenario with --model-mode record.'

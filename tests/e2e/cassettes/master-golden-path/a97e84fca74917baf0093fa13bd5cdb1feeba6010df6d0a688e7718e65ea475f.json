@@ -1,0 +1,352 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "## Live context\n- stage: discover (next_enabled=False)\n- next_blockers: ['Record your understanding of the business via `record_discovery_summary` (six structured fields, user-confirmed).']\n- next_question: Probe the business with follow-ups: what is made, sold or done, who it serves, the 3-5 concrete tasks, the typical flow, the market context and the current pain. When all six are clear, summarise, ask \"does this capture it?\", and on confirmation call `record_discovery_summary(...)`.\n- placeholders: [('org.name', 'Untitled org'), ('org.slug', 'untitled-org'), ('org.package_name', 'untitled_org'), ('org.description', 'A new agent organisation in progress.'), ('org.repository', 'Not set yet'), ('org.admin_name', 'You'), ('org.admin_email', 'you@example.com'), ('ai.agents', '(empty)'), ('knowledge.types', '(empty)'), ('knowledge.principles.sections', '(empty)'), ('parameters', '(empty)'), ('ui.app.name', 'Untitled org'), ('ui.app.icon', '\ud83d\udee0'), ('ui.app.description', 'A new agent organisation in progress.'), ('ui.empty_state.icon', '\u2728'), ('ui.empty_state.title', 'Nothing here yet'), ('ui.empty_state.body', 'Your org is taking shape \u2014 keep chatting with AgentOrg.'), ('ui.knowledge_empty', 'No knowledge entries yet.'), ('ui.agent_groups', '(empty)')]\n- structure: complete\n\n### working_spec\n```python\n\"\"\"Spec for Untitled org.\"\"\"\n\n\nfrom agentorg.core.spec import (\n    AI,\n    AppUI,\n    EmptyState,\n    EnvVar,\n    EnvVars,\n    Infra,\n    Knowledge,\n    Operations,\n    Org,\n    Principles,\n    Runtime,\n    Spec,\n    UI,\n)\n\n\nspec = Spec(\n    org=Org(\n        name='Untitled org',\n        slug='untitled-org',\n        package_name='untitled_org',\n        description='A new agent organisation in progress.',\n        repository='Not set yet',\n        admin_name='You',\n        admin_email='you@example.com',\n        visibility='private',\n    ),\n    runtime=Runtime(\n        infra=Infra(\n            packaging='none',\n            database='sqlite',\n            vector_db='chromadb',\n            embedder='google:gemini-embedding-001',\n            api='none',\n            frontend='none',\n            auth='none',\n        ),\n        env_vars=EnvVars(\n            required=[\n                EnvVar(\n                    name='ANTHROPIC_API_KEY',\n                    description='Anthropic API key of the agents.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='AMQP_URL',\n                    description='RabbitMQ URL that carries runs and events.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='CHAT_API_KEY',\n                    description='Key LibreChat uses to call the chat API.',\n                    required_label='Always',\n                ),\n            ],\n            optional=[],\n        ),\n        setup=[],\n    ),\n    ai=AI(\n        agents=[],\n    ),\n    operations=Operations(),\n    parameters=[],\n    knowledge=Knowledge(\n        principles=Principles(\n            sections=[],\n        ),\n        types=[],\n    ),\n    ui=UI(\n        app=AppUI(\n            name='Untitled org',\n            icon='\ud83d\udee0',\n            description='A new agent organisation in progress.',\n        ),\n        empty_state=EmptyState(\n            icon='\u2728',\n            title='Nothing here yet',\n            body='Your org is taking shape \u2014 keep chatting with AgentOrg.',\n        ),\n        knowledge_empty='No knowledge entries yet.',\n        agent_groups=[],\n        workflow_groups=[],\n        featured_agents=[],\n        agent_icons={},\n        overview=[],\n        agent_configs={},\n        chat_quick_prompts={},\n    ),\n)\n\n```\n\n---\n\nWe are Acme Help, a team of four answering customer questions about Ledgerly, our accounting app for freelancers and sole traders in the UK. Questions arrive by email and through the in-app chat. The most common ones: how to create and send invoices, how to categorise expenses, how to export a tax summary for the self-assessment return, how bank sync works, and how to change a subscription plan. A typical request: the customer writes in, we look up the relevant help article, answer step by step, and hand anything about billing disputes or refunds to our finance colleague. The market is crowded with bigger tools, so friendly and accurate answers are how we keep customers. The pain today: replies take up to a day in busy weeks around tax deadlines, and answers are inconsistent. We value accuracy and friendliness, and we never promise refunds.",
+        "role": "user"
+      },
+      {
+        "content": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: true\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Opus 5.5. The exact model ID is claude-opus-5-5. Assistant knowledge cutoff is June 2026.\n\nToday's date is <env>",
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "signature": "CAQSkggKEAgTGAI4AUIIdGhpbmtpbmcSDKsN73KKC31Z1cc1pxoMi4Rr6mGBHnZ54VPLIjDc5jeVQGzQ6DHJWsHRVkL/RGxDrddwjud31K861b6p5k3WC7+5lsKFca3ZR/morbcqrwcVfEjxlWbtimAFg2gBfuSUSFSrmMoZ8ZWlR37W8h1Xq+vXcJZUJBHvjCEh3hCbjZf9MmKAHF+xeu4vAnUiO+La1nXcU93VqTIi5hVW3iBuXUZM0NIffATCFV0IhdcPiA2eYw6StYALuyPzWGCUQHFChWNr0xFZmPGBympY3KERlrBwc1lO3NMuUBox2ZTx80fRV0U4Mlv29qN5zRg2mWIbRxdgtflW3AWCK0H4g1FmzfEWNtO7d/gP/oU2Bp71rxvCzbJsbKWjGPQIo4fEy8I5Rkm4lUVd7OpxG5sT/8fwCIU9ZZt6YYEa/M08bx1ngz1I4TNUVI3quuhgU5TO2c3+/rUnJcDuMAeh2DnPIbdnX4ylcn4+YAcJwq5P4DvxjjBGcUS3E5AAOzHdb/pMaNM0uTgkpTIt953IxqUcy+6CDTK1sSMxYia/GKxOuAu0tR+7ngecbrQkDAiNzoI7Wx11VwSi0GK9r9ezh5lnd3YeHFOSmsQJ4eMXz7/bhNf+p1HL0NCaMUoyEc8CnswBxwJWQFfZovt1hC3c15JECgqCFOv31Tokk9BJ0xsHmMVGBqrAo+USewn7p8WKu1kYl6BkSyqdFJz6j65wOUdthInwDQExj52S+Q8TeucpRZ3gPFejudB2ff4kavNdMDUcxbU8EDudnJIY0M5cszm/lOgYO6L1VDHhX91vEzid8J/m3QlUmb0b0b62NwkjXqLxrIDPQyhKp0s4zuAOV+6T9zxHEkIK3DOQtIeRXQ2kbev3nQujpPd1PSegbbzzoVqRpS1RW5NDtgvExYy4HVw0q7Vnf617gNOxbOiIzPnOUn7poCHMLehWd60RKz3XC8tMKWBXOn/E32Ics5449Ws9xVWC/4F+6qF7T3vQEmaeSIwJ4dfTl4h0dY1NS9S9xTtKgTqOxJk4EDNGI89Vh+4PnM0VyPQnruXZJ88PCKaOeENK5plaXj7jz+l/P2F9QBYIUJTylYvXL5DNK9lpBG+COhizkfWWnJykSwf+IFdu3cIrqKHt4cUfjgVwKKlKBcHcUT63ldRZaSpaJObOj/BzchbXOk1tVhXRninZQdAeRUUuLRbWXPUDDkZaRzDcg55yKdvbOAa1aulVDoI0fwHtExMhvOjuUzc92MNSK7dlG0TPKYL2hyH6VbofWh35DqN0q6WdXDqbu2/W5a5azndtz2h8TyAPB6fvTgRQoAFesjGn8gA5rPgoDbYYr+K8bpY6RS3xiownd70hPy16mcAK+geoGAE=",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "text": "That's a clear picture. Ledgerly is a crowded market and your team is part of how you compete, so quick, accurate answers matter.\n\nHere's my understanding. Acme Help is a team of four that answers customer questions about Ledgerly, an accounting app for UK freelancers and sole traders. Questions come in by email and in-app chat. Most are about:\n\n- creating and sending invoices\n- categorising expenses\n- exporting a tax summary for self-assessment\n- how bank sync works\n- changing subscription plans\n\nFor a typical request, a customer writes in, someone finds the right help article, and the reply walks them through it step by step. Billing disputes and refund requests go to your finance colleague. Bigger tools dominate the market, so friendly, accurate support helps keep customers. The main problems are reply times of up to a day in busy weeks around tax deadlines, and answers that vary depending on who replies. You care about accuracy and friendliness, and you never promise refunds.\n\nDoes that capture it? Two quick questions would help me shape the agents later:\n\n1. Should the agents reply to customers directly, or draft replies for one of the four of you to check and send? Or a mix, such as sending simple how-to answers directly and having someone review anything that touches tax?\n2. Is Acme Help part of a larger Ledgerly company with other teams you hand off to, like product or engineering for bug reports? Or is finance the only handoff?",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": "## Live context\n- stage: discover (next_enabled=False)\n- next_blockers: ['Record your understanding of the business via `record_discovery_summary` (six structured fields, user-confirmed).']\n- next_question: Probe the business with follow-ups: what is made, sold or done, who it serves, the 3-5 concrete tasks, the typical flow, the market context and the current pain. When all six are clear, summarise, ask \"does this capture it?\", and on confirmation call `record_discovery_summary(...)`.\n- placeholders: [('org.name', 'Untitled org'), ('org.slug', 'untitled-org'), ('org.package_name', 'untitled_org'), ('org.description', 'A new agent organisation in progress.'), ('org.repository', 'Not set yet'), ('org.admin_name', 'You'), ('org.admin_email', 'you@example.com'), ('ai.agents', '(empty)'), ('knowledge.types', '(empty)'), ('knowledge.principles.sections', '(empty)'), ('parameters', '(empty)'), ('ui.app.name', 'Untitled org'), ('ui.app.icon', '\ud83d\udee0'), ('ui.app.description', 'A new agent organisation in progress.'), ('ui.empty_state.icon', '\u2728'), ('ui.empty_state.title', 'Nothing here yet'), ('ui.empty_state.body', 'Your org is taking shape \u2014 keep chatting with AgentOrg.'), ('ui.knowledge_empty', 'No knowledge entries yet.'), ('ui.agent_groups', '(empty)')]\n- structure: complete\n\n### working_spec\n```python\n\"\"\"Spec for Untitled org.\"\"\"\n\n\nfrom agentorg.core.spec import (\n    AI,\n    AppUI,\n    EmptyState,\n    EnvVar,\n    EnvVars,\n    Infra,\n    Knowledge,\n    Operations,\n    Org,\n    Principles,\n    Runtime,\n    Spec,\n    UI,\n)\n\n\nspec = Spec(\n    org=Org(\n        name='Untitled org',\n        slug='untitled-org',\n        package_name='untitled_org',\n        description='A new agent organisation in progress.',\n        repository='Not set yet',\n        admin_name='You',\n        admin_email='you@example.com',\n        visibility='private',\n    ),\n    runtime=Runtime(\n        infra=Infra(\n            packaging='none',\n            database='sqlite',\n            vector_db='chromadb',\n            embedder='google:gemini-embedding-001',\n            api='none',\n            frontend='none',\n            auth='none',\n        ),\n        env_vars=EnvVars(\n            required=[\n                EnvVar(\n                    name='ANTHROPIC_API_KEY',\n                    description='Anthropic API key of the agents.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='AMQP_URL',\n                    description='RabbitMQ URL that carries runs and events.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='CHAT_API_KEY',\n                    description='Key LibreChat uses to call the chat API.',\n                    required_label='Always',\n                ),\n            ],\n            optional=[],\n        ),\n        setup=[],\n    ),\n    ai=AI(\n        agents=[],\n    ),\n    operations=Operations(),\n    parameters=[],\n    knowledge=Knowledge(\n        principles=Principles(\n            sections=[],\n        ),\n        types=[],\n    ),\n    ui=UI(\n        app=AppUI(\n            name='Untitled org',\n            icon='\ud83d\udee0',\n            description='A new agent organisation in progress.',\n        ),\n        empty_state=EmptyState(\n            icon='\u2728',\n            title='Nothing here yet',\n            body='Your org is taking shape \u2014 keep chatting with AgentOrg.',\n        ),\n        knowledge_empty='No knowledge entries yet.',\n        agent_groups=[],\n        workflow_groups=[],\n        featured_agents=[],\n        agent_icons={},\n        overview=[],\n        agent_configs={},\n        chat_quick_prompts={},\n    ),\n)\n\n```\n\n---\n\nYes, that captures it. Record the summary and move on to the next stage.",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "signature": "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",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "id": "toolu_013JmjPYafdyii3iA4NnY2YY",
+            "input": {
+              "business_context": "Ledgerly competes in a crowded UK accounting-software market against bigger tools aimed at freelancers and sole traders. Friendly, accurate support is a key way to keep customers. Demand peaks seasonally around UK self-assessment tax deadlines.",
+              "concrete_tasks_owned": "Answering the most common how-to questions: (1) creating and sending invoices, (2) categorising expenses, (3) exporting a tax summary for the UK self-assessment return, (4) explaining how bank sync works, (5) changing a subscription plan. The team also routes billing disputes and refund requests to the finance colleague.",
+              "current_pain_or_alternative": "Today four people answer everything by hand. In busy weeks around tax deadlines, replies can take up to a day. Answers are also inconsistent between team members, which hurts accuracy and customer trust in a market where support quality is a differentiator.",
+              "typical_flow": "A customer writes in by email or in-app chat. A support person reads the question, finds the relevant Ledgerly help article and writes a friendly, accurate step-by-step reply. If the question is about a billing dispute or a refund, it is handed to the finance colleague instead. Refunds are never promised to the customer.",
+              "user_confirmed": true,
+              "what_the_group_does": "Acme Help is a four-person customer support team that answers customer questions about Ledgerly, an accounting app for freelancers and sole traders in the UK. The team gives step-by-step answers based on the Ledgerly help articles.",
+              "who_serves": "External customers of Ledgerly: UK freelancers and sole traders who use the app for invoicing, expenses, bank sync and tax summaries. They contact support directly by email and through the in-app chat."
+            },
+            "name": "mcp__stage__record_discovery_summary",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_01Kf42sVGXxBL85AAWcuz2vm",
+            "input": {
+              "body": "Acme Help exists to give Ledgerly customers fast, friendly and accurate answers to their questions about the app. Every reply should solve the customer's problem step by step, be grounded in the Ledgerly help articles, and stay consistent no matter who (or what) writes it. That includes the busy weeks around UK self-assessment deadlines.",
+              "section_id": "mission",
+              "title": "Mission"
+            },
+            "name": "mcp__stage__add_or_update_principle_section",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_018sPhayBN3vNYpvUCaYVQVw",
+            "input": {
+              "body": "We serve Ledgerly's customers: freelancers and sole traders in the UK who use the app to run their books. They reach us by **email** and through the **in-app chat**. Many are not accountants, so replies should use plain language and avoid jargon. Internally, our finance colleague receives billing disputes and refund requests from us.",
+              "section_id": "audience",
+              "title": "Audience"
+            },
+            "name": "mcp__stage__add_or_update_principle_section",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_01RC9A6vaorprEU8JtheHsyC",
+            "input": {
+              "body": "Acme Help owns answering customer questions about Ledgerly, most commonly:\n\n- Creating and sending invoices\n- Categorising expenses\n- Exporting a tax summary for the self-assessment return\n- How bank sync works\n- Changing a subscription plan\n\nIt also owns spotting billing-dispute and refund requests and routing them to finance.",
+              "section_id": "scope-in",
+              "title": "In scope"
+            },
+            "name": "mcp__stage__add_or_update_principle_section",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_01SEEA242FZW3Xq7XA92iLFP",
+            "input": {
+              "body": "Acme Help does **not** resolve billing disputes or refunds. Those go to our finance colleague, and we never promise a refund or its outcome to the customer. We explain Ledgerly's features. We do not give personal tax advice beyond how to use the app to export what the self-assessment return needs.",
+              "section_id": "scope-out",
+              "title": "Out of scope"
+            },
+            "name": "mcp__stage__add_or_update_principle_section",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_016xMxKL2rievJny4CjTSXSr",
+            "input": {
+              "body": "1. A customer writes in by email or in-app chat.\n2. We identify what they're asking about (invoicing, expenses, tax export, bank sync, plan change, or billing/refund).\n3. For how-to questions, we find the relevant Ledgerly help article and write a friendly, step-by-step answer based on it.\n4. For billing disputes or refunds, we hand the case to finance and let the customer know it's being looked at, without promising any outcome.",
+              "section_id": "typical-flow",
+              "title": "Typical flow"
+            },
+            "name": "mcp__stage__add_or_update_principle_section",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_012em6JGHXb2QxWXfHqc1N9h",
+            "input": {
+              "body": "Ledgerly competes in a crowded UK accounting-software market for freelancers and sole traders, against bigger tools. Support quality is one of the main ways we keep customers, so speed, accuracy and warmth all matter. Volume spikes around UK self-assessment tax deadlines, when reply times have reached up to a day.",
+              "section_id": "market-context",
+              "title": "Market context"
+            },
+            "name": "mcp__stage__add_or_update_principle_section",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_01HtQYCrtU9CFiyMB6Wejkqz",
+            "input": {
+              "body": "- **Accuracy first.** Base answers on the Ledgerly help articles. If unsure, say so rather than guess.\n- **Friendly and clear.** Plain language, step-by-step instructions, a warm tone.\n- **Consistent.** The same question gets the same answer whoever handles it.\n- **Never promise refunds.** Refunds and billing disputes go to finance, and we make no commitments on their behalf.",
+              "section_id": "principles",
+              "title": "Operating principles"
+            },
+            "name": "mcp__stage__add_or_update_principle_section",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": [
+              {
+                "text": "Recorded. You may now draft principle sections via add_or_update_principle_section and set a substantive description via set_org_identity(description=...).",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_013JmjPYafdyii3iA4NnY2YY",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Added principle section 'mission'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01Kf42sVGXxBL85AAWcuz2vm",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Added principle section 'audience'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_018sPhayBN3vNYpvUCaYVQVw",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Added principle section 'scope-in'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01RC9A6vaorprEU8JtheHsyC",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Added principle section 'scope-out'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01SEEA242FZW3Xq7XA92iLFP",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Added principle section 'typical-flow'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_016xMxKL2rievJny4CjTSXSr",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Added principle section 'market-context'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_012em6JGHXb2QxWXfHqc1N9h",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Added principle section 'principles'.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01HtQYCrtU9CFiyMB6Wejkqz",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are AgentOrg, the master agent that interviews the user to design and build a\n    coordinated group of agents (`spec.py` plus a working project tree). The \"group\" can\n    be a full organization, a team inside one, a department, a workflow owner, or a\n    capability that plugs into something bigger - same machinery for every shape. The\n    spec's `org.*` fields are the storage location for \"this group\" regardless of how\n    the user frames it. Mirror the user's preferred term (\"team\", \"squad\", \"service\",\n    \"department\", \"org\") in your replies; \"your team\" or \"this group\" are good\n    neutral fallbacks.\n\n    Style - talk like a human\n    - Conversation first. When the user answers something, acknowledge what they said in\n      your own words (\"Got it - Acme Real Estate it is.\"), then move on. Don't repeat\n      their answer back verbatim, don't read out a checklist of \"fields saved\".\n    - One focused question at a time for single-field decisions. Group related fields\n      when it reads natural. Inline prose over bold-tagged labels for ordinary turns.\n    - When the user redirects (\"change X to Y\", \"let's do agents first\"), follow their\n      direction; the placeholder list keeps things from slipping.\n    - Batch turns (\"fill the basics\", \"add 10 agents\", \"you decide\") still do the whole\n      batch in one go.\n    - Markdown is rendered. Use bullet lists when you have 3+ items, inline prose for\n      1-2. Don't bold every label.\n    - DO NOT narrate which stage you are on at the top of every reply. The stage bar in\n      the UI already shows that. The `## Stage N - Label` heading is used EXACTLY ONCE -\n      on the first message AFTER `advance_to_next_stage` succeeds. On every other turn,\n      open with the conversational reply directly. No \"## Stage 1 - Discover\" at the top.\n      No \"We're still in Stage 3\" anywhere. The user knows.\n    - When a tool call fails, state the new approach in ONE SHORT SENTENCE and try it.\n      Do NOT apologise, do NOT rehash the previous attempt, do NOT enumerate what you\n      already tried. The tool-call badges in the UI already show that. Bad:\n      \"My apologies! I jumped the gun. It seems the duckdb package wasn't picked up by\n      the sandbox. Let me try a custom tool instead...\" (six sentences of nothing).\n      Good: \"duckdb isn't installed. Writing a sqlite3-based custom tool instead.\"\n      (one sentence, then the tool call).\n\n    Live context at the top of every user message\n    - `working_spec`: the spec.py source of the current spec.\n    - `placeholders`:  fields still holding seed values.\n    - `next_question`: the most-overdue placeholder, picked deterministically in priority\n                       order. Use it as a default when you're not sure what to ask next.\n    - `stage`:         the current interview stage. You own the transition via the\n                       `advance_to_next_stage` tool, but only after the user explicitly\n                       confirms. Protocol:\n                         1. When this stage's goal is met, summarise what you've captured\n                            and ask \"Ready to move to Stage N+1 (<Label>)?\".\n                         2. Wait for an explicit yes (\"yes\", \"ready\", \"continue\",\n                            \"let's go\", \"next\"). Vague replies don't count.\n                         3. On yes, call `advance_to_next_stage`. The tool replies with\n                            \"Advanced to Stage N - Label.\" or \"Cannot advance: <blockers>\".\n                            If blocked, tell the user what's missing and continue\n                            working on those items in the current stage.\n                         4. After a successful advance, open your next message with the\n                            heading `## Stage N - Label` and walk the user through what\n                            happens in the new stage.\n\n    Hard rules that always apply\n    - End every turn with at least one human-readable sentence. Empty responses are\n      forbidden. After a tool call you keep going and summarise + ask next.\n    - BEFORE calling any `set_*` or `add_or_update_*` tool, glance at `working_spec` and\n      skip the call when every argument you would pass matches the current value. The\n      seed defaults are: `operations.budget.monthly_usd=None`, `runtime.infra.packaging='none'`,\n      `runtime.infra.api='none'`, `runtime.infra.frontend='none'`,\n      `runtime.infra.database='sqlite'`, `runtime.infra.vector_db='chromadb'`,\n      `runtime.infra.auth='none'`. Redundant tool calls aren't free - they clutter the\n      chat with badges that look like real work.\n    - Don't apologise for your own moves. If you notice mid-thought that a tool call was\n      redundant, just move on; the user doesn't need an apology for something the UI\n      barely surfaces.\n    - When you call patch tools, the live `working_spec` updates - confirm by reading the\n      snapshot, not by repeating what you sent in.\n    - Never invent identifiers, repository URLs, emails, or env var values. If you don't\n      have one, ask.\n    - The ONLY tools you have are the ones listed in your per-stage instructions below.\n      Calls to any other tool will fail with \"function not found\". If you think you need\n      one outside that list, the user is on the wrong stage - they need to advance or\n      go back, not have you reach for tools you don't have.\n\n### Stage 1 instructions (DISCOVER)\n\n    Your only job in this stage is to understand the work the user wants automated and\n    capture it as a discovery summary + drafted principles. Identity (name, slug, admin,\n    repo), infrastructure, budget, and individual agents all belong to later stages -\n    they're not even available as tools here.\n\n    Stage 1 has two phases. RUN THEM IN ORDER.\n    ------------------------------------------\n    Phase A understands the work; Phase B records it and drafts principles.\n\n    Phase A - UNDERSTAND THE WORK\n    -----------------------------\n    You cannot design agents for a business you don't understand. Phase A ends when you\n    can describe THE WORK in 2-3 plain sentences and the user confirms you've got it.\n    Until then, you ask follow-up questions. PERIOD.\n\n    Probe until you know all SIX of these specifically (not generically):\n      - WHAT specifically is made / sold / done? Not \"drugs\" - what KIND? Not \"products\"\n        - which? Not \"research\" - on what?\n      - WHO specifically is served? Not \"patients\" - what demographic? Internal team or\n        external customer? Direct-to-consumer or through intermediaries?\n      - WHAT 3-5 CONCRETE TASKS does the group OWN? Not \"drug development\" - is it\n        target identification, in-vitro screening, IND filing, trial design?\n      - WHAT does a typical request look like end-to-end? Walk through one.\n      - WHAT'S the market or organisational context? Competitors? Stage? Funding? Or:\n        where does this team sit inside a larger org?\n      - WHAT'S the pain today, or the alternative without this group? Manual process?\n        Outsourced? Bottleneck somewhere?\n\n    When you can describe the business specifically across all six dimensions, write a\n    SHORT SUMMARY back to the user (\"So if I'm reading you right: X, who serves Y, the\n    day-to-day work is A/B/C, a typical request looks like ..., and today this is done\n    by ... - does that capture it?\") and WAIT for their reply.\n\n    When the user confirms, call `record_discovery_summary(...)` with all six fields\n    filled with the specifics from their answers (100+ chars each), and\n    `user_confirmed=True`. The tool rejects fields that are too short and tells you\n    which ones; if that happens, probe more, then retry.\n\n    Do NOT call `record_discovery_summary` with fabricated content. If the user gave you\n    thin answers, more probing - not padded fields - is the right move.\n\n    \"You decide\" handling\n    ---------------------\n    For SUBSTANTIVE BUSINESS DETAILS (mission, scope, principles, audience, the six\n    discovery fields): NEVER invent. Inventing produces a generic spec useless for\n    building agents. Instead, ask 3-4 specific multiple-choice questions so the user\n    can ratify a direction without writing essays.\n\n    Pushing back on thin answers\n    ----------------------------\n      User: \"I want an online store.\"\n      You:  \"Got it - online store. Before I propose anything: what are you selling, who\n            buys, and is this dropshipping, custom-made by you, or something else?\"\n      User: \"Custom products.\"\n      You:  \"Custom in what sense - printed t-shirts? Engraved gifts? AI-generated art?\n            And who's making them - you, a print-on-demand partner, or on-demand from\n            prompts?\"\n\n    Once you've got three or four exchanges like that, summarise in YOUR OWN WORDS and\n    ASK FOR CONFIRMATION. Until the user confirms, you don't move on.\n\n    Phase B - DRAFT PRINCIPLES\n    --------------------------\n    Only after the user confirms your Phase A summary do you start writing principle\n    sections via `add_or_update_principle_section(section_id=..., title=..., body=...)`.\n    Each body is REAL MARKDOWN - a paragraph (200+ chars, enforced), not a one-liner.\n    Recommended section ids:\n\n      - `mission`         - what this group exists to do (the rich version).\n      - `audience`        - the people it serves, internally and externally.\n      - `scope-in`        - the tasks / processes it owns; list each as a bullet.\n      - `scope-out`       - what is NOT this group's job; name peer teams or external\n                            services for handoffs.\n      - `typical-flow`    - the walk-through of how a request travels end-to-end.\n      - `market-context`  - market segment, competitive frame, differentiator.\n      - `principles`      - the named operating principles (decision-making, tone, what\n                            to never do).\n      - `constraints`     - regulatory / time / technical / budget limits.\n\n    Walk through them one or two at a time - propose a draft, get a thumbs-up or\n    correction, then move on. Don't dump all eight in one turn.\n\n    Closing\n    -------\n    Once principles are drafted, produce a SINGLE-MESSAGE DRAFT SUMMARY pulling\n    everything together (six discovery dimensions in compact form + each principle\n    section) and ask \"Does this capture what you have in mind, or is there anything I\n    missed?\". Iterate until the user confirms. ONLY then explicitly ask:\n    \"Ready to move to **Stage 2 - Configure** (where we pick a name, slug, admin, repo,\n    budget, and deploy target)?\" When the user confirms, call `advance_to_next_stage`.\n\n    Your tools in this stage\n    ------------------------\n    - `record_discovery_summary`      - the six-field discovery record, user-confirmed.\n    - `add_or_update_principle_section`, `remove_principle_section`\n    - `get_current_spec`, `list_placeholders`\n    - `advance_to_next_stage`",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "section_id": {
+              "title": "Section Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "section_id",
+            "title",
+            "body"
+          ],
+          "title": "add_or_update_principle_section_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_principle_section"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "advance_to_next_stage_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__advance_to_next_stage"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "get_current_spec_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__get_current_spec"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "list_placeholders_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__list_placeholders"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "business_context": {
+              "title": "Business Context",
+              "type": "string"
+            },
+            "concrete_tasks_owned": {
+              "title": "Concrete Tasks Owned",
+              "type": "string"
+            },
+            "current_pain_or_alternative": {
+              "title": "Current Pain Or Alternative",
+              "type": "string"
+            },
+            "typical_flow": {
+              "title": "Typical Flow",
+              "type": "string"
+            },
+            "user_confirmed": {
+              "title": "User Confirmed",
+              "type": "boolean"
+            },
+            "what_the_group_does": {
+              "title": "What The Group Does",
+              "type": "string"
+            },
+            "who_serves": {
+              "title": "Who Serves",
+              "type": "string"
+            }
+          },
+          "required": [
+            "what_the_group_does",
+            "who_serves",
+            "concrete_tasks_owned",
+            "typical_flow",
+            "business_context",
+            "current_pain_or_alternative",
+            "user_confirmed"
+          ],
+          "title": "record_discovery_summary_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__record_discovery_summary"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "section_id": {
+              "title": "Section Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "section_id"
+          ],
+          "title": "remove_principle_section_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_principle_section"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch4kStLxt2ZfSHquFBJWi\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":3248,\"cache_read_input_tokens\":8966,\"cache_creation\":{\"ephemeral_5m_input_tokens\":3248,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":32,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_01Dh3QCjkqDh3ejoun3nyH6H\",\"name\":\"mcp__stage__advance_to_next_stage\",\"input\":{},\"caller\":{\"type\":\"direct\"}}           }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\"}               }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0      }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":3248,\"cache_read_input_tokens\":8966,\"output_tokens\":39,\"output_tokens_details\":{\"thinking_tokens\":0}},\"context_management\":{\"applied_edits\":[]}        }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"           }\n\n"
+    }
+  ]
+}

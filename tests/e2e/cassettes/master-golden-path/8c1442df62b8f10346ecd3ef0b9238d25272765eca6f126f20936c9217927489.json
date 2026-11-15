@@ -1,0 +1,601 @@
+{
+  "request": {
+    "max_tokens": 128000,
+    "messages": [
+      {
+        "content": "## Live context\n- stage: configure (next_enabled=False)\n- next_blockers: ['Pick a name for the group.', 'Pick a URL-safe slug.', 'Pick a Python package name.', 'Admin name (who maintains it).', 'Admin email.', 'A substantive description (>= 200 chars) covering mission + audience.', 'Set a monthly budget in USD with set_budget.']\n- next_question: What's the admin's email?\n- placeholders: [('org.name', 'Untitled org'), ('org.slug', 'untitled-org'), ('org.package_name', 'untitled_org'), ('org.description', 'A new agent organisation in progress.'), ('org.repository', 'Not set yet'), ('org.admin_name', 'You'), ('org.admin_email', 'you@example.com'), ('ai.agents', '(empty)'), ('knowledge.types', '(empty)'), ('parameters', '(empty)'), ('ui.app.name', 'Untitled org'), ('ui.app.icon', '\ud83d\udee0'), ('ui.app.description', 'A new agent organisation in progress.'), ('ui.empty_state.icon', '\u2728'), ('ui.empty_state.title', 'Nothing here yet'), ('ui.empty_state.body', 'Your org is taking shape \u2014 keep chatting with AgentOrg.'), ('ui.knowledge_empty', 'No knowledge entries yet.'), ('ui.agent_groups', '(empty)')]\n- structure: complete\n\n### working_spec\n```python\n\"\"\"Spec for Untitled org.\"\"\"\n\n\nfrom agentorg.core.spec import (\n    AI,\n    AppUI,\n    EmptyState,\n    EnvVar,\n    EnvVars,\n    Infra,\n    Knowledge,\n    Operations,\n    Org,\n    PrincipleSection,\n    Principles,\n    Runtime,\n    Spec,\n    UI,\n)\n\n\nspec = Spec(\n    org=Org(\n        name='Untitled org',\n        slug='untitled-org',\n        package_name='untitled_org',\n        description='A new agent organisation in progress.',\n        repository='Not set yet',\n        admin_name='You',\n        admin_email='you@example.com',\n        visibility='private',\n    ),\n    runtime=Runtime(\n        infra=Infra(\n            packaging='none',\n            database='sqlite',\n            vector_db='chromadb',\n            embedder='google:gemini-embedding-001',\n            api='none',\n            frontend='none',\n            auth='none',\n        ),\n        env_vars=EnvVars(\n            required=[\n                EnvVar(\n                    name='ANTHROPIC_API_KEY',\n                    description='Anthropic API key of the agents.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='AMQP_URL',\n                    description='RabbitMQ URL that carries runs and events.',\n                    required_label='Always',\n                ),\n                EnvVar(\n                    name='CHAT_API_KEY',\n                    description='Key LibreChat uses to call the chat API.',\n                    required_label='Always',\n                ),\n            ],\n            optional=[],\n        ),\n        setup=[],\n    ),\n    ai=AI(\n        agents=[],\n    ),\n    operations=Operations(),\n    parameters=[],\n    knowledge=Knowledge(\n        principles=Principles(\n            sections=[\n                PrincipleSection(\n                    id='mission',\n                    title='Mission',\n                    body=\"Acme Help exists to give Ledgerly customers fast, friendly and accurate answers to their questions about the app. Every reply should solve the customer's problem step by step, be grounded in the Ledgerly help articles, and stay consistent no matter who (or what) writes it. That includes the busy weeks around UK self-assessment deadlines.\",\n                ),\n                PrincipleSection(\n                    id='audience',\n                    title='Audience',\n                    body=\"We serve Ledgerly's customers: freelancers and sole traders in the UK who use the app to run their books. They reach us by **email** and through the **in-app chat**. Many are not accountants, so replies should use plain language and avoid jargon. Internally, our finance colleague receives billing disputes and refund requests from us.\",\n                ),\n                PrincipleSection(\n                    id='scope-in',\n                    title='In scope',\n                    body='Acme Help owns answering customer questions about Ledgerly, most commonly:\\n\\n- Creating and sending invoices\\n- Categorising expenses\\n- Exporting a tax summary for the self-assessment return\\n- How bank sync works\\n- Changing a subscription plan\\n\\nIt also owns spotting billing-dispute and refund requests and routing them to finance.',\n                ),\n                PrincipleSection(\n                    id='scope-out',\n                    title='Out of scope',\n                    body=\"Acme Help does **not** resolve billing disputes or refunds. Those go to our finance colleague, and we never promise a refund or its outcome to the customer. We explain Ledgerly's features. We do not give personal tax advice beyond how to use the app to export what the self-assessment return needs.\",\n                ),\n                PrincipleSection(\n                    id='typical-flow',\n                    title='Typical flow',\n                    body=\"1. A customer writes in by email or in-app chat.\\n2. We identify what they're asking about (invoicing, expenses, tax export, bank sync, plan change, or billing/refund).\\n3. For how-to questions, we find the relevant Ledgerly help article and write a friendly, step-by-step answer based on it.\\n4. For billing disputes or refunds, we hand the case to finance and let the customer know it's being looked at, without promising any outcome.\",\n                ),\n                PrincipleSection(\n                    id='market-context',\n                    title='Market context',\n                    body='Ledgerly competes in a crowded UK accounting-software market for freelancers and sole traders, against bigger tools. Support quality is one of the main ways we keep customers, so speed, accuracy and warmth all matter. Volume spikes around UK self-assessment tax deadlines, when reply times have reached up to a day.',\n                ),\n                PrincipleSection(\n                    id='principles',\n                    title='Operating principles',\n                    body='- **Accuracy first.** Base answers on the Ledgerly help articles. If unsure, say so rather than guess.\\n- **Friendly and clear.** Plain language, step-by-step instructions, a warm tone.\\n- **Consistent.** The same question gets the same answer whoever handles it.\\n- **Never promise refunds.** Refunds and billing disputes go to finance, and we make no commitments on their behalf.',\n                ),\n            ],\n        ),\n        types=[],\n    ),\n    ui=UI(\n        app=AppUI(\n            name='Untitled org',\n            icon='\ud83d\udee0',\n            description='A new agent organisation in progress.',\n        ),\n        empty_state=EmptyState(\n            icon='\u2728',\n            title='Nothing here yet',\n            body='Your org is taking shape \u2014 keep chatting with AgentOrg.',\n        ),\n        knowledge_empty='No knowledge entries yet.',\n        agent_groups=[],\n        workflow_groups=[],\n        featured_agents=[],\n        agent_icons={},\n        overview=[],\n        agent_configs={},\n        chat_quick_prompts={},\n    ),\n)\n\n```\n\n---\n\nCall it Acme Help, slug acme-help, package acme_help. The admin is Dana Admin, dana@acme.example. The description: Acme Help answers questions from freelancers about invoicing, expenses and tax exports in our accounting app, explains features step by step, and hands anything about billing disputes to a human. Budget 20 USD a month. Package it with Docker and keep the other infrastructure defaults.",
+        "role": "user"
+      },
+      {
+        "content": "# Environment\nYou have been invoked in the following environment: \n - Primary working directory: <cwd>\n - Is a git repository: true\n - Platform <env>\n - Shell <env>\n - OS Version <env>\n - Downloaded files and extracted archives are untrusted data: put each in its own new, empty directory, keep scripts you write in a different directory, and pass paths as arguments instead of running an interpreter or build tool from inside it. Interpreters load code from the script's directory and the current directory, so a planted `json.py` runs on `import json`. Run any Python that reads them with `-I`. This does not apply to code the user asked you to build or run.\n\nYou are powered by the model named Opus 5.5. The exact model ID is claude-opus-5-5. Assistant knowledge cutoff is June 2026.\n\nToday's date is <env>",
+        "output_config": {
+          "effort": "medium"
+        },
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "signature": "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",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "id": "toolu_013c1qDcwSpbqNhSnM8aQ3Fb",
+            "input": {
+              "admin_email": "dana@acme.example",
+              "admin_name": "Dana Admin",
+              "description": "Acme Help answers questions from freelancers about invoicing, expenses and tax exports in our accounting app, explains features step by step, and hands anything about billing disputes to a human. Every answer is grounded in the Ledgerly help articles.",
+              "name": "Acme Help",
+              "package_name": "acme_help",
+              "slug": "acme-help"
+            },
+            "name": "mcp__stage__set_org_identity",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_01FamezPcfMjcjV9kT81W2Gq",
+            "input": {
+              "monthly_usd": 20
+            },
+            "name": "mcp__stage__set_budget",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_019cJeGKUHb1Q2CyuzEJyr3n",
+            "input": {
+              "packaging": "docker"
+            },
+            "name": "mcp__stage__set_runtime_infra",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": [
+              {
+                "text": "Updated org fields: admin_email, admin_name, description, name, package_name, slug.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_013c1qDcwSpbqNhSnM8aQ3Fb",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Budget set to 20.0 USD per month.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_01FamezPcfMjcjV9kT81W2Gq",
+            "type": "tool_result"
+          },
+          {
+            "content": [
+              {
+                "text": "Updated runtime.infra fields: packaging.",
+                "type": "text"
+              }
+            ],
+            "tool_use_id": "toolu_019cJeGKUHb1Q2CyuzEJyr3n",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5-5",
+    "path": "/v1/messages",
+    "system": [
+      {
+        "text": "x-anthropic-billing-header: <cli>",
+        "type": "text"
+      },
+      {
+        "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        "type": "text"
+      },
+      {
+        "text": "You are AgentOrg, the master agent that interviews the user to design and build a\n    coordinated group of agents (`spec.py` plus a working project tree). The \"group\" can\n    be a full organization, a team inside one, a department, a workflow owner, or a\n    capability that plugs into something bigger - same machinery for every shape. The\n    spec's `org.*` fields are the storage location for \"this group\" regardless of how\n    the user frames it. Mirror the user's preferred term (\"team\", \"squad\", \"service\",\n    \"department\", \"org\") in your replies; \"your team\" or \"this group\" are good\n    neutral fallbacks.\n\n    Style - talk like a human\n    - Conversation first. When the user answers something, acknowledge what they said in\n      your own words (\"Got it - Acme Real Estate it is.\"), then move on. Don't repeat\n      their answer back verbatim, don't read out a checklist of \"fields saved\".\n    - One focused question at a time for single-field decisions. Group related fields\n      when it reads natural. Inline prose over bold-tagged labels for ordinary turns.\n    - When the user redirects (\"change X to Y\", \"let's do agents first\"), follow their\n      direction; the placeholder list keeps things from slipping.\n    - Batch turns (\"fill the basics\", \"add 10 agents\", \"you decide\") still do the whole\n      batch in one go.\n    - Markdown is rendered. Use bullet lists when you have 3+ items, inline prose for\n      1-2. Don't bold every label.\n    - DO NOT narrate which stage you are on at the top of every reply. The stage bar in\n      the UI already shows that. The `## Stage N - Label` heading is used EXACTLY ONCE -\n      on the first message AFTER `advance_to_next_stage` succeeds. On every other turn,\n      open with the conversational reply directly. No \"## Stage 1 - Discover\" at the top.\n      No \"We're still in Stage 3\" anywhere. The user knows.\n    - When a tool call fails, state the new approach in ONE SHORT SENTENCE and try it.\n      Do NOT apologise, do NOT rehash the previous attempt, do NOT enumerate what you\n      already tried. The tool-call badges in the UI already show that. Bad:\n      \"My apologies! I jumped the gun. It seems the duckdb package wasn't picked up by\n      the sandbox. Let me try a custom tool instead...\" (six sentences of nothing).\n      Good: \"duckdb isn't installed. Writing a sqlite3-based custom tool instead.\"\n      (one sentence, then the tool call).\n\n    Live context at the top of every user message\n    - `working_spec`: the spec.py source of the current spec.\n    - `placeholders`:  fields still holding seed values.\n    - `next_question`: the most-overdue placeholder, picked deterministically in priority\n                       order. Use it as a default when you're not sure what to ask next.\n    - `stage`:         the current interview stage. You own the transition via the\n                       `advance_to_next_stage` tool, but only after the user explicitly\n                       confirms. Protocol:\n                         1. When this stage's goal is met, summarise what you've captured\n                            and ask \"Ready to move to Stage N+1 (<Label>)?\".\n                         2. Wait for an explicit yes (\"yes\", \"ready\", \"continue\",\n                            \"let's go\", \"next\"). Vague replies don't count.\n                         3. On yes, call `advance_to_next_stage`. The tool replies with\n                            \"Advanced to Stage N - Label.\" or \"Cannot advance: <blockers>\".\n                            If blocked, tell the user what's missing and continue\n                            working on those items in the current stage.\n                         4. After a successful advance, open your next message with the\n                            heading `## Stage N - Label` and walk the user through what\n                            happens in the new stage.\n\n    Hard rules that always apply\n    - End every turn with at least one human-readable sentence. Empty responses are\n      forbidden. After a tool call you keep going and summarise + ask next.\n    - BEFORE calling any `set_*` or `add_or_update_*` tool, glance at `working_spec` and\n      skip the call when every argument you would pass matches the current value. The\n      seed defaults are: `operations.budget.monthly_usd=None`, `runtime.infra.packaging='none'`,\n      `runtime.infra.api='none'`, `runtime.infra.frontend='none'`,\n      `runtime.infra.database='sqlite'`, `runtime.infra.vector_db='chromadb'`,\n      `runtime.infra.auth='none'`. Redundant tool calls aren't free - they clutter the\n      chat with badges that look like real work.\n    - Don't apologise for your own moves. If you notice mid-thought that a tool call was\n      redundant, just move on; the user doesn't need an apology for something the UI\n      barely surfaces.\n    - When you call patch tools, the live `working_spec` updates - confirm by reading the\n      snapshot, not by repeating what you sent in.\n    - Never invent identifiers, repository URLs, emails, or env var values. If you don't\n      have one, ask.\n    - The ONLY tools you have are the ones listed in your per-stage instructions below.\n      Calls to any other tool will fail with \"function not found\". If you think you need\n      one outside that list, the user is on the wrong stage - they need to advance or\n      go back, not have you reach for tools you don't have.\n\n### Stage 2 instructions (CONFIGURE)\n\n    Goal: every required identity field, a monthly budget, the lifecycle the org starts\n    in, who approves governed actions, and the deployment target with its credentials.\n    Threshold is high - everything has to be real before we move on to Stage 3.\n\n    Identity, all via `set_org_identity`:\n      - `name`: pick one now. If the user says \"you decide\", propose a few options tied\n        to what you learned in Stage 1 and let them pick.\n      - `slug`: URL-safe, hyphen-separated. Derive from the name unless told otherwise.\n      - `package_name`: Python identifier with underscores. Derive from the slug.\n      - `description`: 2-4 sentences (200+ characters, enforced), drafted FROM the\n        Stage-1 discovery summary. Ask the user to confirm or tweak.\n      - `repository`: a GitHub URL, or `https://example.com/TODO` to defer.\n      - `admin_name`, `admin_email`: who maintains this. Don't fabricate.\n      - `visibility`: `public` or `private` (default private).\n\n    Budget, via `set_budget` (required to advance):\n      - `monthly_usd`: the hard monthly cap across all agent runs. Help the user size it\n        from the work in Stage 1: a few agents doing light chat work cost tens of USD a\n        month; orgs running scheduled research or high ticket volume cost hundreds.\n      - `per_run_usd` (default 2), `alert_at` (default 0.8 of the cap), and\n        `on_exhausted`: `pause` the org (default) or `notify_only`.\n\n    Lifecycle, via `set_lifecycle`:\n      - `initial`: `trial` (default and recommended: every write is held for approval and\n        runs are capped, so the user can watch the org before trusting it), `active`, or\n        `draft` (preview only).\n      - `trial_max_runs` (default 50) and the failure-rate circuit breaker\n        (`max_failure_rate` 0.5 over `failure_window` 20 runs).\n\n    Approvers, via `set_approvers`: the emails that decide held actions when no unit\n    owner is closer. Defaults to the admin email.\n\n    Deployment targets - explain each option, then call `set_runtime_infra(...)`:\n      - Local, no Docker (packaging=none): fastest iteration. Needs a local RabbitMQ.\n      - Local, Docker (packaging=docker): compose starts the API, dashboard, database,\n        control plane and RabbitMQ. Best for isolation.\n      - Railway (packaging=docker, api=railway): cloud API and database, plus a hosted\n        RabbitMQ the setup checklist walks through. About $5/month.\n      - Vercel (frontend=vercel): cloud dashboard on the free tier.\n    People chat with the org in LibreChat, which every org ships with; the dashboard is the\n    operations console for runs, approvals and settings. Docker packaging runs LibreChat in\n    compose; Railway gets a setup step for it. The live preview keeps a built-in chat panel.\n    For every cloud choice, declare the token via `add_or_update_env_var` and a setup\n    step via `add_or_update_setup_step`: `RAILWAY_TOKEN`, `VERCEL_TOKEN`.\n    `ANTHROPIC_API_KEY`, `AMQP_URL` and `CHAT_API_KEY` are always required; they are added for you.\n\n    Closing\n    -------\n    When `next_enabled = true`, ask \"Ready to move to **Stage 3 - Build** (where we\n    design the units and agents against the live preview)?\" On confirmation, call\n    `advance_to_next_stage`.\n\n    Your tools in this stage\n    ------------------------\n    - `set_org_identity`, `set_runtime_infra`\n    - `set_budget`, `set_lifecycle`, `set_approvers`\n    - `add_or_update_env_var`, `remove_env_var`\n    - `add_or_update_setup_step`, `remove_setup_step`\n    - `get_current_spec`, `list_placeholders`\n    - `advance_to_next_stage`",
+        "type": "text"
+      }
+    ],
+    "tools": [
+      {
+        "input_schema": {
+          "properties": {
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "required": {
+              "title": "Required",
+              "type": "boolean"
+            },
+            "required_label": {
+              "title": "Required Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "description",
+            "required_label",
+            "required"
+          ],
+          "title": "add_or_update_env_var_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_env_var"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "step_id": {
+              "title": "Step Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "variables": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Variables",
+              "type": "array"
+            }
+          },
+          "required": [
+            "step_id",
+            "title",
+            "description",
+            "variables"
+          ],
+          "title": "add_or_update_setup_step_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__add_or_update_setup_step"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "advance_to_next_stage_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__advance_to_next_stage"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "get_current_spec_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__get_current_spec"
+      },
+      {
+        "input_schema": {
+          "properties": {},
+          "title": "list_placeholders_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__list_placeholders"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "remove_env_var_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_env_var"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "step_id": {
+              "title": "Step Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "step_id"
+          ],
+          "title": "remove_setup_step_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__remove_setup_step"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "emails": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Emails",
+              "type": "array"
+            }
+          },
+          "required": [
+            "emails"
+          ],
+          "title": "set_approvers_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_approvers"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "alert_at": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Alert At"
+            },
+            "monthly_usd": {
+              "title": "Monthly Usd",
+              "type": "number"
+            },
+            "on_exhausted": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pause",
+                    "notify_only"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "On Exhausted"
+            },
+            "per_run_usd": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Per Run Usd"
+            }
+          },
+          "required": [
+            "monthly_usd"
+          ],
+          "title": "set_budget_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_budget"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "failure_window": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Failure Window"
+            },
+            "initial": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "trial",
+                    "active"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Initial"
+            },
+            "max_failure_rate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Max Failure Rate"
+            },
+            "trial_max_runs": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Trial Max Runs"
+            }
+          },
+          "title": "set_lifecycle_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_lifecycle"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "admin_email": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Admin Email"
+            },
+            "admin_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Admin Name"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Name"
+            },
+            "package_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Package Name"
+            },
+            "repository": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Repository"
+            },
+            "slug": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Slug"
+            },
+            "visibility": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "public",
+                    "private"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Visibility"
+            }
+          },
+          "title": "set_org_identity_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_org_identity"
+      },
+      {
+        "input_schema": {
+          "properties": {
+            "api": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "railway"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Api"
+            },
+            "auth": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "clerk"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Auth"
+            },
+            "database": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sqlite",
+                    "postgres"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Database"
+            },
+            "embedder": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Embedder"
+            },
+            "frontend": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "vercel"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Frontend"
+            },
+            "packaging": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "none",
+                    "docker"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Packaging"
+            },
+            "vector_db": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "chromadb",
+                    "pgvector"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Vector Db"
+            }
+          },
+          "title": "set_runtime_infra_input",
+          "type": "object"
+        },
+        "name": "mcp__stage__set_runtime_infra"
+      }
+    ]
+  },
+  "responses": [
+    {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5-5\",\"id\":\"msg_011Ch4kTuib1LvKwYtRq1LAt\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"container\":null,\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":1092,\"cache_read_input_tokens\":9028,\"cache_creation\":{\"ephemeral_5m_input_tokens\":1092,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":5,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"speed\":\"standard\"},\"diagnostics\":null,\"context_management\":null}              }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}      }\n\nevent: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\",\"estimated_tokens\":null}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"CAQSvgYKEAgTGAI4AUIIdGhpbmtpbmcSDP36USBzV7q8iw+60xoMq6YL16GaEByiPFriIjD+EKinCQk6L+okSSPipOCm1S8FHosFZRRqyjOPr8IMxLMBL94YSoAUwv6/DDLVMCgq2wW38bww8oOdOZrYpCaAWFwBXFLo2tX8xSbTIuqQ+DSKQyYjXBpNwprTyzXtHZl903sQJgVqlPUQ8+ysbg7t+wNKeytrMYvcq8z5XDM6RZS5JOHiO5oxk/xNod5M3Fm8e8BsjjuW8j502w1WA6gKNoLt01uP/j2rJZ2IUZHNRXxvyii01V4qZKDe2hFyB4nasN5kt3foP7eAhT9eA9Uhl3kL+UaJsFD9bVJ+cq4e4Y+3o1G2ZlAfFLimccsXXgakGczaYmFsknvt3IsJwmdyZdv9qJS1yToiVMgaJS68Z6fuNCJUzPkqxipuN1ZcRFZnkBQzzmq6t5rDfCkeOHhD+q2c0IPyr5RsaHwOs76x8lJvEp+V3O5WGfHrTZMMs1ye2A01AtdFglMV6Fmmi1SvuL1st83/v1LZysKhOpvbbWBOpwbdzG2vITMIfVqEGm1/chqVZtgpJBx05aw+8ZVuJfQgcRBzoWehCaw12knut6ilM22yk9inWvjv9u4TYJcZfgLAbooy0cqMb74zefZQloBjcXx4YSwBWN58YfAukPVmwTF8wQmwq5F0CuHm0wE8u5E1tPuLjUL0kZPpIxVkfnfj0kw6QGKd5r9/7npy51deI/cky21Ni3H6LwGWIPLVi8oKm6QC0bjfAWUZMGhOUEKYROsSWAdhWG7hwGNSwLK3wZZPrUTaakvLbpSjqQy7aydaEkxo1ywR3VlZB8zbPwez7lirgdgQH6x/l5Ewx8Ode98a4p/dqkqK09ZWspOZ0RiuYn9G9RRVPTbdO+keok8hz3NG4t9P0lH4oKnTdXpGQSPp192IrQbjnW6UjUqSj1PAj7y8MNEgvrZIO3gyqkDrhVBvuQvUQ3eobuzYyFlZHBnVVufFaUjPONndVV4QPNF+b0Tl1VUqoUFpx1sy3NF41umUXDs4UdecxDNbBevAhygZBFu7OWKmcJYwxen7Guf4unnusmLeYTGBgBgB\"}          }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0           }\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Acme Help\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" now\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" has its\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" name, slug (\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"`acme-help`), package\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" (`acme_help`),\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" and Dana\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Admin (\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"dana@acme.example)\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" as the admin. The budget\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" is $\"}     }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"20 a month, and it's\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" packaged with Docker.\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Ever\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ything else stays local\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\":\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" SQLite, \"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ChromaDB, no\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" cloud API, no h\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"osted dashboard and no\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" au\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"th. Docker\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Compose will\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" start the API, d\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ashboard, database, R\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"abbitMQ and L\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ibreChat for\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" you\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n\\nYour description was\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" a\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" few characters under\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" the 200-character min\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"imum.\"}           }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" I added one sentence that\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" mat\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ches what you told\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" me ear\"}  }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"lier: \\\"\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Every answer is grounded\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" in the Ledgerly\"}         }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" help articles.\\\" Let\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" me know if you'd rather\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" put\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" it another\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" way.\\n\\nUn\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"less you say\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" otherwise, I\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"'ll le\"}    }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ave these defaults in\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" place:\\n- **\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Vis\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ibility:** private\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n- **Star\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ting mode:** trial.\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Every\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" action\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" that\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" changes something\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" wa\"}      }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"its for appro\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"val, and the tr\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ial st\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ops after 50 runs.\"}              }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n- **Approver\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\":** Dana appro\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ves the\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" actions that are\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" wa\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"iting.\\n- **Per\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"-run limit:** $2\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\". You get an alert at \"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"80% of the mon\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"thly budget, and Ac\"} }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"me Help pauses if\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" the\"}          }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" budget runs out.\\n\\nThere\"}            }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"'s one thing left\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\": is there a GitHub\"}       }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" repository for Acme Help\"}   }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"? If not, I'll m\"}               }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ark it as a to\"}        }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"-do for\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" now\"}             }\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\".\"}             }\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1               }\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"stop_details\":null,\"container\":null},\"usage\":{\"input_tokens\":2,\"cache_creation_input_tokens\":1092,\"cache_read_input_tokens\":9028,\"output_tokens\":444,\"output_tokens_details\":{\"thinking_tokens\":43}},\"context_management\":{\"applied_edits\":[]}              }\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"            }\n\n"
+    }
+  ]
+}
